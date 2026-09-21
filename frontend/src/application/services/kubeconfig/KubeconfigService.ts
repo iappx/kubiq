@@ -21,15 +21,20 @@ export class KubeconfigService {
         @inject(EntityRepoProvider) private readonly repoProvider: EntityRepoProvider,
     ) {}
 
-    public async locate(extraPath?: string): Promise<string[]> {
-        const extra = await this.expand(extraPath)
-        const found = extra ? [extra, ...await this.discover()] : await this.discover()
+    public async locate(extraPaths: readonly string[] = []): Promise<string[]> {
+        const extra: string[] = []
+        for (const path of extraPaths) {
+            const expanded = await this.expand(path)
+            if (expanded) {
+                extra.push(expanded)
+            }
+        }
 
-        return [...new Set(found)]
+        return [...new Set([...extra, ...await this.discover()])]
     }
 
-    public async getContexts(extraPath?: string): Promise<KubeconfigContextEntity[]> {
-        const files = await this.locate(extraPath)
+    public async getContexts(extraPaths: readonly string[] = []): Promise<KubeconfigContextEntity[]> {
+        const files = await this.locate(extraPaths)
         const clusters = new Map<string, KubeconfigClusterEntity>()
         const users = new Map<string, KubeconfigUserEntity>()
         const contexts = new Map<string, KubeconfigContextEntity>()
@@ -46,8 +51,8 @@ export class KubeconfigService {
         return [...contexts.values()].map(context => this.bind(context, clusters, users))
     }
 
-    public async getCurrentContextName(extraPath?: string): Promise<string> {
-        const files = await this.locate(extraPath)
+    public async getCurrentContextName(extraPaths: readonly string[] = []): Promise<string> {
+        const files = await this.locate(extraPaths)
 
         for (const file of files) {
             const name = await this.query(file).getCurrentContextName()
@@ -59,14 +64,14 @@ export class KubeconfigService {
         return ''
     }
 
-    public async buildConnectionSpec(contextName: string, extraPath?: string): Promise<TConnectionSpec> {
-        const contexts = await this.getContexts(extraPath)
+    public async buildConnectionSpec(contextName: string, extraPaths: readonly string[] = []): Promise<TConnectionSpec> {
+        const contexts = await this.getContexts(extraPaths)
         const context = contexts.find(candidate => candidate.name === contextName)
 
         if (!context) {
             throw new ApiError(
                 `Kubeconfig context "${contextName}" was not found`,
-                `Files read: ${(await this.locate(extraPath)).join(', ') || 'none'}`,
+                `Files read: ${(await this.locate(extraPaths)).join(', ') || 'none'}`,
             )
         }
 
