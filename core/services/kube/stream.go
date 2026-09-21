@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"iappx_k8s_admin/core/services/journal"
 )
 
 const (
@@ -41,7 +43,7 @@ func (s *KubeService) StartStream(request StreamRequest) (result StreamResult) {
 
 	session, found := s.registry.Get(request.SessionId)
 	if !found {
-		return StreamResult{Error: "unknown session: " + request.SessionId}
+		return rejectStream(request, "unknown session: "+request.SessionId)
 	}
 
 	mode := strings.ToLower(strings.TrimSpace(request.Mode))
@@ -49,7 +51,7 @@ func (s *KubeService) StartStream(request StreamRequest) (result StreamResult) {
 		mode = StreamModeLines
 	}
 	if mode != StreamModeLines && mode != StreamModeRaw {
-		return StreamResult{Error: "unsupported stream mode: " + request.Mode}
+		return rejectStream(request, "unsupported stream mode: "+request.Mode)
 	}
 
 	ctx, cancel := context.WithCancel(session.Context())
@@ -68,27 +70,29 @@ func (s *KubeService) StartStream(request StreamRequest) (result StreamResult) {
 	// streams that are still opening, not only those already reading.
 	if err := s.register(handle); err != nil {
 		cancel()
-		return StreamResult{Error: err.Error()}
+		return rejectStream(request, err.Error())
 	}
 
 	outgoing, err := buildRequest(ctx, session, request.Method, request.Path, request.Headers, request.Body)
 	if err != nil {
 		s.release(handle)
-		return StreamResult{Error: err.Error()}
+		return rejectStream(request, err.Error())
 	}
 
 	incoming, err := session.Client.Do(outgoing)
 	if err != nil {
 		s.release(handle)
-		return StreamResult{Error: err.Error()}
+		return rejectStream(request, err.Error())
 	}
 
 	if incoming.StatusCode < 200 || incoming.StatusCode >= 300 {
-		message := readStartError(incoming)
+		refused := rejectStreamResponse(request, incoming)
 		incoming.Body.Close()
 		s.release(handle)
-		return StreamResult{Error: message}
+		return refused
 	}
+
+	recordStreamOpen(handle, request.Method, incoming.StatusCode)
 
 	go s.pump(handle, incoming)
 
@@ -208,10 +212,13 @@ func (s *KubeService) pump(handle *streamHandle, response *http.Response) {
 
 	switch {
 	case handle.ctx.Err() != nil:
+		recordStreamClose(handle, StreamStatusStopped, "")
 		s.emitter.Emit(EventStreamClose, StreamCloseEvent{StreamId: handle.id, Status: StreamStatusStopped})
 	case err == nil:
+		recordStreamClose(handle, StreamStatusEof, "")
 		s.emitter.Emit(EventStreamClose, StreamCloseEvent{StreamId: handle.id, Status: StreamStatusEof})
 	default:
+		recordStreamClose(handle, StreamStatusError, err.Error())
 		s.emitter.Emit(EventStreamError, StreamErrorEvent{StreamId: handle.id, Error: err.Error()})
 		s.emitter.Emit(EventStreamClose, StreamCloseEvent{StreamId: handle.id, Status: StreamStatusError})
 	}
@@ -252,6 +259,64 @@ func (s *KubeService) drainRaw(handle *streamHandle, body io.Reader) error {
 			return err
 		}
 	}
+}
+
+func rejectStream(request StreamRequest, message string) StreamResult {
+	journal.Record(journal.Entry{
+		Level:     journal.LevelError,
+		Component: journalComponent,
+		Event:     "stream.rejected",
+		Method:    request.Method,
+		Path:      request.Path,
+		Session:   request.SessionId,
+		Message:   message,
+	})
+
+	return StreamResult{Error: message}
+}
+
+func rejectStreamResponse(request StreamRequest, response *http.Response) StreamResult {
+	journal.Record(journal.Entry{
+		Level:     journal.LevelError,
+		Component: journalComponent,
+		Event:     "stream.rejected",
+		Method:    request.Method,
+		Path:      request.Path,
+		Status:    response.StatusCode,
+		Session:   request.SessionId,
+	})
+
+	return StreamResult{Error: readStartError(response)}
+}
+
+func recordStreamOpen(handle *streamHandle, method string, status int) {
+	journal.Record(journal.Entry{
+		Level:     journal.LevelInfo,
+		Component: journalComponent,
+		Event:     "stream.open",
+		Method:    method,
+		Path:      handle.path,
+		Status:    status,
+		Session:   handle.sessionId,
+		Duration:  time.Since(handle.startedAt).Milliseconds(),
+	})
+}
+
+func recordStreamClose(handle *streamHandle, status string, message string) {
+	level := journal.LevelInfo
+	if status == StreamStatusError {
+		level = journal.LevelError
+	}
+
+	journal.Record(journal.Entry{
+		Level:     level,
+		Component: journalComponent,
+		Event:     "stream." + status,
+		Path:      handle.path,
+		Session:   handle.sessionId,
+		Duration:  time.Since(handle.startedAt).Milliseconds(),
+		Message:   message,
+	})
 }
 
 func readStartError(response *http.Response) string {
