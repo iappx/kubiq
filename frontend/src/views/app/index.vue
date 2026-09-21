@@ -1,33 +1,17 @@
 <template>
-  <app-loading>
-    <div class="min-h-screen bg-background flex flex-col">
-      <top-nav />
-      <div class="flex flex-1 overflow-hidden">
-        <sidebar />
-        <main class="flex-1 p-6 overflow-auto">
-          <router-view />
-        </main>
-      </div>
-    </div>
-    <app-modals />
-  </app-loading>
+  <app-frame>
+    <main class="flex-1 min-w-0 min-h-0 overflow-hidden p-4">
+      <router-view />
+    </main>
+  </app-frame>
 </template>
 
 <script lang="ts">
-import AppLoading from '@/components/app/AppLoading.vue'
 import { Component, VueBase } from '@iappx/vue-facing-di'
-import Sidebar from '@/containers/Sidebar.vue'
-import TopNav from '@/containers/TopNav.vue'
-import AppModals from '@/components/app/AppModals.vue'
-
+import AppFrame from '@/containers/AppFrame.vue'
 
 @Component({
-  components: {
-    AppModals,
-    Sidebar,
-    TopNav,
-    AppLoading,
-  },
+  components: { AppFrame },
 })
 export default class AppBase extends VueBase {
 }

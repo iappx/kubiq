@@ -1,37 +1,41 @@
 <template>
   <aside
-      :class="[
-        'bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-200',
-        collapsed ? 'w-14' : 'w-56',
-      ]"
+      :class="['ui-sidebar', collapsed ? 'w-14' : 'w-56']"
+      aria-label="Resource sections"
   >
-    <nav class="flex-1 py-3 px-2 space-y-1">
-      <router-link
-          v-for="item in menuStore.menuItems"
-          :key="item.path"
-          v-slot="{ href, navigate, isActive }"
-          :to="item.path"
-          custom
-      >
-        <a
-            :class="['nav-link', isActive ? 'nav-link-active' : '']"
-            :href="href"
-            :title="collapsed ? item.title : undefined"
-            @click="navigate"
-        >
-          <component :is="item.icon" :size="18" class="shrink-0" />
-          <span v-if="!collapsed" class="overflow-hidden whitespace-nowrap">
-            {{ item.title }}
-          </span>
-        </a>
-      </router-link>
+    <nav class="flex-1 min-h-0 overflow-y-auto py-2 px-2 space-y-3">
+      <sidebar-overview-link :cluster-id="clusterId" :collapsed="collapsed" />
+
+      <ui-deferred-loader :loading="loading">
+        <template #loading>
+          <div aria-hidden="true" class="space-y-2 px-1">
+            <span v-for="i in 8" :key="i" class="block h-4 rounded shimmer" />
+          </div>
+        </template>
+
+        <div class="space-y-3">
+          <sidebar-section
+              v-for="section in sections"
+              :key="section.key"
+              :active-slug="activeSlug"
+              :cluster-id="clusterId"
+              :collapsed="collapsed"
+              :section="section"
+          />
+
+          <p v-if="!loading && sections.length === 0 && !collapsed" class="px-2 text-xs text-muted-foreground">
+            {{ emptyMessage }}
+          </p>
+        </div>
+      </ui-deferred-loader>
     </nav>
 
     <button
-        :aria-label="collapsed ? 'Expand menu' : 'Collapse menu'"
-        class="btn-icon m-2 self-center"
+        :aria-label="toggleLabel"
+        :title="toggleLabel"
+        class="btn-icon m-2 self-center shrink-0"
         type="button"
-        @click="collapsed = !collapsed"
+        @click="uiStore.toggleSidebar()"
     >
       <chevron-left v-if="!collapsed" :size="16" />
       <chevron-right v-else :size="16" />
@@ -40,43 +44,52 @@
 </template>
 
 <script lang="ts">
-import { Component, VueBase, Watch } from '@iappx/vue-facing-di'
-import { MenuStore } from '@/store/modules/menu/MenuStore'
-import { RouteRecordRaw } from 'vue-router'
+import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
+import SidebarOverviewLink from '@/components/clusterShell/SidebarOverviewLink.vue'
+import SidebarSection from '@/components/clusterShell/SidebarSection.vue'
+import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
+import type { TClusterSection } from '@/components/clusterShell/types/TClusterSection'
+import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 
 @Component({
-  components: { ChevronRight, ChevronLeft },
+  components: { ChevronLeft, ChevronRight, SidebarOverviewLink, SidebarSection, UiDeferredLoader },
 })
 export default class Sidebar extends VueBase {
-  public collapsed = false
+  @Prop({ required: true })
+  public readonly sections: TClusterSection[]
+
+  @Prop({ required: true })
+  public readonly clusterId: string
+
+  @Prop({ required: false, default: '' })
+  public readonly activeSlug?: string
+
+  @Prop({ required: false, default: false })
+  public readonly loading?: boolean
+
+  @Prop({ required: false, default: '' })
+  public readonly failure?: string
 
   constructor(
-      @inject(MenuStore) public readonly menuStore: MenuStore,
+      @inject(AppUiStore) public readonly uiStore: AppUiStore,
   ) {
     super()
   }
 
-  created(): void {
-    this.menuStore.loadMenu()
-    this.setSelectedMenu(this.$route)
+  public get collapsed(): boolean {
+    return this.uiStore.sidebarCollapsed
   }
 
-  @Watch('$route')
-  routeChanged(to: RouteRecordRaw, from: RouteRecordRaw): void {
-    this.setSelectedMenu(this.$route)
-    if (to.path !== from.path) {
-      window.scrollTo(0, 0)
-    }
+  public get toggleLabel(): string {
+    return this.collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'
   }
 
-  private setSelectedMenu(route: any): void {
-    if (route.matched) {
-      const openMenu = route.meta?.openedMenu ?? route.matched[route.matched.length - 1].parent?.name
-      this.menuStore.setOpenedMenu(openMenu)
-    }
-    this.menuStore.setSelectedSidebar(route.meta?.selectedMenu ? route.meta.selectedMenu : route.name)
+  public get emptyMessage(): string {
+    return this.failure
+        ? this.failure
+        : 'This cluster serves no resource kinds you are allowed to list.'
   }
 }
 </script>
