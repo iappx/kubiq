@@ -41,8 +41,7 @@ export class KubeResourceKind {
         this.isCustom = definition.isCustom === true
     }
 
-    // The version is left out: a cluster serves one preferred version per group,
-    // and the registry has to find its entry before discovery names that version.
+    // The version is left out because the registry has to find its entry before discovery names the served version.
     public static registryKeyOf(group: string, resource: string): string {
         return `${group}/${resource}`
     }
@@ -51,12 +50,24 @@ export class KubeResourceKind {
         return `${group}/${version}/${resource}`
     }
 
+    // A slug carries the group because `resource` alone is not unique — `events` lives in core and in events.k8s.io.
+    public static parseSlug(slug: string): TKubeGvr {
+        const separator = slug.indexOf('.')
+        return separator === -1
+            ? { group: '', version: '', resource: slug }
+            : { group: slug.slice(separator + 1), version: '', resource: slug.slice(0, separator) }
+    }
+
     get key(): string {
         return KubeResourceKind.keyOf(this.group, this.version, this.resource)
     }
 
     get registryKey(): string {
         return KubeResourceKind.registryKeyOf(this.group, this.resource)
+    }
+
+    get slug(): string {
+        return this.group.length > 0 ? `${this.resource}.${this.group}` : this.resource
     }
 
     get apiVersion(): string {

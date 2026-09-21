@@ -1,6 +1,7 @@
 import { RestResponseError } from '@iappx/entity-repo-rest'
 import type { IResponseAdapter, TRequestContext, TRestResponse } from '@iappx/entity-repo-rest'
 import type { TPageCursor } from '@iappx/entity-repo-query'
+import { KubeObjectReader } from '@/infrastructure/entityRepo/kube/KubeObjectReader'
 import { KubeQueryMeta } from '@/infrastructure/entityRepo/kube/KubeQueryMeta'
 
 export class KubeListResponseAdapter implements IResponseAdapter {
@@ -29,8 +30,8 @@ export class KubeListResponseAdapter implements IResponseAdapter {
         return this.decorate(data as Record<string, unknown>, context)
     }
 
-    // The API server reports what is left after this page, never a count, so a
-    // list served without remainingItemCount has no total at all.
+    // The API server reports what is left after this page, never a count, so without
+    // remainingItemCount there is no total at all.
     public total(response: TRestResponse): number | undefined {
         const data = response.data
         if (!data || typeof data !== 'object') {
@@ -46,42 +47,38 @@ export class KubeListResponseAdapter implements IResponseAdapter {
         return items.length + remaining
     }
 
+    // Both slots of TPageCursor are in use: `end` is the continue token of the next
+    // page, `start` the resourceVersion the page was read at — where a watch resumes.
     public cursor(response: TRestResponse): TPageCursor | undefined {
         const data = response.data
         if (!data || typeof data !== 'object') {
             return undefined
         }
 
-        const token = KubeListResponseAdapter.listMetadata(data)?.continue
-        if (typeof token !== 'string') {
-            return undefined
+        const metadata = KubeListResponseAdapter.listMetadata(data)
+        const token = metadata?.continue
+        const version = metadata?.resourceVersion
+        const cursor: TPageCursor = {}
+
+        if (typeof version === 'string' && version !== '') {
+            cursor.start = version
+        }
+        if (typeof token === 'string') {
+            cursor.hasNext = token !== ''
+            if (token !== '') {
+                cursor.end = token
+            }
         }
 
-        return token === '' ? { hasNext: false } : { end: token, hasNext: true }
+        return Object.keys(cursor).length > 0 ? cursor : undefined
     }
 
     protected decorateAll(items: Record<string, unknown>[], context: TRequestContext): Record<string, unknown>[] {
         return items.map(item => this.decorate(item, context))
     }
 
-    // A list element carries neither its apiVersion and kind nor a flat key: the
-    // uid lives under metadata and the type headers only on the list itself.
     protected decorate(item: Record<string, unknown>, context: TRequestContext): Record<string, unknown> {
-        const kind = KubeQueryMeta.kindOf(context.meta)
-        const metadata = item.metadata as Record<string, unknown> | undefined
-        const decorated: Record<string, unknown> = { ...item }
-
-        if (metadata && typeof metadata.uid === 'string') {
-            decorated.uid = metadata.uid
-        }
-        if (kind && decorated.apiVersion === undefined) {
-            decorated.apiVersion = kind.apiVersion
-        }
-        if (kind && decorated.kind === undefined) {
-            decorated.kind = kind.kind
-        }
-
-        return decorated
+        return KubeObjectReader.decorate(item, KubeQueryMeta.kindOf(context.meta))
     }
 
     protected static listMetadata(data: unknown): Record<string, unknown> | undefined {

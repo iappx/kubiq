@@ -22,6 +22,10 @@ export class KubeContextProvider {
         return this.connection(clusterId, sessionId).stream
     }
 
+    public request(clusterId: string, sessionId: string): KubeTransport {
+        return this.connection(clusterId, sessionId).transport
+    }
+
     public has(clusterId: string): boolean {
         return this.connections.has(clusterId)
     }
@@ -36,8 +40,8 @@ export class KubeContextProvider {
 
     protected connection(clusterId: string, sessionId: string): TKubeClusterConnection {
         const known = this.connections.get(clusterId)
-        // A reconnect gives the same cluster a new session, and every request of
-        // the old one would go to a session the Go side has already forgotten.
+        // A reconnect gives the same cluster a new session, and the old one addresses
+        // a session the Go side has already forgotten.
         if (known && known.sessionId === sessionId) {
             return known
         }
@@ -57,6 +61,7 @@ export class KubeContextProvider {
             context: EntityRepo.create()
                 .use(KubeEntityContext, transport)
                 .getContext(KubeEntityContext),
+            transport,
             stream: new KubeStreamTransport(sessionId, this.runtime),
         }
     }

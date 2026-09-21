@@ -2,8 +2,7 @@ import { KubeColumns } from '@/domain/models/kube/KubeColumns'
 import { KubeResourceKind } from '@/domain/models/kube/KubeResourceKind'
 import { KubeVerbCatalog } from '@/domain/models/kube/KubeVerbCatalog'
 
-// The version on each entry is the one current clusters serve; discovery
-// replaces it with whatever the cluster actually reports for that group.
+// The version on each entry is only a starting guess; discovery replaces it with what the cluster reports.
 export class KubeResourceRegistry {
     private static index: Map<string, KubeResourceKind> | undefined
 
@@ -17,6 +16,11 @@ export class KubeResourceRegistry {
 
     public static has(group: string, resource: string): boolean {
         return KubeResourceRegistry.find(group, resource) !== undefined
+    }
+
+    public static findBySlug(slug: string): KubeResourceKind | undefined {
+        const gvr = KubeResourceKind.parseSlug(slug)
+        return KubeResourceRegistry.find(gvr.group, gvr.resource)
     }
 
     private static byKey(): Map<string, KubeResourceKind> {
@@ -133,6 +137,19 @@ export class KubeResourceRegistry {
                     KubeColumns.objectName(),
                     KubeColumns.namespace(),
                     { key: 'readyText', title: 'Ready' },
+                    KubeColumns.state(),
+                    KubeColumns.age(),
+                ],
+            }),
+            new KubeResourceKind({
+                group: '', version: 'v1', resource: 'replicationcontrollers', kind: 'ReplicationController',
+                title: 'Replication Controllers', namespaced: true, section: 'workloads', icon: 'Blocks',
+                verbs: KubeVerbCatalog.all(),
+                columns: [
+                    KubeColumns.objectName(),
+                    KubeColumns.namespace(),
+                    { key: 'readyText', title: 'Ready' },
+                    { key: 'currentReplicas', title: 'Current', align: 'right' },
                     KubeColumns.state(),
                     KubeColumns.age(),
                 ],

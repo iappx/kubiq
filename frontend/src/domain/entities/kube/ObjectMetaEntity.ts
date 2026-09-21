@@ -11,6 +11,9 @@ export class ObjectMetaEntity extends RepoEntityBase<ObjectMetaEntity> {
     name: string
 
     @RepoEntityField()
+    generateName: string
+
+    @RepoEntityField()
     namespace: string
 
     @RepoEntityField()
@@ -25,11 +28,9 @@ export class ObjectMetaEntity extends RepoEntityBase<ObjectMetaEntity> {
     @RepoEntityField()
     annotations: TKubeAnnotations
 
-    /** RFC 3339 timestamp. */
     @RepoEntityField()
     creationTimestamp: string
 
-    /** RFC 3339 timestamp; set only while the object is being deleted. */
     @RepoEntityField()
     deletionTimestamp: string
 

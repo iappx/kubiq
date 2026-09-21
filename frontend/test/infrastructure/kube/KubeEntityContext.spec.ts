@@ -24,6 +24,7 @@ import {
     JobEntity,
     PodEntity,
     ReplicaSetEntity,
+    ReplicationControllerEntity,
     StatefulSetEntity,
 } from '@/domain/entities/workloads'
 import { KubeResourceRegistry } from '@/domain/models/kube'
@@ -53,6 +54,7 @@ const cases: [string, string, Constructor<RepoEntityBase>][] = [
     ['statefulSets', '/apis/apps/v1/namespaces/dev/statefulsets', StatefulSetEntity],
     ['daemonSets', '/apis/apps/v1/namespaces/dev/daemonsets', DaemonSetEntity],
     ['replicaSets', '/apis/apps/v1/namespaces/dev/replicasets', ReplicaSetEntity],
+    ['replicationControllers', '/api/v1/namespaces/dev/replicationcontrollers', ReplicationControllerEntity],
     ['jobs', '/apis/batch/v1/namespaces/dev/jobs', JobEntity],
     ['cronJobs', '/apis/batch/v1/namespaces/dev/cronjobs', CronJobEntity],
     ['nodes', '/api/v1/nodes', NodeEntity],

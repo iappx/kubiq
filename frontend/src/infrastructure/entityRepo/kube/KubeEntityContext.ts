@@ -23,14 +23,15 @@ import {
     JobEntity,
     PodEntity,
     ReplicaSetEntity,
+    ReplicationControllerEntity,
     StatefulSetEntity,
 } from '@/domain/entities/workloads'
 import { KubeEntitySetOptions } from '@/infrastructure/entityRepo/kube/KubeEntitySetOptions'
 import { KubeTransport } from '@/infrastructure/entityRepo/kube/transport/KubeTransport'
 
 export class KubeEntityContext extends EntityContextBase<KubeTransport> {
-    // Serves any kind: this set carries no kind of its own, so every query on it
-    // has to name one with withMeta(KubeQueryMeta.forKind(...)).
+    // Carries no kind of its own: every query on this set has to name one with
+    // withMeta(KubeQueryMeta.forKind(...)).
     @RepoEntitySet(() => CustomResourceEntity, () => RestEntityQuery, KubeEntitySetOptions.generic())
     public resources: RestEntityQuery<CustomResourceEntity>
 
@@ -48,6 +49,9 @@ export class KubeEntityContext extends EntityContextBase<KubeTransport> {
 
     @RepoEntitySet(() => ReplicaSetEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('apps', 'replicasets'))
     public replicaSets: RestEntityQuery<ReplicaSetEntity>
+
+    @RepoEntitySet(() => ReplicationControllerEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('', 'replicationcontrollers'))
+    public replicationControllers: RestEntityQuery<ReplicationControllerEntity>
 
     @RepoEntitySet(() => JobEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('batch', 'jobs'))
     public jobs: RestEntityQuery<JobEntity>

@@ -6,9 +6,8 @@ import Components from 'unplugin-vue-components/vite'
 import MotionResolver from 'motion-v/resolver'
 import RekaResolver from 'reka-ui/resolver'
 
-// Tsyringe's ESM entry checks Reflect.getMetadata at module load time (top-level).
-// This plugin makes reflect-metadata an explicit dependency of tsyringe's entry,
-// guaranteeing it runs first regardless of Rollup's chunk ordering.
+// Tsyringe's ESM entry reads Reflect.getMetadata at module load, so reflect-metadata
+// has to become a dependency of that entry — Rollup's chunk order decides otherwise.
 const ensureReflectMetadataBeforeTsyringe = {
     name: 'ensure-reflect-metadata-before-tsyringe',
     enforce: 'pre' as const,
@@ -36,17 +35,15 @@ export default defineConfig(({ mode }) => {
                 ],
             }),
         ],
-        // Wails serves the built assets from the embedded FS, so every URL in the
-        // bundle must be relative — never switch this to an absolute base.
+        // Wails serves the bundle from the embedded FS, so every URL must be relative.
         base: '',
         server: {
-            // Must match VITE_PORT in the root Taskfile.yml: `wails3 dev` starts
-            // this server and points the webview at that port.
+            // Must match VITE_PORT in the root Taskfile.yml — `wails3 dev` points the
+            // webview at that port.
             port: Number(env.VITE_DEV_PORT || 9245),
             strictPort: true,
-            // Spelled out instead of the default `localhost`: on a host where
-            // localhost resolves to ::1 first, Vite would bind IPv6 only, while
-            // the Wails asset proxy dials 127.0.0.1 over tcp4 and gets refused.
+            // Not `localhost`: where that resolves to ::1 first Vite binds IPv6 only,
+            // and the Wails asset proxy dials 127.0.0.1 over tcp4 and gets refused.
             host: '127.0.0.1',
         },
         resolve: {
@@ -55,10 +52,24 @@ export default defineConfig(({ mode }) => {
                     find: '@',
                     replacement: path.resolve(import.meta.dirname, 'src'),
                 },
+                // monaco-worker-manager asks for the pre-0.50 path, and monaco-editor's
+                // exports map rewrites it to esm/vs/esm/vs/... — the file is still there.
+                {
+                    find: 'monaco-editor/esm/vs/editor/editor.worker.js',
+                    replacement: path.resolve(
+                        import.meta.dirname,
+                        'node_modules/monaco-editor/esm/vs/editor/editor.worker.js',
+                    ),
+                },
             ],
         },
         optimizeDeps: {
             include: ['reflect-metadata'],
+        },
+        // Monaco's language workers are ES modules that import each other, which the
+        // default iife worker format cannot bundle.
+        worker: {
+            format: 'es',
         },
         build: {
             chunkSizeWarningLimit: 1024,

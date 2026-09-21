@@ -44,12 +44,14 @@ describe('KubeEntityQuery', () => {
         expect(transport.last.query).toEqual({ limit: 50, continue: 'token-2' })
     })
 
+    // The two cursor slots carry different things: `end` is the next page, `start` the
+    // resourceVersion a watch resumes at.
     it('reports the continue token of an unfinished list as the cursor', async () => {
         transport.answerWith(list([pod('web-1', 'uid-1')], 'token-2', 120))
 
         const page = await context.pods.take(1).getPage()
 
-        expect(page.cursor).toEqual({ end: 'token-2', hasNext: true })
+        expect(page.cursor).toEqual({ start: '77', end: 'token-2', hasNext: true })
         expect(page.total).toBe(121)
     })
 
@@ -58,8 +60,16 @@ describe('KubeEntityQuery', () => {
 
         const page = await context.pods.getPage()
 
-        expect(page.cursor).toEqual({ hasNext: false })
+        expect(page.cursor).toEqual({ start: '77', hasNext: false })
         expect(page.total).toBeUndefined()
+    })
+
+    it('reports the resourceVersion even when the cluster named no continue token', async () => {
+        transport.answerWith({ apiVersion: 'v1', kind: 'PodList', metadata: { resourceVersion: '77' }, items: [] })
+
+        const page = await context.pods.getPage()
+
+        expect(page.cursor).toEqual({ start: '77' })
     })
 
     it('builds an entity per item and lifts the uid out of the metadata', async () => {

@@ -13,6 +13,8 @@ export class KubeApiParams {
 
     public static readonly allowWatchBookmarks: string = 'allowWatchBookmarks'
 
+    public static readonly propagationPolicy: string = 'propagationPolicy'
+
     public static isSelector(name: string): boolean {
         return name === KubeApiParams.labelSelector || name === KubeApiParams.fieldSelector
     }

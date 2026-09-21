@@ -4,6 +4,8 @@ export { CustomResourceEntity } from '@/domain/entities/kube/CustomResourceEntit
 export { KubeConditions } from '@/domain/entities/kube/KubeConditions'
 export { KubeConditionStatusCatalog } from '@/domain/entities/kube/KubeConditionStatusCatalog'
 export { KubeFilters } from '@/domain/entities/kube/KubeFilters'
+export { KubeObjectHealth } from '@/domain/entities/kube/KubeObjectHealth'
+export { KubeObjectKey } from '@/domain/entities/kube/KubeObjectKey'
 export { KubeObjectStateCatalog } from '@/domain/entities/kube/KubeObjectStateCatalog'
 export { KubeSelectorPath } from '@/domain/entities/kube/KubeSelectorPath'
 export type { TKubeAnnotations } from '@/domain/entities/kube/types/TKubeAnnotations'
