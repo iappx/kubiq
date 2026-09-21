@@ -1,1 +1,1 @@
-export type TPrometheusSource = 'none' | 'url' | 'service'
+export type TPrometheusSource = 'none' | 'auto' | 'url' | 'service'

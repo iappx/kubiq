@@ -4,6 +4,8 @@ import { KubeEntityContext } from '@/infrastructure/entityRepo/kube/KubeEntityCo
 import { KubeStreamTransport } from '@/infrastructure/entityRepo/kube/transport/KubeStreamTransport'
 import { KubeTransport } from '@/infrastructure/entityRepo/kube/transport/KubeTransport'
 import type { TKubeClusterConnection } from '@/infrastructure/entityRepo/kube/types/TKubeClusterConnection'
+import { MetricsEntityContext } from '@/infrastructure/entityRepo/metrics/MetricsEntityContext'
+import { PrometheusEntityContext } from '@/infrastructure/entityRepo/metrics/PrometheusEntityContext'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 
 @singleton()
@@ -16,6 +18,14 @@ export class KubeContextProvider {
 
     public context(clusterId: string, sessionId: string): KubeEntityContext {
         return this.connection(clusterId, sessionId).context
+    }
+
+    public metrics(clusterId: string, sessionId: string): MetricsEntityContext {
+        return this.connection(clusterId, sessionId).metrics
+    }
+
+    public prometheus(clusterId: string, sessionId: string): PrometheusEntityContext {
+        return this.connection(clusterId, sessionId).prometheus
     }
 
     public stream(clusterId: string, sessionId: string): KubeStreamTransport {
@@ -54,13 +64,17 @@ export class KubeContextProvider {
 
     protected build(sessionId: string): TKubeClusterConnection {
         const transport = new KubeTransport(sessionId, this.runtime)
+        // getContext() builds a new context on every call, so each one is built once here.
+        const repo = EntityRepo.create()
+            .use(KubeEntityContext, transport)
+            .use(MetricsEntityContext, transport)
+            .use(PrometheusEntityContext, transport)
 
         return {
             sessionId,
-            // getContext() builds a new context on every call, so it is built once here.
-            context: EntityRepo.create()
-                .use(KubeEntityContext, transport)
-                .getContext(KubeEntityContext),
+            context: repo.getContext(KubeEntityContext),
+            metrics: repo.getContext(MetricsEntityContext),
+            prometheus: repo.getContext(PrometheusEntityContext),
             transport,
             stream: new KubeStreamTransport(sessionId, this.runtime),
         }

@@ -93,6 +93,16 @@
     --ansi-bright-magenta: 300 60% 50%;
     --ansi-bright-cyan: 189 80% 35%;
     --ansi-bright-white: 200 20% 13%;
+
+    /* Chart series, in the order a chart hands them out. Every hue is one an
+       existing token already uses, and the status reds are left out on purpose:
+       a categorical series must not read as a failure. */
+    --chart-1: 189 90% 29%;
+    --chart-2: 262 62% 52%;
+    --chart-3: 218 80% 45%;
+    --chart-4: 300 62% 42%;
+    --chart-5: 38 96% 33%;
+    --chart-6: 142 58% 32%;
   }
 
   .dark {
@@ -161,6 +171,13 @@
     --ansi-bright-magenta: 300 70% 80%;
     --ansi-bright-cyan: 187 78% 70%;
     --ansi-bright-white: 0 0% 100%;
+
+    --chart-1: 187 72% 58%;
+    --chart-2: 262 74% 72%;
+    --chart-3: 213 82% 68%;
+    --chart-4: 300 62% 72%;
+    --chart-5: 38 88% 56%;
+    --chart-6: 142 52% 46%;
   }
 
   /* Motion and density carry no colour, so they are defined once rather than

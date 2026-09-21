@@ -1,6 +1,7 @@
 import { injectable } from 'tsyringe'
 import { PrometheusSourceCatalog } from '@/domain/entities/settings/PrometheusSourceCatalog'
 import type { TClusterSettingsDraft } from '@/domain/entities/settings/types/TClusterSettingsDraft'
+import { PrometheusLayoutCatalog } from '@/domain/models/metrics'
 import type { TValidationResult } from '@/lib/validation/types/TValidationResult'
 
 @injectable()
@@ -16,6 +17,10 @@ export class ClusterSettingsValidator {
 
         if (!PrometheusSourceCatalog.has(draft.prometheusSource)) {
             errors.prometheusSource = 'Choose where kubiq should reach Prometheus'
+        }
+
+        if (!PrometheusLayoutCatalog.has(draft.prometheusLayout)) {
+            errors.prometheusLayout = 'Choose how this Prometheus labels its Kubernetes series'
         }
 
         const urlError = draft.prometheusSource === 'url'

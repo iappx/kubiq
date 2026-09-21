@@ -73,6 +73,24 @@
       >
     </ui-form-field>
 
+    <ui-form-field
+        v-if="needsLayout"
+        v-slot="{ fieldId, describedBy }"
+        :error="errors.prometheusLayout"
+        label="Metric layout"
+    >
+      <select
+          :id="fieldId"
+          v-model="draft.prometheusLayout"
+          :aria-describedby="describedBy"
+          :aria-invalid="errors.prometheusLayout ? 'true' : undefined"
+          class="ui-input"
+      >
+        <option v-for="option in layoutOptions" :key="option.key" :value="option.key">{{ option.title }}</option>
+      </select>
+      <p class="text-xs text-muted-foreground">{{ layoutHint }}</p>
+    </ui-form-field>
+
     <div class="flex items-center gap-2">
       <button :disabled="busy" class="btn-primary" type="submit">
         {{ editing ? 'Save' : 'Add' }}
@@ -91,6 +109,7 @@ import UiFormField from '@/components/common/form/UiFormField.vue'
 import { ClusterSettingsValidator } from '@/application/validators/ClusterSettingsValidator'
 import { PrometheusSourceCatalog } from '@/domain/entities/settings'
 import type { TClusterSettingsDraft, TPrometheusSource } from '@/domain/entities/settings'
+import { PrometheusLayoutCatalog } from '@/domain/models/metrics'
 import type { TUiSelectOption } from '@/components/common/select/types/TUiSelectOption'
 
 @Component({
@@ -122,6 +141,18 @@ export default class SettingsPrometheusForm extends VueBase {
       key,
       title: PrometheusSourceCatalog.title(key as TPrometheusSource),
     }))
+  }
+
+  public get layoutOptions(): TUiSelectOption[] {
+    return PrometheusLayoutCatalog.all().map(layout => ({ key: layout.id, title: layout.title }))
+  }
+
+  public get layoutHint(): string {
+    return PrometheusLayoutCatalog.of(this.draft.prometheusLayout).description
+  }
+
+  public get needsLayout(): boolean {
+    return PrometheusSourceCatalog.needsAddress(this.draft.prometheusSource)
   }
 
   created(): void {
@@ -157,6 +188,7 @@ export default class SettingsPrometheusForm extends VueBase {
       prometheusSource: PrometheusSourceCatalog.Default,
       prometheusUrl: '',
       prometheusService: '',
+      prometheusLayout: PrometheusLayoutCatalog.Default,
     }
   }
 }

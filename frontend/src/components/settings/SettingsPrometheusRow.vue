@@ -33,6 +33,7 @@ import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import { Pencil, Trash2 } from '@lucide/vue'
 import { PrometheusSourceCatalog } from '@/domain/entities/settings'
 import type { TClusterSettingsDraft } from '@/domain/entities/settings'
+import { PrometheusLayoutCatalog } from '@/domain/models/metrics'
 
 @Component({
   components: { Pencil, Trash2 },
@@ -48,10 +49,19 @@ export default class SettingsPrometheusRow extends VueBase {
 
   public get target(): string {
     if (this.entry.prometheusSource === 'url') {
-      return this.entry.prometheusUrl
+      return `${this.entry.prometheusUrl} · ${this.layoutTitle}`
+    }
+    if (this.entry.prometheusSource === 'service') {
+      return `${this.entry.prometheusService} · ${this.layoutTitle}`
     }
 
-    return this.entry.prometheusSource === 'service' ? this.entry.prometheusService : 'Metrics are off for this cluster'
+    return this.entry.prometheusSource === 'auto'
+        ? 'Discovered in the cluster, layout taken from the preset that matched'
+        : 'Metrics are off for this cluster'
+  }
+
+  private get layoutTitle(): string {
+    return PrometheusLayoutCatalog.title(this.entry.prometheusLayout)
   }
 }
 </script>

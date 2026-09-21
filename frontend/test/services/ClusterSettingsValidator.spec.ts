@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ClusterSettingsValidator } from '@/application/validators/ClusterSettingsValidator'
 import type { TClusterSettingsDraft } from '@/domain/entities/settings'
+import { PrometheusLayoutCatalog } from '@/domain/models/metrics'
 
 const validator = new ClusterSettingsValidator()
 
@@ -9,6 +10,7 @@ const draft = (overrides: Partial<TClusterSettingsDraft> = {}): TClusterSettings
     prometheusSource: 'none',
     prometheusUrl: '',
     prometheusService: '',
+    prometheusLayout: 'kubePrometheusStack',
     ...overrides,
 })
 
@@ -95,5 +97,22 @@ describe('ClusterSettingsValidator', () => {
         }))
 
         expect(result.valid).toBe(true)
+    })
+
+    it('accepts a cluster whose Prometheus is discovered in the cluster', () => {
+        expect(validator.validate(draft({ prometheusSource: 'auto' })).valid).toBe(true)
+    })
+
+    it('refuses a metric layout it does not know', () => {
+        const result = validator.validate(draft({ prometheusLayout: 'thanos' as never }))
+
+        expect(result.valid).toBe(false)
+        expect(result.errors.prometheusLayout).toBeTruthy()
+    })
+
+    it('accepts every layout the catalogue lists', () => {
+        PrometheusLayoutCatalog.ids().forEach((id) => {
+            expect(validator.validate(draft({ prometheusLayout: id })).valid).toBe(true)
+        })
     })
 })

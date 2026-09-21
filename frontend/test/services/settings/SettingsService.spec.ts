@@ -117,6 +117,7 @@ describe('SettingsService', () => {
                 prometheusSource: 'url',
                 prometheusUrl: 'http://prometheus:9090',
                 prometheusService: '',
+                prometheusLayout: 'kubePrometheusStack',
             })
 
             await expect(service.clusterSettings('prod')).resolves.toEqual({
@@ -124,6 +125,7 @@ describe('SettingsService', () => {
                 prometheusSource: 'url',
                 prometheusUrl: 'http://prometheus:9090',
                 prometheusService: '',
+                prometheusLayout: 'kubePrometheusStack',
             })
         })
 
@@ -133,6 +135,7 @@ describe('SettingsService', () => {
                 prometheusSource: 'url' as const,
                 prometheusUrl: 'http://prometheus:9090',
                 prometheusService: '',
+                prometheusLayout: 'victoriaMetrics' as const,
             }
 
             await service.saveClusterSettings(draft)
@@ -150,6 +153,7 @@ describe('SettingsService', () => {
                 prometheusSource: 'service',
                 prometheusUrl: 'http://prometheus:9090',
                 prometheusService: 'monitoring/prometheus:9090',
+                prometheusLayout: 'kubePrometheusStack',
             })
 
             await expect(service.clusterSettings('prod')).resolves.toEqual({
@@ -157,6 +161,7 @@ describe('SettingsService', () => {
                 prometheusSource: 'service',
                 prometheusUrl: '',
                 prometheusService: 'monitoring/prometheus:9090',
+                prometheusLayout: 'kubePrometheusStack',
             })
         })
 
@@ -166,6 +171,7 @@ describe('SettingsService', () => {
                 prometheusSource: 'none',
                 prometheusUrl: 'http://prometheus:9090',
                 prometheusService: 'monitoring/prometheus:9090',
+                prometheusLayout: 'kubePrometheusStack',
             })
 
             const stored = await service.clusterSettings('prod')
@@ -182,11 +188,17 @@ describe('SettingsService', () => {
                 prometheusSource: 'none',
                 prometheusUrl: '',
                 prometheusService: '',
+                prometheusLayout: 'kubePrometheusStack',
             })
         })
 
         it('lists the clusters in a stable order', async () => {
-            const draft = { prometheusSource: 'none' as const, prometheusUrl: '', prometheusService: '' }
+            const draft = {
+                prometheusSource: 'none' as const,
+                prometheusUrl: '',
+                prometheusService: '',
+                prometheusLayout: 'kubePrometheusStack' as const,
+            }
 
             await service.saveClusterSettings({ ...draft, clusterId: 'prod' })
             await service.saveClusterSettings({ ...draft, clusterId: 'lab' })
@@ -196,7 +208,12 @@ describe('SettingsService', () => {
         })
 
         it('removes one cluster and leaves the others alone', async () => {
-            const draft = { prometheusSource: 'none' as const, prometheusUrl: '', prometheusService: '' }
+            const draft = {
+                prometheusSource: 'none' as const,
+                prometheusUrl: '',
+                prometheusService: '',
+                prometheusLayout: 'kubePrometheusStack' as const,
+            }
 
             await service.saveClusterSettings({ ...draft, clusterId: 'prod' })
             await service.saveClusterSettings({ ...draft, clusterId: 'lab' })
@@ -212,6 +229,7 @@ describe('SettingsService', () => {
                 prometheusSource: 'url',
                 prometheusUrl: 'http://prometheus:9090',
                 prometheusService: '',
+                prometheusLayout: 'kubePrometheusStack',
             })
 
             expect(transport.read(CLUSTERS_FILE)).toEqual([{
@@ -219,6 +237,7 @@ describe('SettingsService', () => {
                 prometheusSource: 'url',
                 prometheusUrl: 'http://prometheus:9090',
                 prometheusService: '',
+                prometheusLayout: 'kubePrometheusStack',
             }])
         })
     })
@@ -300,6 +319,40 @@ describe('SettingsService', () => {
 
         it('reports the stored version without migrating', async () => {
             await expect(service.schemaVersion()).resolves.toBe(0)
+        })
+
+        it('stamps a metric layout onto rows saved before the field existed', async () => {
+            transport.seed(CLUSTERS_FILE, [
+                { clusterId: 'prod', prometheusSource: 'service', prometheusService: 'obs/prom:9090' },
+            ])
+
+            await service.migrate()
+
+            await expect(service.clusterSettings('prod')).resolves.toMatchObject({
+                prometheusLayout: 'kubePrometheusStack',
+            })
+        })
+
+        // The stamp can be lost, and the whole history is then replayed from zero.
+        it('leaves a row that already names a layout untouched', async () => {
+            transport.seed(CLUSTERS_FILE, [
+                {
+                    clusterId: 'prod',
+                    prometheusSource: 'service',
+                    prometheusService: 'obs/prom:9090',
+                    prometheusLayout: 'victoriaMetrics',
+                },
+            ])
+
+            await service.migrate()
+            const writes = transport.writes
+            transport.files.set(SCHEMA_FILE, 'not json')
+            await build().migrate()
+
+            await expect(service.clusterSettings('prod')).resolves.toMatchObject({
+                prometheusLayout: 'victoriaMetrics',
+            })
+            expect(transport.writes).toBe(writes + 1)
         })
     })
 

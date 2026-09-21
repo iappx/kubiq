@@ -87,6 +87,7 @@ const entry = (clusterId: string): TClusterSettingsDraft => ({
     prometheusSource: 'url',
     prometheusUrl: 'http://prometheus:9090',
     prometheusService: '',
+    prometheusLayout: 'kubePrometheusStack',
 })
 
 describe('AppSettingsStore', () => {

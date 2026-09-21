@@ -35,8 +35,10 @@ describe('SettingsMigrationPlan', () => {
         expect(SettingsMigrationPlan.targetVersion(9, [step(1)], 2)).toBe(9)
     })
 
-    it('ships a baseline history whose current version is the one the app writes', () => {
-        expect(SettingsMigrations.CurrentVersion).toBe(1)
-        expect(SettingsMigrations.all()).toEqual([])
+    it('ships a history whose newest step is the version the app writes', () => {
+        const steps = SettingsMigrations.all()
+
+        expect(steps.map(candidate => candidate.to)).toEqual([2])
+        expect(Math.max(...steps.map(candidate => candidate.to))).toBe(SettingsMigrations.CurrentVersion)
     })
 })

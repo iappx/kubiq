@@ -221,6 +221,7 @@ import UiTableToolbar from '@/components/common/table/UiTableToolbar.vue'
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
 import { DetailTabs } from '@/components/resource/detail/DetailTabs'
 import { ResourceActions } from '@/components/resource/ResourceActions'
+import { MetricsColumns } from '@/components/metrics/MetricsColumns'
 import { ResourceColumns } from '@/components/resource/ResourceColumns'
 import { ResourceFilter } from '@/components/resource/ResourceFilter'
 import { ResourceRowBuilder } from '@/components/resource/ResourceRowBuilder'
@@ -234,6 +235,7 @@ import type { TUiTableColumn } from '@/components/common/table/types/TUiTableCol
 import type { TUiTableSort } from '@/components/common/table/types/TUiTableSort'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 import type { TResourceListRequest } from '@/application/services/resourceList/types/TResourceListRequest'
+import type { TResourceUsage } from '@/application/services/metrics/types/TResourceUsage'
 import type { TWorkloadTarget } from '@/application/services/workloadAction/types/TWorkloadTarget'
 import { OpenPodLogsEvent } from '@/domain/events/cluster/OpenPodLogsEvent'
 import { OpenPodShellEvent } from '@/domain/events/terminal/OpenPodShellEvent'
@@ -247,6 +249,7 @@ import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
+import { ClusterMetricsStore } from '@/store/modules/clusterMetrics/ClusterMetricsStore'
 import { ClusterResourceStore } from '@/store/modules/clusterResource/ClusterResourceStore'
 import { CustomResourceKindStore } from '@/store/modules/customResourceKind/CustomResourceKindStore'
 import { NamespaceStore } from '@/store/modules/namespace/NamespaceStore'
@@ -314,6 +317,7 @@ export default class ResourcePage extends VueBase {
       @inject(AppUiStore) public readonly uiStore: AppUiStore,
       @inject(ClusterConnectionStore) public readonly connectionStore: ClusterConnectionStore,
       @inject(ClusterDiscoveryStore) public readonly discoveryStore: ClusterDiscoveryStore,
+      @inject(ClusterMetricsStore) public readonly metricsStore: ClusterMetricsStore,
       @inject(ClusterResourceStore) public readonly resourceStore: ClusterResourceStore,
       @inject(CustomResourceKindStore) public readonly customKindStore: CustomResourceKindStore,
       @inject(NamespaceStore) public readonly namespaceStore: NamespaceStore,
@@ -358,8 +362,16 @@ export default class ResourcePage extends VueBase {
     return this.resourceStore.stateOf(this.clusterId, this.kind)
   }
 
+  public get hasUsageColumns(): boolean {
+    return MetricsColumns.supports(this.kind) && this.metricsStore.usageState(this.clusterId) === 'ready'
+  }
+
   public get columns(): TUiTableColumn[] {
-    return ResourceColumns.map(this.kind?.columns ?? [])
+    const declared = this.kind?.columns ?? []
+
+    return ResourceColumns.map(this.hasUsageColumns
+      ? MetricsColumns.extend(declared, ResourceColumns.ageKey)
+      : declared)
   }
 
   public get columnSignature(): string {
@@ -379,7 +391,12 @@ export default class ResourcePage extends VueBase {
   }
 
   public get allRows(): TResourceRow[] {
-    return ResourceRowBuilder.build(this.state.items, this.kind?.columns ?? [])
+    const rows = ResourceRowBuilder.build(this.state.items, this.kind?.columns ?? [])
+    if (!this.hasUsageColumns) {
+      return rows
+    }
+
+    return rows.map(row => MetricsColumns.apply(row, this.usageOf(row)))
   }
 
   public get rows(): TResourceRow[] {
@@ -587,6 +604,7 @@ export default class ResourcePage extends VueBase {
     await this.stopWatch()
     await this.resourceStore.load(request)
     await this.startWatch(request)
+    await this.loadUsage()
   }
 
   public reconnect(): Promise<void> {
@@ -785,6 +803,23 @@ export default class ResourcePage extends VueBase {
     } finally {
       this.acting = false
     }
+  }
+
+  private usageOf(row: TResourceRow): TResourceUsage | null {
+    return MetricsColumns.isPodKind(this.kind)
+      ? this.metricsStore.podUsage(this.clusterId, row.namespace, row.name)
+      : this.metricsStore.nodeUsage(this.clusterId, row.name)
+  }
+
+  private async loadUsage(): Promise<void> {
+    if (!MetricsColumns.supports(this.kind) || !this.connectionStore.isConnected(this.clusterId)) {
+      return
+    }
+
+    await this.metricsStore.load(
+      this.clusterId,
+      MetricsColumns.isPodKind(this.kind) ? this.namespaces : [],
+    )
   }
 
   private entityOf(row: TResourceRow | null): RepoEntityBase | null {

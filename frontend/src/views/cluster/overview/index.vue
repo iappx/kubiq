@@ -51,6 +51,8 @@
         />
       </section>
 
+      <overview-metrics-section :cluster-id="clusterId" />
+
       <div class="grid gap-4 xl:grid-cols-2">
         <overview-node-health :health="overview.nodes" :path="nodesPath" />
         <overview-event-list :error="overview.eventsError" :events="overview.events" :path="eventsPath" />
@@ -64,6 +66,7 @@ import { Component, VueBase, Watch } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
 import { RefreshCw } from '@lucide/vue'
 import OverviewEventList from '@/components/clusterOverview/OverviewEventList.vue'
+import OverviewMetricsSection from '@/components/clusterOverview/OverviewMetricsSection.vue'
 import OverviewNodeHealth from '@/components/clusterOverview/OverviewNodeHealth.vue'
 import OverviewWorkloadCard from '@/components/clusterOverview/OverviewWorkloadCard.vue'
 import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
@@ -81,6 +84,7 @@ import type { TClusterOverviewState } from '@/store/modules/clusterOverview/type
 @Component({
   components: {
     OverviewEventList,
+    OverviewMetricsSection,
     OverviewNodeHealth,
     OverviewWorkloadCard,
     RefreshCw,

@@ -1,5 +1,6 @@
 import { RepoEntityBase, RepoEntityField } from '@iappx/entity-repo'
 import type { TPrometheusSource } from '@/domain/entities/settings/types/TPrometheusSource'
+import type { TPrometheusLayoutId } from '@/domain/models/metrics'
 
 export class ClusterSettingsEntity extends RepoEntityBase<ClusterSettingsEntity> {
     @RepoEntityField({ isPrimaryKey: true })
@@ -13,4 +14,7 @@ export class ClusterSettingsEntity extends RepoEntityBase<ClusterSettingsEntity>
 
     @RepoEntityField()
     prometheusService: string
+
+    @RepoEntityField()
+    prometheusLayout: TPrometheusLayoutId
 }

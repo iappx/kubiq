@@ -5,6 +5,7 @@ import type { TSettingsMigrationTarget } from '@/application/services/settings/t
 import { ClusterSettingsEntity } from '@/domain/entities/settings/ClusterSettingsEntity'
 import { PrometheusSourceCatalog } from '@/domain/entities/settings/PrometheusSourceCatalog'
 import type { TClusterSettingsDraft } from '@/domain/entities/settings/types/TClusterSettingsDraft'
+import { PrometheusLayoutCatalog } from '@/domain/models/metrics'
 import { AppSettings } from '@/domain/models/settings/AppSettings'
 import type { TAppSettings } from '@/domain/models/settings/types/TAppSettings'
 import type { TStorageInfo } from '@/domain/models/settings/types/TStorageInfo'
@@ -122,6 +123,7 @@ export class SettingsService {
             prometheusSource: entity.prometheusSource,
             prometheusUrl: entity.prometheusUrl,
             prometheusService: entity.prometheusService,
+            prometheusLayout: entity.prometheusLayout,
         })
     }
 
@@ -133,6 +135,7 @@ export class SettingsService {
             prometheusSource: source,
             prometheusUrl: source === 'url' ? (draft.prometheusUrl ?? '').trim() : '',
             prometheusService: source === 'service' ? (draft.prometheusService ?? '').trim() : '',
+            prometheusLayout: PrometheusLayoutCatalog.parse(draft.prometheusLayout),
         }
     }
 }

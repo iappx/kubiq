@@ -41,6 +41,10 @@
         <resource-node-pods-tab :target="target" @open="$emit('open', $event)" />
       </div>
 
+      <div v-if="metricsOpened" v-show="tab === tabs.metricsKey" class="min-h-0 flex-1 overflow-y-auto">
+        <resource-metrics-tab :object="state.object" :target="target" />
+      </div>
+
       <div v-show="tab === tabs.metadataKey" class="min-h-0 flex-1 overflow-y-auto">
         <resource-metadata-tab :object="state.object" />
       </div>
@@ -65,6 +69,7 @@ import { inject } from 'tsyringe'
 import ResourceDataTab from '@/components/resource/detail/ResourceDataTab.vue'
 import ResourceEventsTab from '@/components/resource/detail/ResourceEventsTab.vue'
 import ResourceMetadataTab from '@/components/resource/detail/ResourceMetadataTab.vue'
+import ResourceMetricsTab from '@/components/resource/detail/ResourceMetricsTab.vue'
 import ResourceNodePodsTab from '@/components/resource/detail/ResourceNodePodsTab.vue'
 import ResourceOverviewTab from '@/components/resource/detail/ResourceOverviewTab.vue'
 import ResourceYamlTab from '@/components/resource/detail/ResourceYamlTab.vue'
@@ -81,6 +86,7 @@ import type { TResourceObjectState } from '@/store/modules/resourceObject/types/
     ResourceDataTab,
     ResourceEventsTab,
     ResourceMetadataTab,
+    ResourceMetricsTab,
     ResourceNodePodsTab,
     ResourceOverviewTab,
     ResourceYamlTab,
@@ -100,6 +106,8 @@ export default class ResourceDetailBody extends VueBase {
   public dataOpened = false
 
   public podsOpened = false
+
+  public metricsOpened = false
 
   public eventsOpened = false
 
@@ -153,6 +161,9 @@ export default class ResourceDetailBody extends VueBase {
     }
     if (tab === DetailTabs.podsKey) {
       this.podsOpened = true
+    }
+    if (tab === DetailTabs.metricsKey) {
+      this.metricsOpened = true
     }
     if (tab !== DetailTabs.eventsKey || this.eventsOpened) {
       return

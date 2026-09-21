@@ -146,7 +146,7 @@ describe('DetailContainers', () => {
 
 describe('DetailTabs', () => {
     it('discloses the object in the order the brief fixes', () => {
-        expect(DetailTabs.of(pods).map(tab => tab.key)).toEqual(['overview', 'metadata', 'events', 'yaml'])
+        expect(DetailTabs.of(pods).map(tab => tab.key)).toEqual(['overview', 'metrics', 'metadata', 'events', 'yaml'])
     })
 
     it('answers whether a tab is there', () => {

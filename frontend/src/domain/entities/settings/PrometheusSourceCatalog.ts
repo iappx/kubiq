@@ -3,6 +3,7 @@ import type { TPrometheusSource } from '@/domain/entities/settings/types/TPromet
 export class PrometheusSourceCatalog {
     public static readonly values: Record<TPrometheusSource, string> = {
         none: 'Not configured',
+        auto: 'Discover in the cluster',
         url: 'Prometheus address',
         service: 'In-cluster service',
     }
@@ -25,5 +26,9 @@ export class PrometheusSourceCatalog {
 
     public static isConfigured(source: TPrometheusSource): boolean {
         return source !== 'none'
+    }
+
+    public static needsAddress(source: TPrometheusSource): boolean {
+        return source === 'url' || source === 'service'
     }
 }
