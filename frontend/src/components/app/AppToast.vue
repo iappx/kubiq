@@ -14,7 +14,14 @@
               class="mt-0.5 shrink-0"
           />
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-foreground">{{ item.message }}</p>
+            <p class="text-sm font-medium text-foreground">
+              {{ item.message }}
+              <span
+                  v-if="repeatsOf(item) > 1"
+                  :aria-label="`Seen ${repeatsOf(item)} times`"
+                  class="pill ml-1 align-middle"
+              >×{{ repeatsOf(item) }}</span>
+            </p>
             <p v-if="item.description" class="text-xs text-muted-foreground mt-0.5">{{ item.description }}</p>
           </div>
           <button aria-label="Dismiss notification" class="btn-icon w-6 h-6 shrink-0" type="button" @click="toastStore.remove(item.id)">
@@ -32,6 +39,7 @@ import { CircleAlert, TriangleAlert, CircleCheck, Info, X } from '@lucide/vue'
 import { Component, VueBase } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
 import { ToastStore } from '@/store/modules/toast/ToastStore'
+import type { TToast } from '@/application/services/toast/types/TToast'
 
 @Component({
   components: { X },
@@ -41,6 +49,10 @@ export default class AppToast extends VueBase {
       @inject(ToastStore) public readonly toastStore: ToastStore,
   ) {
     super()
+  }
+
+  public repeatsOf(toast: TToast): number {
+    return toast.count ?? 1
   }
 
   public iconFor(type: string): VueComponent {

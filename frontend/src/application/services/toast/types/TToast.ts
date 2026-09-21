@@ -3,4 +3,5 @@ export type TToast = {
   type: 'success' | 'error' | 'info' | 'warning'
   message: string
   description?: string
+  count?: number
 }

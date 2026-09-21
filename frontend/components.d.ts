@@ -24,6 +24,7 @@ declare module 'vue' {
     ClusterCatalogTable: typeof import('./src/components/cluster/ClusterCatalogTable.vue')['default']
     ClusterDetailPanel: typeof import('./src/components/cluster/ClusterDetailPanel.vue')['default']
     ClusterFactRow: typeof import('./src/components/cluster/ClusterFactRow.vue')['default']
+    ClusterHealthPill: typeof import('./src/components/clusterShell/ClusterHealthPill.vue')['default']
     ClusterPinnedCard: typeof import('./src/components/cluster/ClusterPinnedCard.vue')['default']
     ClusterPinnedStrip: typeof import('./src/components/cluster/ClusterPinnedStrip.vue')['default']
     ClusterSourceBar: typeof import('./src/components/cluster/ClusterSourceBar.vue')['default']

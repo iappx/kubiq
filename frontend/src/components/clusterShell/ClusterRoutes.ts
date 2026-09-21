@@ -6,6 +6,8 @@ export class ClusterRoutes {
 
     public static readonly catalog: string = '/app/clusters'
 
+    public static readonly settings: string = '/app/settings'
+
     public static shell(clusterId: string): string {
         return `${ClusterRoutes.base}/${ClusterRoutes.segment(clusterId)}`
     }
