@@ -16,6 +16,7 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/kube', () => ({
 }))
 
 import { ApiError } from '@/domain/errors/ApiError'
+import { KubeFailureCatalog } from '@/domain/models/kube'
 import { KubeStatusReader } from '@/infrastructure/entityRepo/kube/transport/KubeStatusReader'
 import { KubeTransport } from '@/infrastructure/entityRepo/kube/transport/KubeTransport'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
@@ -162,5 +163,92 @@ describe('KubeTransport', () => {
 
         expect(error.message).toBe(KubeStatusReader.unreachable)
         expect(error.details).toBe('binding is gone')
+    })
+
+    it('writes its own text for a rejected credential, because the cluster only says Unauthorized', async () => {
+        answer({ success: false, status: 401, body: status(401, 'Unauthorized', 'Unauthorized') })
+
+        const error = await failure(() => transport.send({ method: 'GET', url: '/api/v1/pods' }))
+
+        expect(error.message).toBe(KubeFailureCatalog.message('unauthorized'))
+        expect(error.message).toContain('Reconnect')
+        expect(error.details).toBe('Unauthorized')
+    })
+
+    it('names a rate limit as one', async () => {
+        answer({ success: false, status: 429, body: '' })
+
+        const error = await failure(() => transport.send({ method: 'GET', url: '/api/v1/pods' }))
+
+        expect(error.message).toBe(KubeFailureCatalog.message('throttled'))
+        expect(error.status).toBe(429)
+    })
+
+    it('tells an unavailable api apart from an internal error', async () => {
+        answer({ success: false, status: 503, body: '' })
+        const unavailable = await failure(() => transport.send({ method: 'GET', url: '/apis/metrics.k8s.io/v1beta1/pods' }))
+
+        answer({ success: false, status: 500, body: '' })
+        const broken = await failure(() => transport.send({ method: 'GET', url: '/api/v1/pods' }))
+
+        expect(unavailable.message).toBe(KubeFailureCatalog.message('unavailable'))
+        expect(broken.message).toBe(KubeFailureCatalog.message('serverError'))
+    })
+
+    it('tells a timeout apart from a server it never reached', async () => {
+        answer({ success: false, status: 0, body: '', error: 'Get "https://api:6443/api/v1/pods": context deadline exceeded' })
+
+        const error = await failure(() => transport.send({ method: 'GET', url: '/api/v1/pods' }))
+
+        expect(error.message).toBe(KubeFailureCatalog.message('timeout'))
+    })
+
+    it('names a certificate it could not verify', async () => {
+        answer({
+            success: false,
+            status: 0,
+            body: '',
+            error: 'tls: failed to verify certificate: x509: certificate signed by unknown authority',
+        })
+
+        const error = await failure(() => transport.send({ method: 'GET', url: '/api/v1/pods' }))
+
+        expect(error.message).toBe(KubeFailureCatalog.message('tls'))
+    })
+
+    it('says the connection is closed when the Go side no longer holds the session', async () => {
+        answer({ success: false, status: 0, body: '', error: 'unknown session: session-1' })
+
+        const error = await failure(() => transport.send({ method: 'GET', url: '/api/v1/pods' }))
+
+        expect(error.message).toBe(KubeFailureCatalog.message('disconnected'))
+    })
+
+    it('tells the probe how every request ended', async () => {
+        const reported: string[] = []
+        const probed = new KubeTransport('session-1', container.resolve(WailsRuntimeService), {
+            succeeded: () => reported.push('ok'),
+            failed: (err: unknown) => reported.push(`failed:${ApiError.statusOf(err)}`),
+        })
+
+        answer({})
+        await probed.send({ method: 'GET', url: '/api/v1/pods' })
+
+        answer({ success: false, status: 401, body: '' })
+        await failure(() => probed.send({ method: 'GET', url: '/api/v1/pods' }))
+
+        expect(reported).toEqual(['ok', 'failed:401'])
+    })
+
+    it('tells the probe nothing when there is no runtime to ask', async () => {
+        const reported: string[] = []
+        const offline = new KubeTransport('session-1', { isAvailable: () => false } as WailsRuntimeService, {
+            succeeded: () => reported.push('ok'),
+            failed: () => reported.push('failed'),
+        })
+
+        await offline.send({ method: 'GET', url: '/api/v1/pods' })
+
+        expect(reported).toEqual([])
     })
 })

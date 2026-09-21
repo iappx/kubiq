@@ -2,8 +2,8 @@ import type { ITransport } from '@iappx/entity-repo'
 import { HeaderReader, QueryStringSerializer, UrlJoiner } from '@iappx/entity-repo-rest'
 import type { TRestHeaders, TRestRequest, TRestResponse } from '@iappx/entity-repo-rest'
 import { KubeService, Request, Response } from '../../../../../bindings/iappx_k8s_admin/core/services/kube'
-import { ApiError } from '@/domain/errors/ApiError'
 import { KubeStatusReader } from '@/infrastructure/entityRepo/kube/transport/KubeStatusReader'
+import type { IKubeClusterProbe } from '@/infrastructure/kube/types/IKubeClusterProbe'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 
 export class KubeTransport implements ITransport<TRestRequest> {
@@ -14,6 +14,7 @@ export class KubeTransport implements ITransport<TRestRequest> {
     constructor(
         private readonly sessionId: string,
         private readonly runtime: WailsRuntimeService,
+        private readonly probe: IKubeClusterProbe | null = null,
     ) {}
 
     public get session(): string {
@@ -25,6 +26,18 @@ export class KubeTransport implements ITransport<TRestRequest> {
             return null as TRes
         }
 
+        try {
+            const result = await this.exchange(request)
+            this.probe?.succeeded()
+
+            return result as unknown as TRes
+        } catch (err) {
+            this.probe?.failed(err)
+            throw err
+        }
+    }
+
+    protected async exchange(request: TRestRequest): Promise<TRestResponse> {
         const path = this.path(request)
         const response = await this.call(path, request)
 
@@ -32,13 +45,11 @@ export class KubeTransport implements ITransport<TRestRequest> {
             throw KubeStatusReader.apiError(response.status, response.body, response.error)
         }
 
-        const result: TRestResponse = {
+        return {
             status: response.status,
             headers: KubeTransport.headers(response.headers),
             data: KubeTransport.parse(response.body),
         }
-
-        return result as unknown as TRes
     }
 
     // The Go client appends this path to the server url verbatim, so the query string
@@ -51,7 +62,7 @@ export class KubeTransport implements ITransport<TRestRequest> {
         try {
             return await KubeService.Send(this.payload(path, request))
         } catch (err) {
-            throw new ApiError(KubeStatusReader.unreachable, err instanceof Error ? err.message : String(err))
+            throw KubeStatusReader.apiError(0, '', err instanceof Error ? err.message : String(err))
         }
     }
 

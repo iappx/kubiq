@@ -16,6 +16,8 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/kube', () => ({
 
 import { KubeContextProvider } from '@/infrastructure/entityRepo/kube/KubeContextProvider'
 import { KubeDiscoveryAdapter } from '@/infrastructure/kube/KubeDiscoveryAdapter'
+import { EventBus } from '@/infrastructure/eventBus/EventBus'
+import { KubeHealthMonitor } from '@/infrastructure/kube/KubeHealthMonitor'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 
 const runtime = { isAvailable: () => true } as WailsRuntimeService
@@ -38,7 +40,7 @@ const paths = () => send.mock.calls.map(call => call[0].path)
 describe('KubeDiscoveryAdapter', () => {
     beforeEach(() => {
         send.mockReset()
-        adapter = new KubeDiscoveryAdapter(new KubeContextProvider(runtime))
+        adapter = new KubeDiscoveryAdapter(new KubeContextProvider(runtime, new KubeHealthMonitor(new EventBus())))
     })
 
     it('asks the cluster what it serves before asking any group about it', async () => {

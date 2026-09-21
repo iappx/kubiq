@@ -16,6 +16,8 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/kube', () => ({
 
 import { KubeContextProvider } from '@/infrastructure/entityRepo/kube/KubeContextProvider'
 import { KubeVersionAdapter } from '@/infrastructure/kube/KubeVersionAdapter'
+import { EventBus } from '@/infrastructure/eventBus/EventBus'
+import { KubeHealthMonitor } from '@/infrastructure/kube/KubeHealthMonitor'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 
 const runtime = { isAvailable: () => true } as WailsRuntimeService
@@ -26,7 +28,7 @@ let adapter: KubeVersionAdapter
 describe('KubeVersionAdapter', () => {
     beforeEach(() => {
         send.mockReset()
-        contexts = new KubeContextProvider(runtime)
+        contexts = new KubeContextProvider(runtime, new KubeHealthMonitor(new EventBus()))
         adapter = new KubeVersionAdapter(contexts)
     })
 

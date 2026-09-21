@@ -60,4 +60,32 @@ describe('KubeStatusReader', () => {
         expect(KubeStatusReader.isConflict(new Error('offline'))).toBe(false)
         expect(KubeStatusReader.isMissing(undefined)).toBe(false)
     })
+
+    it('tells a rate limit and an unavailable api from the rest', () => {
+        expect(KubeStatusReader.isThrottled(new ApiError('', '', 429))).toBe(true)
+        expect(KubeStatusReader.isUnavailable(new ApiError('', '', 503))).toBe(true)
+        expect(KubeStatusReader.isUnauthorized(new ApiError('', '', 401))).toBe(true)
+    })
+
+    it('calls a kind the cluster does not serve absent, whether it says 404 or 503', () => {
+        expect(KubeStatusReader.isAbsent(new ApiError('', '', 404))).toBe(true)
+        expect(KubeStatusReader.isAbsent(new ApiError('', '', 503))).toBe(true)
+        expect(KubeStatusReader.isAbsent(new ApiError('', '', 403))).toBe(false)
+    })
+
+    it('reads the kind back off an error that already travelled', () => {
+        expect(KubeStatusReader.kindOf(new ApiError('', '', 403))).toBe('forbidden')
+        expect(KubeStatusReader.kindOf(new ApiError('', '', 429))).toBe('throttled')
+    })
+
+    it('keeps the transport detail, so a timeout is not mistaken for an outage', () => {
+        expect(KubeStatusReader.kindOf(new ApiError('', 'context deadline exceeded', 0))).toBe('timeout')
+        expect(KubeStatusReader.kindOf(new ApiError('', 'connection refused', 0))).toBe('unreachable')
+    })
+
+    it('claims no kind for an error that is not ours', () => {
+        expect(KubeStatusReader.kindOf(new Error('boom'))).toBe('unknown')
+        expect(KubeStatusReader.kindOf(new ApiError('no status'))).toBe('unknown')
+        expect(KubeStatusReader.kindOf(undefined)).toBe('unknown')
+    })
 })
