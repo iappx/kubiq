@@ -19,6 +19,10 @@ export class ResourceWatchScope implements IKubeWatchHandler {
 
     private flaps: number = 0
 
+    private attempt: number = 0
+
+    private retry: ReturnType<typeof setTimeout> | null = null
+
     private stopped: boolean = false
 
     constructor(
@@ -44,6 +48,7 @@ export class ResourceWatchScope implements IKubeWatchHandler {
 
     public async stop(): Promise<void> {
         this.stopped = true
+        this.cancelRetry()
         const open = this.stream
         this.stream = null
         if (open) {
@@ -90,7 +95,33 @@ export class ResourceWatchScope implements IKubeWatchHandler {
             return
         }
 
-        void this.start().catch(() => this.sink.stale())
+        this.scheduleRetry()
+    }
+
+    private get retryDelayMs(): number {
+        if (this.attempt === 0) {
+            return 0
+        }
+
+        return Math.min(
+            ResourceWatchLimits.retryBaseDelayMs * 2 ** (this.attempt - 1),
+            ResourceWatchLimits.retryMaxDelayMs,
+        )
+    }
+
+    private scheduleRetry(): void {
+        this.cancelRetry()
+        this.retry = setTimeout(() => {
+            this.retry = null
+            void this.start().catch(() => this.sink.stale())
+        }, this.retryDelayMs)
+    }
+
+    private cancelRetry(): void {
+        if (this.retry !== null) {
+            clearTimeout(this.retry)
+            this.retry = null
+        }
     }
 
     private remember(object: Record<string, unknown>): void {
@@ -103,7 +134,13 @@ export class ResourceWatchScope implements IKubeWatchHandler {
     // A watch the API server closed on its own timeout is resumed; one that dies the moment
     // it opens is flapping, and retrying that in a loop is worse than reporting stale data.
     private canRetry(): boolean {
-        this.flaps = Date.now() - this.openedAt < ResourceWatchLimits.minimumLifetimeMs ? this.flaps + 1 : 0
+        if (Date.now() - this.openedAt < ResourceWatchLimits.minimumLifetimeMs) {
+            this.flaps++
+            this.attempt++
+        } else {
+            this.flaps = 0
+            this.attempt = 0
+        }
 
         return this.flaps < ResourceWatchLimits.maxConsecutiveFlaps
     }

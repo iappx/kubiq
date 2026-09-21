@@ -290,4 +290,67 @@ describe('ResourceWatchService', () => {
 
         expect(service.isWatching('prod', pods)).toBe(false)
     })
+
+    it('resumes a healthy watch at once, without waiting out a delay', async () => {
+        await service.start({
+            clusterId: 'prod',
+            kind: pods,
+            cursors: [{ namespace: '', resourceVersion: '1' }],
+        }, handlers())
+
+        vi.advanceTimersByTime(ResourceWatchLimits.minimumLifetimeMs + 1)
+        stream.last.close('eof')
+        await vi.advanceTimersByTimeAsync(0)
+
+        expect(stream.requests).toHaveLength(2)
+    })
+
+    it('waits before retrying a watch that died the moment it opened', async () => {
+        await service.start({
+            clusterId: 'prod',
+            kind: pods,
+            cursors: [{ namespace: '', resourceVersion: '1' }],
+        }, handlers())
+
+        stream.last.close('eof')
+        await vi.advanceTimersByTimeAsync(ResourceWatchLimits.retryBaseDelayMs - 1)
+        expect(stream.requests).toHaveLength(1)
+
+        await vi.advanceTimersByTimeAsync(1)
+        expect(stream.requests).toHaveLength(2)
+    })
+
+    it('backs further off with every retry that dies straight away', async () => {
+        await service.start({
+            clusterId: 'prod',
+            kind: pods,
+            cursors: [{ namespace: '', resourceVersion: '1' }],
+        }, handlers())
+
+        stream.last.close('eof')
+        await vi.advanceTimersByTimeAsync(ResourceWatchLimits.retryBaseDelayMs)
+        expect(stream.requests).toHaveLength(2)
+
+        stream.last.close('eof')
+        await vi.advanceTimersByTimeAsync(ResourceWatchLimits.retryBaseDelayMs)
+        expect(stream.requests).toHaveLength(2)
+
+        await vi.advanceTimersByTimeAsync(ResourceWatchLimits.retryBaseDelayMs)
+        expect(stream.requests).toHaveLength(3)
+        expect(staleAt).toEqual([])
+    })
+
+    it('drops a pending retry when the watch is stopped', async () => {
+        await service.start({
+            clusterId: 'prod',
+            kind: pods,
+            cursors: [{ namespace: '', resourceVersion: '1' }],
+        }, handlers())
+
+        stream.last.close('eof')
+        await service.stop('prod', pods)
+        await vi.advanceTimersByTimeAsync(ResourceWatchLimits.retryMaxDelayMs)
+
+        expect(stream.requests).toHaveLength(1)
+    })
 })
