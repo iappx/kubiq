@@ -1,4 +1,5 @@
 import type { TKubeContainer } from '@/domain/entities/workloads/types/TKubeContainer'
+import type { TKubePodVolume } from '@/domain/entities/workloads/types/TKubePodVolume'
 
 export type TPodSpec = {
     nodeName?: string
@@ -9,4 +10,5 @@ export type TPodSpec = {
     hostNetwork?: boolean
     containers?: TKubeContainer[]
     initContainers?: TKubeContainer[]
+    volumes?: TKubePodVolume[]
 }

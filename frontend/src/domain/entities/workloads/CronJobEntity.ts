@@ -39,6 +39,18 @@ export class CronJobEntity extends RepoEntityBase<CronJobEntity> {
         return this.spec?.schedule ?? ''
     }
 
+    get jobTemplateSpec(): Record<string, unknown> {
+        return this.spec?.jobTemplate?.spec ?? {}
+    }
+
+    get jobTemplateLabels(): Record<string, string> {
+        return this.spec?.jobTemplate?.metadata?.labels ?? {}
+    }
+
+    get jobTemplateAnnotations(): Record<string, string> {
+        return this.spec?.jobTemplate?.metadata?.annotations ?? {}
+    }
+
     get isSuspended(): boolean {
         return this.spec?.suspend === true
     }
@@ -51,8 +63,7 @@ export class CronJobEntity extends RepoEntityBase<CronJobEntity> {
         return this.status?.lastScheduleTime ?? ''
     }
 
-    // Suspension is an operator's decision, not a fault, so it reads as waiting
-    // rather than as something to flag in a list.
+    // Suspension is an operator's decision, not a fault, so it reads as waiting rather than as something to flag.
     get state(): TKubeObjectState {
         if (this.metadata?.isDeleting) {
             return 'pending'
