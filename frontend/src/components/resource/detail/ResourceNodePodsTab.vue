@@ -2,6 +2,7 @@
   <div class="space-y-4">
     <ui-error-state
         v-if="state.forbidden"
+        :hint="forbiddenHint"
         :retryable="false"
         message="You cannot list pods in this cluster, so what runs on this node cannot be shown."
         title="Not permitted"
@@ -47,7 +48,7 @@ import UiSkeletons from '@/components/common/UiSkeletons.vue'
 import type { TRelatedObject } from '@/application/services/resourceDetail/types/TRelatedObject'
 import { NodeDrainPolicy } from '@/domain/entities/cluster'
 import type { PodEntity } from '@/domain/entities/workloads'
-import { KubeKindLocator } from '@/domain/models/kube'
+import { KubeAccessHint, KubeKindLocator } from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import { NodeStore } from '@/store/modules/node/NodeStore'
 import type { TNodePodsState } from '@/store/modules/node/types/TNodePodsState'
@@ -83,6 +84,10 @@ export default class ResourceNodePodsTab extends VueBase {
 
   public get podsKind(): KubeResourceKind | null {
     return KubeKindLocator.find(this.target.served, 'v1', 'Pod') ?? null
+  }
+
+  public get forbiddenHint(): string {
+    return KubeAccessHint.forResource('list', 'pods')
   }
 
   public get hint(): string {

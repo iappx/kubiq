@@ -5,9 +5,9 @@ import { ResourceListService } from '@/application/services/resourceList/Resourc
 import { SettingsService } from '@/application/services/settings/SettingsService'
 import type { TMetricSeriesRequest } from '@/application/services/prometheus/types/TMetricSeriesRequest'
 import type { TPrometheusResolution } from '@/application/services/prometheus/types/TPrometheusResolution'
+import type { TPrometheusSearch } from '@/application/services/prometheus/types/TPrometheusSearch'
 import { ServiceEntity } from '@/domain/entities/network'
 import type { TClusterSettingsDraft } from '@/domain/entities/settings'
-import { ApiError } from '@/domain/errors/ApiError'
 import { KubeResourceRegistry } from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import {
@@ -32,8 +32,6 @@ import type { PrometheusEntityContext } from '@/infrastructure/entityRepo/metric
 
 @injectable()
 export class PrometheusService {
-    public static readonly unavailableStatus: number = 503
-
     constructor(
         @inject(ClusterConnectionService) private readonly connectionService: ClusterConnectionService,
         @inject(ResourceListService) private readonly listService: ResourceListService,
@@ -108,26 +106,31 @@ export class PrometheusService {
             return PrometheusService.unresolved('missing')
         }
 
+        let refused = false
+
         for (const preset of PrometheusPresetCatalog.all()) {
-            const target = await this.match(clusterId, kind, preset)
-            if (target) {
+            const search = await this.match(clusterId, kind, preset)
+            if (search.target) {
                 return {
                     state: 'ready',
-                    target,
+                    target: search.target,
                     layout: PrometheusLayoutCatalog.of(preset.id),
                     discovered: true,
                 }
             }
+            refused = refused || search.refused
         }
 
-        return PrometheusService.unresolved('missing')
+        // Every preset asks the same question, so a user who cannot list Services never
+        // finds Prometheus — saying it is absent would send them hunting for a chart instead.
+        return PrometheusService.unresolved(refused ? 'forbidden' : 'missing')
     }
 
     private async match(
         clusterId: string,
         kind: KubeResourceKind,
         preset: TPrometheusPreset,
-    ): Promise<TPrometheusTarget | null> {
+    ): Promise<TPrometheusSearch> {
         let found: RepoEntityBase[]
         try {
             const result = await this.listService.list({
@@ -137,18 +140,21 @@ export class PrometheusService {
                 labelSelector: preset.labelSelector,
             })
             found = result.items
-        } catch {
-            return null
+        } catch (err) {
+            return { target: null, refused: KubeStatusReader.isForbidden(err) }
         }
 
         const service = found.find((item): item is ServiceEntity => item instanceof ServiceEntity && item.name !== '')
         if (!service) {
-            return null
+            return { target: null, refused: false }
         }
 
         const port = PrometheusPresetCatalog.portOf(preset, service.ports)
 
-        return port === '' ? null : { namespace: service.namespace, service: service.name, port }
+        return {
+            target: port === '' ? null : { namespace: service.namespace, service: service.name, port },
+            refused: false,
+        }
     }
 
     // A hand-typed address may point at anything, so it is asked one cheap question
@@ -178,14 +184,11 @@ export class PrometheusService {
     }
 
     private static stateOf(err: unknown): TMetricsState {
-        const status = ApiError.statusOf(err)
-        if (status === KubeStatusReader.forbidden) {
+        if (KubeStatusReader.isForbidden(err)) {
             return 'forbidden'
         }
 
-        return status === KubeStatusReader.missing || status === PrometheusService.unavailableStatus
-            ? 'missing'
-            : 'unsupported'
+        return KubeStatusReader.isAbsent(err) ? 'missing' : 'unsupported'
     }
 
     private static servicesKind(): KubeResourceKind | null {

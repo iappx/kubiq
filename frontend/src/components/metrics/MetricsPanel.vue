@@ -50,6 +50,7 @@ import MetricsChartCard from '@/components/metrics/MetricsChartCard.vue'
 import MetricsNotice from '@/components/metrics/MetricsNotice.vue'
 import MetricsRangePicker from '@/components/metrics/MetricsRangePicker.vue'
 import UiSection from '@/components/common/section/UiSection.vue'
+import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
 import { MetricLevelCatalog, MetricsNoticeCatalog } from '@/domain/models/metrics'
 import type { TMetricRangeId, TMetricScope, TMetricSeriesKind, TMetricsNotice } from '@/domain/models/metrics'
 import { MetricsChartStore } from '@/store/modules/metricsChart/MetricsChartStore'
@@ -115,7 +116,7 @@ export default class MetricsPanel extends VueBase {
   }
 
   public get settingsPath(): string {
-    return '/app/settings'
+    return ClusterRoutes.settings
   }
 
   public get scopeKey(): string {

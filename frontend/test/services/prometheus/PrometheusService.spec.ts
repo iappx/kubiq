@@ -102,6 +102,22 @@ describe('PrometheusService.resolve', () => {
         await expect(service.resolve('prod')).resolves.toMatchObject({ state: 'ready' })
     })
 
+    it('says it was not allowed to look rather than that nothing is there', async () => {
+        transport.failWith(new ApiError('denied', 'rbac', 403))
+        transport.failWith(new ApiError('denied', 'rbac', 403))
+        transport.failWith(new ApiError('denied', 'rbac', 403))
+
+        await expect(service.resolve('prod')).resolves.toMatchObject({ state: 'forbidden', target: null })
+    })
+
+    it('still says nothing is there when the cluster answered and held no service', async () => {
+        transport.answerWith(emptyList)
+        transport.failWith(new ApiError('gone', '', 0))
+        transport.answerWith(emptyList)
+
+        await expect(service.resolve('prod')).resolves.toMatchObject({ state: 'missing' })
+    })
+
     it('leaves a cluster switched off alone', async () => {
         stored = draft({ prometheusSource: 'none' })
 

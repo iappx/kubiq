@@ -19,6 +19,8 @@ import { ClusterNamespaceService } from '@/application/services/clusterNamespace
 import { EntityRepoProvider } from '@/infrastructure/entityRepo/EntityRepoProvider'
 import { KubeContextProvider } from '@/infrastructure/entityRepo/kube/KubeContextProvider'
 import { FileSystemTransport } from '@/infrastructure/entityRepo/transport/FileSystemTransport'
+import { EventBus } from '@/infrastructure/eventBus/EventBus'
+import { KubeHealthMonitor } from '@/infrastructure/kube/KubeHealthMonitor'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 import { MemoryFileTransport } from '../../support/MemoryFileTransport'
 
@@ -45,7 +47,7 @@ describe('ClusterNamespaceService', () => {
     beforeEach(() => {
         send.mockReset()
         transport = new MemoryFileTransport()
-        contexts = new KubeContextProvider(runtime)
+        contexts = new KubeContextProvider(runtime, new KubeHealthMonitor(new EventBus()))
         connections = {
             context: (clusterId: string) => contexts.context(clusterId, `session-${clusterId}`),
         } as unknown as ClusterConnectionService

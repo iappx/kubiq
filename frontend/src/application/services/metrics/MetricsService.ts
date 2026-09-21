@@ -3,7 +3,6 @@ import { ClusterConnectionService } from '@/application/services/cluster/Cluster
 import type { TMetricsSnapshot } from '@/application/services/metrics/types/TMetricsSnapshot'
 import type { TResourceUsage } from '@/application/services/metrics/types/TResourceUsage'
 import { MetricsObjectKey, NodeMetricsEntity, PodMetricsEntity } from '@/domain/entities/metrics'
-import { ApiError } from '@/domain/errors/ApiError'
 import type { TMetricsState } from '@/domain/models/metrics'
 import { KubeContextProvider } from '@/infrastructure/entityRepo/kube/KubeContextProvider'
 import { KubeUrlBuilder } from '@/infrastructure/entityRepo/kube/strategies/KubeUrlBuilder'
@@ -12,8 +11,6 @@ import type { MetricsEntityContext } from '@/infrastructure/entityRepo/metrics/M
 
 @injectable()
 export class MetricsService {
-    public static readonly unavailableStatus: number = 503
-
     constructor(
         @inject(ClusterConnectionService) private readonly connectionService: ClusterConnectionService,
         @inject(KubeContextProvider) private readonly contexts: KubeContextProvider,
@@ -89,11 +86,10 @@ export class MetricsService {
     // A cluster with no metrics-server answers 404, and one whose API service is not
     // ready yet answers 503. Neither is a failure worth interrupting the user with.
     private static failed(err: unknown): TMetricsSnapshot {
-        const status = ApiError.statusOf(err)
-        if (status === KubeStatusReader.missing || status === MetricsService.unavailableStatus) {
+        if (KubeStatusReader.isAbsent(err)) {
             return MetricsService.unavailable('missing')
         }
-        if (status === KubeStatusReader.forbidden) {
+        if (KubeStatusReader.isForbidden(err)) {
             return MetricsService.unavailable('forbidden')
         }
 

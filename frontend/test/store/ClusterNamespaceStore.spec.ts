@@ -128,4 +128,47 @@ describe('ClusterNamespaceStore', () => {
 
         expect(store.available).toEqual({})
     })
+
+    it('remembers that the cluster refused the list, so the picker can say why it is empty', async () => {
+        fake.state.failFor.prod = new ApiError('The cluster denied access to this resource', 'Forbidden', 403)
+
+        await store.loadFor('prod')
+
+        expect(store.isForbidden('prod')).toBe(true)
+        expect(store.failureOf('prod')).toBe('forbidden')
+    })
+
+    it('tells a refusal apart from a cluster it could not reach', async () => {
+        fake.state.failFor.prod = new ApiError('Could not reach the cluster', 'connection refused', 0)
+
+        await store.loadFor('prod')
+
+        expect(store.isForbidden('prod')).toBe(false)
+        expect(store.failureOf('prod')).toBe('unreachable')
+    })
+
+    it('claims no failure for a cluster that answered', async () => {
+        await store.loadFor('prod')
+
+        expect(store.failureOf('prod')).toBeNull()
+    })
+
+    it('clears the refusal once the cluster answers', async () => {
+        fake.state.failFor.prod = new ApiError('denied', 'Forbidden', 403)
+        await store.loadFor('prod')
+
+        delete fake.state.failFor.prod
+        await store.loadFor('prod')
+
+        expect(store.isForbidden('prod')).toBe(false)
+    })
+
+    it('drops the refusal with the cluster it belonged to', async () => {
+        fake.state.failFor.prod = new ApiError('denied', 'Forbidden', 403)
+        await store.loadFor('prod')
+
+        store.forget('prod')
+
+        expect(store.failureOf('prod')).toBeNull()
+    })
 })

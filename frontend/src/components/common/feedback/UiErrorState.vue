@@ -7,6 +7,7 @@
     <div class="space-y-1">
       <h3 class="text-sm font-medium text-foreground">{{ title }}</h3>
       <p class="text-sm text-muted-foreground max-w-md">{{ message }}</p>
+      <p v-if="hint" class="text-xs text-muted-foreground max-w-md font-mono">{{ hint }}</p>
     </div>
 
     <button v-if="retryable" class="btn-secondary" type="button" @click="$emit('retry')">
@@ -35,6 +36,9 @@ export default class UiErrorState extends VueBase {
 
   @Prop({ required: false, default: 'Could not load this list' })
   public readonly title?: string
+
+  @Prop({ required: false })
+  public readonly hint?: string
 
   @Prop({ required: false })
   public readonly detail?: string

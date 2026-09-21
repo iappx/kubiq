@@ -2,6 +2,7 @@
   <div class="flex min-h-0 flex-1 flex-col">
     <ui-error-state
         v-if="state.forbidden"
+        :hint="forbiddenHint"
         :message="`You cannot read this ${target.kind.kind} in the cluster.`"
         :retryable="false"
         title="Not permitted"
@@ -77,6 +78,7 @@ import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
 import UiSkeletons from '@/components/common/UiSkeletons.vue'
 import { DetailTabs } from '@/components/resource/detail/DetailTabs'
+import { KubeAccessHint } from '@/domain/models/kube'
 import { ResourceObjectStore } from '@/store/modules/resourceObject/ResourceObjectStore'
 import type { TResourceObjectRef } from '@/store/modules/resourceObject/types/TResourceObjectRef'
 import type { TResourceObjectState } from '@/store/modules/resourceObject/types/TResourceObjectState'
@@ -125,6 +127,10 @@ export default class ResourceDetailBody extends VueBase {
 
   public get tabs(): typeof DetailTabs {
     return DetailTabs
+  }
+
+  public get forbiddenHint(): string {
+    return KubeAccessHint.of('get', this.target.kind, this.target.namespace)
   }
 
   async created(): Promise<void> {

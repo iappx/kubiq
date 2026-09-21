@@ -69,6 +69,7 @@
 
       <ui-error-state
           v-if="state.forbidden"
+          :hint="forbiddenHint"
           :message="forbiddenMessage"
           :retryable="false"
           title="Not permitted"
@@ -237,13 +238,15 @@ import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 import type { TResourceListRequest } from '@/application/services/resourceList/types/TResourceListRequest'
 import type { TResourceUsage } from '@/application/services/metrics/types/TResourceUsage'
 import type { TWorkloadTarget } from '@/application/services/workloadAction/types/TWorkloadTarget'
+import { AppConnectivityEvent } from '@/domain/events/app/AppConnectivityEvent'
+import { AppResumedEvent } from '@/domain/events/app/AppResumedEvent'
 import { OpenPodLogsEvent } from '@/domain/events/cluster/OpenPodLogsEvent'
 import { OpenPodShellEvent } from '@/domain/events/terminal/OpenPodShellEvent'
 import { OpenPortForwardEvent } from '@/domain/events/terminal/OpenPortForwardEvent'
 import { EventScopeService } from '@/application/services/eventScope/EventScopeService'
 import type { TNodeTarget } from '@/application/services/node/types/TNodeTarget'
 import type { TEventScope } from '@/domain/entities/cluster'
-import { KubeClusterCatalog, KubeKindLocator, KubeResourceRegistry } from '@/domain/models/kube'
+import { KubeAccessHint, KubeClusterCatalog, KubeKindLocator, KubeResourceRegistry } from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
@@ -312,6 +315,10 @@ export default class ResourcePage extends VueBase {
   private watchedClusterId = ''
 
   private watchedKind: KubeResourceKind | null = null
+
+  private onResumed!: () => void
+
+  private onConnectivity!: (event: AppConnectivityEvent) => void
 
   constructor(
       @inject(AppUiStore) public readonly uiStore: AppUiStore,
@@ -476,6 +483,10 @@ export default class ResourcePage extends VueBase {
     return `You cannot list ${this.title} ${this.scopeLabel}.`
   }
 
+  public get forbiddenHint(): string {
+    return KubeAccessHint.of('list', this.kind, this.namespaces.length === 1 ? this.namespaces[0] : '')
+  }
+
   public get filterPlaceholder(): string {
     return `Filter ${this.title.toLowerCase()} by name or label`
   }
@@ -497,12 +508,23 @@ export default class ResourcePage extends VueBase {
   }
 
   async created(): Promise<void> {
+    this.onResumed = () => void this.reconnect()
+    this.onConnectivity = (event: AppConnectivityEvent) => {
+      if (event.online) {
+        void this.reconnect()
+      }
+    }
+    this.eventBus.registerHandler(AppResumedEvent, this.onResumed)
+    this.eventBus.registerHandler(AppConnectivityEvent, this.onConnectivity)
+
     this.resetView()
     await this.resolveCustomColumns()
     await this.reload()
   }
 
   async beforeUnmount(): Promise<void> {
+    this.eventBus.unregisterHandler(AppResumedEvent, this.onResumed)
+    this.eventBus.unregisterHandler(AppConnectivityEvent, this.onConnectivity)
     await this.stopWatch()
   }
 
