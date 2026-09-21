@@ -1,5 +1,4 @@
 import { inject, singleton } from 'tsyringe'
-import type { MonacoYaml } from 'monaco-yaml'
 import { MonacoEditorDefaults } from '@/application/services/monacoEditor/constants/MonacoEditorDefaults'
 import { MonacoThemeTokens } from '@/application/services/monacoEditor/constants/MonacoThemeTokens'
 import { MonacoThemeBuilder } from '@/application/services/monacoEditor/models/MonacoThemeBuilder'
@@ -12,8 +11,6 @@ export class MonacoEditorService {
     private loading: Promise<TMonacoApi> | null = null
 
     private api: TMonacoApi | null = null
-
-    private yaml: MonacoYaml | null = null
 
     private schemas: TMonacoSchema[] = []
 
@@ -51,19 +48,24 @@ export class MonacoEditorService {
         setTimeout(() => this.defineTheme(), MonacoEditorDefaults.repaintDelayMs)
     }
 
-    public async addSchema(schema: TMonacoSchema): Promise<void> {
+    public addSchema(schema: TMonacoSchema): Promise<void> {
         const kept = this.schemas.filter(known => known.uri !== schema.uri)
         this.schemas = [...kept, schema]
 
-        await this.yaml?.update({ schemas: this.schemas, validate: true, completion: true, hover: true })
+        return Promise.resolve()
     }
 
     // Assembled rather than imported whole: the `monaco-editor` barrel registers all eighty
     // languages plus the css/html/json/typescript services, whose workers are nine megabytes.
+    //
+    // `configureMonacoYaml` is deliberately not called: monaco-yaml asks for its worker through
+    // the pre-0.53 `createWebWorker({ moduleId, label, createData })`, and 0.56 has no channel
+    // left for `createData` — the worker starts without schemas or settings and answers every
+    // request with "Missing requestHandler", so validation, completion and hover are all dead
+    // either way. Schemas keep being collected for whatever language service replaces it.
     private async start(): Promise<TMonacoApi> {
-        const [monaco, { configureMonacoYaml }, { MonacoWorkers }] = await Promise.all([
+        const [monaco, { MonacoWorkers }] = await Promise.all([
             import('monaco-editor/editor'),
-            import('monaco-yaml'),
             import('@/application/services/monacoEditor/models/MonacoWorkers'),
             import('monaco-editor/features/register.all'),
             import('monaco-editor/languages/definitions/yaml/register'),
@@ -73,16 +75,6 @@ export class MonacoEditorService {
 
         this.api = monaco as unknown as TMonacoApi
         this.defineTheme()
-
-        this.yaml = configureMonacoYaml(monaco, {
-            enableSchemaRequest: false,
-            isKubernetes: true,
-            format: { enable: true },
-            validate: true,
-            completion: true,
-            hover: true,
-            schemas: this.schemas,
-        })
 
         return this.api
     }
