@@ -11,6 +11,7 @@
 <script lang="ts">
 import { Component, Prop, VModel, VueBase, Watch } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
+import { markRaw } from 'vue'
 import UiProgressBar from '@/components/common/feedback/UiProgressBar.vue'
 import { MonacoEditorDefaults } from '@/application/services/monacoEditor/constants/MonacoEditorDefaults'
 import { MonacoEditorService } from '@/application/services/monacoEditor/MonacoEditorService'
@@ -70,9 +71,14 @@ export default class MonacoEditor extends VueBase {
       return
     }
 
+    // Every class field here lands in the component's reactive state, and a model handed to
+    // monaco through a reactive proxy wraps a fresh proxy around each node of its piece tree
+    // as monaco walks it — the editor never finishes opening. Raw, or not at all.
     this.monaco = monaco
-    this.model = monaco.editor.createModel(this.text, MonacoEditorDefaults.language, monaco.Uri.parse(this.path))
-    this.editor = monaco.editor.create(host, {
+    this.model = markRaw(
+        monaco.editor.createModel(this.text, MonacoEditorDefaults.language, monaco.Uri.parse(this.path)),
+    )
+    this.editor = markRaw(monaco.editor.create(host, {
       ...MonacoEditorDefaults.options(),
       model: this.model,
       theme: this.editorService.themeName,
@@ -81,9 +87,9 @@ export default class MonacoEditor extends VueBase {
       fontFamily: this.editorService.fontFamily(),
       fontSize: this.fontSize ?? MonacoEditorDefaults.fontSize,
       lineHeight: MonacoEditorDefaults.lineHeight,
-    })
+    }))
 
-    this.decorations = this.editor.createDecorationsCollection([])
+    this.decorations = markRaw(this.editor.createDecorationsCollection([]))
     this.model.onDidChangeContent(() => this.publish())
 
     this.ready = true
