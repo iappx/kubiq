@@ -7,6 +7,7 @@ export class ClusterStatusCatalog {
         available: 'Available',
         unreachable: 'Unreachable',
         unsupported: 'Unsupported',
+        expired: 'Credentials expired',
     }
 
     public static title(status: TClusterStatus): string {
@@ -18,10 +19,10 @@ export class ClusterStatusCatalog {
     }
 
     public static isConnectable(status: TClusterStatus): boolean {
-        return status === 'available' || status === 'unreachable'
+        return status === 'available' || status === 'unreachable' || status === 'expired'
     }
 
     public static isProblematic(status: TClusterStatus): boolean {
-        return status === 'unreachable' || status === 'unsupported'
+        return status === 'unreachable' || status === 'unsupported' || status === 'expired'
     }
 }

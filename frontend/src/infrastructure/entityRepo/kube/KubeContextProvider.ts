@@ -4,6 +4,7 @@ import { KubeEntityContext } from '@/infrastructure/entityRepo/kube/KubeEntityCo
 import { KubeStreamTransport } from '@/infrastructure/entityRepo/kube/transport/KubeStreamTransport'
 import { KubeTransport } from '@/infrastructure/entityRepo/kube/transport/KubeTransport'
 import type { TKubeClusterConnection } from '@/infrastructure/entityRepo/kube/types/TKubeClusterConnection'
+import { KubeHealthMonitor } from '@/infrastructure/kube/KubeHealthMonitor'
 import { MetricsEntityContext } from '@/infrastructure/entityRepo/metrics/MetricsEntityContext'
 import { PrometheusEntityContext } from '@/infrastructure/entityRepo/metrics/PrometheusEntityContext'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
@@ -14,6 +15,7 @@ export class KubeContextProvider {
 
     constructor(
         @inject(WailsRuntimeService) private readonly runtime: WailsRuntimeService,
+        @inject(KubeHealthMonitor) private readonly monitor: KubeHealthMonitor,
     ) {}
 
     public context(clusterId: string, sessionId: string): KubeEntityContext {
@@ -42,10 +44,12 @@ export class KubeContextProvider {
 
     public release(clusterId: string): void {
         this.connections.delete(clusterId)
+        this.monitor.forget(clusterId)
     }
 
     public releaseAll(): void {
         this.connections.clear()
+        this.monitor.forgetAll()
     }
 
     protected connection(clusterId: string, sessionId: string): TKubeClusterConnection {
@@ -56,14 +60,14 @@ export class KubeContextProvider {
             return known
         }
 
-        const created = this.build(sessionId)
+        const created = this.build(clusterId, sessionId)
         this.connections.set(clusterId, created)
 
         return created
     }
 
-    protected build(sessionId: string): TKubeClusterConnection {
-        const transport = new KubeTransport(sessionId, this.runtime)
+    protected build(clusterId: string, sessionId: string): TKubeClusterConnection {
+        const transport = new KubeTransport(sessionId, this.runtime, this.monitor.probeFor(clusterId))
         // getContext() builds a new context on every call, so each one is built once here.
         const repo = EntityRepo.create()
             .use(KubeEntityContext, transport)

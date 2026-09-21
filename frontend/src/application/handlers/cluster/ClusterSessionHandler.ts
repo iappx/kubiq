@@ -3,6 +3,7 @@ import { KubeSchemaService } from '@/application/services/kubeSchema/KubeSchemaS
 import { ClusterDisconnectedEvent } from '@/domain/events/cluster/ClusterDisconnectedEvent'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
+import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
 import { ClusterMetricsStore } from '@/store/modules/clusterMetrics/ClusterMetricsStore'
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 import { ClusterOverviewStore } from '@/store/modules/clusterOverview/ClusterOverviewStore'
@@ -20,6 +21,7 @@ export class ClusterSessionHandler {
         @inject(EventBus) private readonly eventBus: EventBus,
         @inject(ClusterNamespaceStore) private readonly namespaceStore: ClusterNamespaceStore,
         @inject(ClusterDiscoveryStore) private readonly discoveryStore: ClusterDiscoveryStore,
+        @inject(ClusterHealthStore) private readonly healthStore: ClusterHealthStore,
         @inject(ClusterResourceStore) private readonly resourceStore: ClusterResourceStore,
         @inject(ClusterOverviewStore) private readonly overviewStore: ClusterOverviewStore,
         @inject(ResourceObjectStore) private readonly objectStore: ResourceObjectStore,
@@ -37,6 +39,7 @@ export class ClusterSessionHandler {
     private forget(clusterId: string): void {
         this.namespaceStore.forget(clusterId)
         this.discoveryStore.forget(clusterId)
+        this.healthStore.forget(clusterId)
         this.resourceStore.forget(clusterId)
         this.overviewStore.forget(clusterId)
         this.objectStore.forget(clusterId)

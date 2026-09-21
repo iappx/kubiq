@@ -141,6 +141,7 @@ import { ClusterCatalogColumns } from '@/components/cluster/ClusterCatalogColumn
 import { ClusterRowBuilder } from '@/components/cluster/ClusterRowBuilder'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
+import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 import type { TUiSelectOption } from '@/components/common/select/types/TUiSelectOption'
@@ -186,6 +187,7 @@ export default class ClustersPage extends VueBase {
   constructor(
       @inject(ClusterCatalogStore) public readonly catalogStore: ClusterCatalogStore,
       @inject(ClusterConnectionStore) public readonly connectionStore: ClusterConnectionStore,
+      @inject(ClusterHealthStore) public readonly healthStore: ClusterHealthStore,
       @inject(ClusterNamespaceStore) public readonly namespaceStore: ClusterNamespaceStore,
   ) {
     super()
@@ -202,6 +204,7 @@ export default class ClustersPage extends VueBase {
       pinned: this.catalogStore.pinned,
       connectingIds: this.connectionStore.connectingIds,
       failures: this.connectionStore.failures,
+      health: this.healthStore.health,
       activeClusterId: this.connectionStore.activeClusterId,
     })
   }

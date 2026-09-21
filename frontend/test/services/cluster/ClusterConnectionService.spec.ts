@@ -47,6 +47,8 @@ import { EnvironmentAdapter } from '@/infrastructure/env/EnvironmentAdapter'
 import { KubeSessionAdapter } from '@/infrastructure/kube/KubeSessionAdapter'
 import { KubeStreamRegistry } from '@/infrastructure/kube/KubeStreamRegistry'
 import { KubeVersionAdapter } from '@/infrastructure/kube/KubeVersionAdapter'
+import { EventBus } from '@/infrastructure/eventBus/EventBus'
+import { KubeHealthMonitor } from '@/infrastructure/kube/KubeHealthMonitor'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 import { MemoryFileTransport } from '../../support/MemoryFileTransport'
 import { KubeconfigFixtures } from '../../support/fixtures/KubeconfigFixtures'
@@ -102,7 +104,7 @@ describe('ClusterConnectionService', () => {
         transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
         transport.files.set(WORK_CONFIG, KubeconfigFixtures.secondary())
 
-        contexts = new KubeContextProvider(runtime)
+        contexts = new KubeContextProvider(runtime, new KubeHealthMonitor(new EventBus()))
         streams = new KubeStreamRegistry()
         service = new ClusterConnectionService(
             new KubeconfigService(

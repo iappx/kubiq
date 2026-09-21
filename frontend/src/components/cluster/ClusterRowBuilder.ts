@@ -2,6 +2,8 @@ import type { TClusterConnection } from '@/application/services/cluster/types/TC
 import type { TClusterContextInfo } from '@/application/services/cluster/types/TClusterContextInfo'
 import { ClusterStatusCatalog } from '@/domain/entities/catalog/ClusterStatusCatalog'
 import type { TClusterStatus } from '@/domain/entities/catalog/types/TClusterStatus'
+import { ClusterHealthCatalog } from '@/domain/models/kube'
+import type { TClusterHealth } from '@/domain/models/kube'
 import { KubeconfigAuthTypeCatalog } from '@/domain/entities/kubeconfig/KubeconfigAuthTypeCatalog'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 import type { TClusterRowInput } from '@/components/cluster/types/TClusterRowInput'
@@ -61,13 +63,25 @@ export class ClusterRowBuilder {
             return 'connecting'
         }
         if (connection) {
-            return 'connected'
+            return ClusterRowBuilder.ofHealth(ClusterRowBuilder.healthOf(context.name, input))
         }
         if (!context.isSupported) {
             return 'unsupported'
         }
 
         return input.failures[context.name] ? 'unreachable' : 'available'
+    }
+
+    private static ofHealth(health: TClusterHealth): TClusterStatus {
+        if (health === 'expired') {
+            return 'expired'
+        }
+
+        return health === 'unreachable' ? 'unreachable' : 'connected'
+    }
+
+    private static healthOf(clusterId: string, input: TClusterRowInput): TClusterHealth {
+        return input.health?.[clusterId] ?? 'healthy'
     }
 
     private static detailOf(
@@ -78,6 +92,9 @@ export class ClusterRowBuilder {
     ): string {
         if (status === 'unsupported') {
             return context.unsupportedReason
+        }
+        if (status === 'expired' || (status === 'unreachable' && connection)) {
+            return ClusterHealthCatalog.notice(ClusterRowBuilder.healthOf(context.name, input)).description
         }
         if (status === 'unreachable') {
             return input.failures[context.name] ?? ''

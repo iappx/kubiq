@@ -8,6 +8,7 @@ export class ClusterToneMap {
         available: 'unknown',
         unreachable: 'error',
         unsupported: 'warning',
+        expired: 'error',
     }
 
     public static of(status: TClusterStatus): TUiTone {

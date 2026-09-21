@@ -4,3 +4,4 @@ export type TClusterStatus =
     | 'available'
     | 'unreachable'
     | 'unsupported'
+    | 'expired'

@@ -16,9 +16,12 @@
 
       <namespace-scope
           :available="namespaceStore.availableOf(clusterId)"
+          :forbidden="namespaceStore.isForbidden(clusterId)"
           :selected="connectionStore.namespacesOf(clusterId)"
           @update:selected="setNamespaces"
       />
+
+      <cluster-health-pill :cluster-id="clusterId" @reconnect="reconnect" />
     </template>
 
     <div class="ml-auto flex items-center gap-2">
@@ -54,6 +57,7 @@ import { inject } from 'tsyringe'
 import { CircleHelp, Settings } from '@lucide/vue'
 import AppLogo from '@/components/app/AppLogo.vue'
 import AppThemeSwitcher from '@/components/app/AppThemeSwitcher.vue'
+import ClusterHealthPill from '@/components/clusterShell/ClusterHealthPill.vue'
 import ClusterSwitcher from '@/components/clusterShell/ClusterSwitcher.vue'
 import NamespaceScope from '@/components/clusterShell/NamespaceScope.vue'
 import PaletteTrigger from '@/components/clusterShell/PaletteTrigger.vue'
@@ -63,7 +67,16 @@ import { ClusterConnectionStore } from '@/store/modules/clusterConnection/Cluste
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 
 @Component({
-  components: { AppLogo, AppThemeSwitcher, CircleHelp, ClusterSwitcher, NamespaceScope, PaletteTrigger, Settings },
+  components: {
+    AppLogo,
+    AppThemeSwitcher,
+    CircleHelp,
+    ClusterHealthPill,
+    ClusterSwitcher,
+    NamespaceScope,
+    PaletteTrigger,
+    Settings,
+  },
 })
 export default class TopNav extends VueBase {
   constructor(
@@ -82,7 +95,7 @@ export default class TopNav extends VueBase {
   }
 
   public get settingsPath(): string {
-    return '/app/settings'
+    return ClusterRoutes.settings
   }
 
   public get onCluster(): boolean {
@@ -106,6 +119,10 @@ export default class TopNav extends VueBase {
 
   public setNamespaces(namespaces: string[]): void {
     void this.connectionStore.setNamespaces(this.clusterId, namespaces)
+  }
+
+  public reconnect(): void {
+    void this.connectionStore.connect(this.clusterId)
   }
 }
 </script>

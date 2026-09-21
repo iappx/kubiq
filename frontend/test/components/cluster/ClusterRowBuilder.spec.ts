@@ -4,6 +4,7 @@ import { ClusterToneMap } from '@/components/cluster/ClusterToneMap'
 import type { TClusterConnection } from '@/application/services/cluster/types/TClusterConnection'
 import type { TClusterContextInfo } from '@/application/services/cluster/types/TClusterContextInfo'
 import type { TClusterRowInput } from '@/components/cluster/types/TClusterRowInput'
+import { ClusterStatusCatalog } from '@/domain/entities/catalog/ClusterStatusCatalog'
 
 const context = (name: string, overrides: Partial<TClusterContextInfo> = {}): TClusterContextInfo => ({
     name,
@@ -102,6 +103,55 @@ describe('ClusterRowBuilder', () => {
             expect(row.status).toBe('connected')
             expect(row.canOpenChannel).toBe(false)
             expect(row.detail).toBe('Terminals need 1.30 or newer')
+        })
+
+        it('says the credentials expired on a session the cluster stopped accepting', () => {
+            const [row] = ClusterRowBuilder.build(input({
+                contexts: [context('prod')],
+                connections: [connection('prod')],
+                health: { prod: 'expired' },
+            }))
+
+            expect(row.status).toBe('expired')
+            expect(row.statusTitle).toBe('Credentials expired')
+            expect(row.detail).toContain('Reconnect')
+            expect(ClusterToneMap.of(row.status)).toBe('error')
+        })
+
+        it('says unreachable when an open session stopped answering', () => {
+            const [row] = ClusterRowBuilder.build(input({
+                contexts: [context('prod')],
+                connections: [connection('prod')],
+                health: { prod: 'unreachable' },
+            }))
+
+            expect(row.status).toBe('unreachable')
+            expect(row.detail).toContain('cannot reach the API server')
+        })
+
+        it('leaves a merely unstable cluster reading as connected', () => {
+            const [row] = ClusterRowBuilder.build(input({
+                contexts: [context('prod')],
+                connections: [connection('prod')],
+                health: { prod: 'degraded' },
+            }))
+
+            expect(row.status).toBe('connected')
+        })
+
+        it('keeps the health of one cluster off another', () => {
+            const rows = ClusterRowBuilder.build(input({
+                contexts: [context('prod'), context('staging')],
+                connections: [connection('prod'), connection('staging')],
+                health: { prod: 'expired' },
+            }))
+
+            expect(rows.map(row => row.status)).toEqual(['expired', 'connected'])
+        })
+
+        it('offers a reconnect for an expired session', () => {
+            expect(ClusterStatusCatalog.isConnectable('expired')).toBe(true)
+            expect(ClusterStatusCatalog.isProblematic('expired')).toBe(true)
         })
     })
 
