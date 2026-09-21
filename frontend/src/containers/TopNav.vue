@@ -34,6 +34,15 @@
         <circle-help :size="18" />
       </a>
 
+      <router-link
+          :to="settingsPath"
+          aria-label="Settings"
+          class="btn-icon"
+          title="Settings"
+      >
+        <settings :size="18" />
+      </router-link>
+
       <app-theme-switcher />
     </div>
   </header>
@@ -42,7 +51,7 @@
 <script lang="ts">
 import { Component, VueBase } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
-import { CircleHelp } from '@lucide/vue'
+import { CircleHelp, Settings } from '@lucide/vue'
 import AppLogo from '@/components/app/AppLogo.vue'
 import AppThemeSwitcher from '@/components/app/AppThemeSwitcher.vue'
 import ClusterSwitcher from '@/components/clusterShell/ClusterSwitcher.vue'
@@ -54,7 +63,7 @@ import { ClusterConnectionStore } from '@/store/modules/clusterConnection/Cluste
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 
 @Component({
-  components: { AppLogo, AppThemeSwitcher, CircleHelp, ClusterSwitcher, NamespaceScope, PaletteTrigger },
+  components: { AppLogo, AppThemeSwitcher, CircleHelp, ClusterSwitcher, NamespaceScope, PaletteTrigger, Settings },
 })
 export default class TopNav extends VueBase {
   constructor(
@@ -70,6 +79,10 @@ export default class TopNav extends VueBase {
 
   public get catalogPath(): string {
     return ClusterRoutes.catalog
+  }
+
+  public get settingsPath(): string {
+    return '/app/settings'
   }
 
   public get onCluster(): boolean {
