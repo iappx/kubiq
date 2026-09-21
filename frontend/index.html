@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <link href="/favicon.svg" rel="icon" type="image/svg+xml" />
+    <title>kubiq</title>
+    <meta content="Kubernetes cluster management console" name="description" />
+
+    <meta content="kubiq" property="og:title" />
+    <meta content="Kubernetes cluster management console" property="og:description" />
+    <meta content="website" property="og:type" />
+</head>
+
+<body>
+<!--
+  Static splash shown before the JS bundle boots. Colours mirror the
+  `--background` / `--primary` tokens from src/assets/styles/css/index.css —
+  keep them in sync when rebranding.
+-->
+<div
+        id="splash"
+        style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:hsl(0 0% 100%);transition:opacity 0.3s"
+>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:1.25rem">
+        <div style="width:3rem;height:3rem;border-radius:0.5rem;background:hsl(245 58% 51%);display:flex;align-items:center;justify-content:center">
+            <span style="font-weight:700;color:#fff;font-size:1.5rem;font-family:system-ui,sans-serif">K</span>
+        </div>
+        <span style="font-size:1.25rem;font-weight:600;letter-spacing:-0.025em;color:hsl(222 22% 14%);font-family:system-ui,sans-serif">kubiq</span>
+    </div>
+</div>
+<style>
+    .dark #splash {
+        background: hsl(222 18% 11%);
+    }
+
+    .dark #splash span:last-of-type {
+        color: hsl(220 14% 92%);
+    }
+</style>
+<div id="app"></div>
+<script src="/src/main.ts" type="module"></script>
+<script>
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            const s = document.getElementById('splash')
+            if (s) {
+                s.style.opacity = '0'
+                setTimeout(() => s.remove(), 300)
+            }
+        }, 300)
+    })
+</script>
+</body>
+</html>

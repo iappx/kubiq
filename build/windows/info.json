@@ -1,0 +1,15 @@
+{
+	"fixed": {
+		"file_version": "0.0.1"
+	},
+	"info": {
+		"0000": {
+			"ProductVersion": "0.0.1",
+			"CompanyName": "IAPPX",
+			"FileDescription": "Kubernetes cluster management console",
+			"LegalCopyright": "(c) 2026, IAPPX",
+			"ProductName": "kubiq",
+			"Comments": "Kubernetes cluster management console"
+		}
+	}
+}

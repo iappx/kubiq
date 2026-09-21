@@ -1,0 +1,448 @@
+@import 'tailwindcss' source(none);
+@import 'tw-animate-css';
+
+/* Automatic source detection walks up to the repository root, which would drag
+   the Go sources, the build assets and frontend/dist into the class scan — the
+   two paths below are the same set the v3 `content` array listed. */
+@source '../../../../index.html';
+@source '../../../**/*.{ts,tsx,vue}';
+
+/* The theme is a class on <html> set by ThemeAdapter, never the OS preference. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens.
+ *
+ * Everything visual is driven from here — components never hardcode colours.
+ * To rebrand a project you only need to change `--primary` / `--accent`
+ * (and optionally the neutral ramp) in both themes below.
+ */
+@layer base {
+  :root,
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 222 22% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 22% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 22% 14%;
+
+    --primary: 245 58% 51%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 96%;
+    --secondary-foreground: 222 20% 26%;
+
+    --muted: 220 16% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 190 85% 36%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 55% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 45%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 220 13% 89%;
+    --input: 220 13% 89%;
+    --ring: 245 58% 51%;
+
+    --radius: 0.5rem;
+
+    /* Named `elevation` rather than `shadow`: `--shadow-*` is Tailwind's own
+       theme namespace, and a token of that name here would collide with it. */
+    --elevation-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --elevation-md: 0 2px 8px rgba(16, 24, 40, 0.07);
+    --elevation-lg: 0 12px 32px rgba(16, 24, 40, 0.12);
+
+    --sidebar-background: 220 16% 98%;
+    --sidebar-foreground: 222 20% 30%;
+    --sidebar-primary: 245 58% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 16% 94%;
+    --sidebar-accent-foreground: 222 22% 18%;
+    --sidebar-border: 220 13% 89%;
+    --sidebar-ring: 245 58% 51%;
+  }
+
+  .dark {
+    --background: 222 18% 11%;
+    --foreground: 220 14% 92%;
+
+    --card: 222 16% 14%;
+    --card-foreground: 220 14% 92%;
+
+    --popover: 222 16% 14%;
+    --popover-foreground: 220 14% 92%;
+
+    --primary: 247 72% 70%;
+    --primary-foreground: 222 18% 11%;
+
+    --secondary: 222 14% 19%;
+    --secondary-foreground: 220 12% 82%;
+
+    --muted: 222 14% 19%;
+    --muted-foreground: 220 9% 60%;
+
+    --accent: 188 78% 52%;
+    --accent-foreground: 222 18% 11%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 50% 46%;
+    --success-foreground: 222 18% 11%;
+
+    --warning: 38 88% 56%;
+    --warning-foreground: 222 18% 11%;
+
+    --border: 222 12% 24%;
+    --input: 222 12% 24%;
+    --ring: 247 72% 70%;
+
+    --radius: 0.5rem;
+
+    --elevation-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --elevation-md: 0 2px 8px rgba(0, 0, 0, 0.45);
+    --elevation-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+
+    --sidebar-background: 222 17% 13%;
+    --sidebar-foreground: 220 12% 78%;
+    --sidebar-primary: 247 72% 70%;
+    --sidebar-primary-foreground: 222 18% 11%;
+    --sidebar-accent: 222 14% 18%;
+    --sidebar-accent-foreground: 220 14% 90%;
+    --sidebar-border: 222 12% 22%;
+    --sidebar-ring: 247 72% 70%;
+  }
+}
+
+/*
+ * Tokens → utility namespaces (bg-background, text-muted-foreground, …).
+ *
+ * `inline` is what makes the theme switch work: without it every utility would
+ * resolve to the theme variable itself, and the `.dark` overrides above — which
+ * change the raw tokens, not the theme variables — would never reach them.
+ */
+@theme inline {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+
+  --shadow-sm: var(--elevation-sm);
+  --shadow-md: var(--elevation-md);
+  --shadow-lg: var(--elevation-lg);
+}
+
+@theme {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-slide-in-left: slide-in-left 0.2s ease-out;
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slide-in-left {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--reka-accordion-content-height); }
+  }
+
+  @keyframes accordion-up {
+    from { height: var(--reka-accordion-content-height); }
+    to { height: 0; }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    /* Padding comes from a transparent border, so the thumb keeps clear of the
+       track edge without a second element. */
+    background: hsl(var(--border));
+    background-clip: content-box;
+    border: 2px solid transparent;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+    background-clip: content-box;
+  }
+}
+
+/*
+ * Component utilities.
+ *
+ * Flat surfaces: solid backgrounds, 1px borders, restrained shadows.
+ * Prefer these over ad-hoc Tailwind stacks so the look stays consistent.
+ */
+@layer components {
+  .surface {
+    @apply bg-card border border-border rounded-lg;
+    box-shadow: var(--elevation-sm);
+  }
+
+  .surface-raised {
+    @apply bg-popover border border-border rounded-lg;
+    box-shadow: var(--elevation-lg);
+  }
+
+  .ui-input {
+    @apply w-full bg-background border border-input rounded-md px-3 py-2 text-sm text-foreground;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .ui-input::placeholder {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .ui-input:focus {
+    outline: none;
+    border-color: hsl(var(--ring));
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.18);
+  }
+
+  .ui-input:disabled {
+    @apply bg-muted cursor-not-allowed opacity-70;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    border: 1px solid hsl(var(--primary));
+    transition: background-color 150ms ease, border-color 150ms ease;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: hsl(var(--primary) / 0.9);
+    border-color: hsl(var(--primary) / 0.9);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium;
+    background: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+    border: 1px solid hsl(var(--border));
+    transition: background-color 150ms ease;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: hsl(var(--muted));
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium text-muted-foreground;
+    background: transparent;
+    border: 1px solid transparent;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium;
+    background: hsl(var(--destructive));
+    color: hsl(var(--destructive-foreground));
+    border: 1px solid hsl(var(--destructive));
+    transition: background-color 150ms ease;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: hsl(var(--destructive) / 0.9);
+  }
+
+  .btn-icon {
+    @apply inline-flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .btn-icon:hover:not(:disabled) {
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+
+  .pill {
+    @apply inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium;
+    background: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .pill-active {
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    border-color: hsl(var(--primary) / 0.25);
+  }
+
+  .nav-link {
+    @apply flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .nav-link:hover {
+    background: hsl(var(--sidebar-accent));
+    color: hsl(var(--sidebar-accent-foreground));
+  }
+
+  .nav-link-active {
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+  }
+
+  .ui-tab {
+    @apply px-3 py-2 text-sm font-medium rounded-md text-muted-foreground;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .ui-tab:hover {
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+
+  .ui-tab-active {
+    color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.1);
+  }
+
+  .ui-row {
+    @apply px-4 py-3 border-b border-border;
+    transition: background-color 150ms ease;
+  }
+
+  .ui-row:last-child {
+    @apply border-b-0;
+  }
+
+  .ui-row:hover {
+    background: hsl(var(--muted) / 0.6);
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .shimmer {
+    background: linear-gradient(
+            90deg,
+            hsl(var(--muted)) 25%,
+            hsl(var(--muted-foreground) / 0.1) 50%,
+            hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+}
+
+/* Modal enter/leave — used by UiModal and ConfirmDialog */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 150ms ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-active .modal-panel,
+.modal-leave-active .modal-panel {
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+
+.modal-enter-from .modal-panel,
+.modal-leave-to .modal-panel {
+  opacity: 0;
+  transform: translateY(8px);
+}

@@ -1,0 +1,66 @@
+# ── Go ──────────────────────────────────────────────────────────────────────
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+.go-build/
+
+# ── Wails3 ──────────────────────────────────────────────────────────────────
+build/linux/appimage/build/
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+build/darwin/
+build/android/
+build/ios/
+
+# ── Frontend ─────────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+frontend/.playwright/
+
+# ── Node / package managers ──────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+.yarn/
+
+# ── Environment & secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── IDE / editors ────────────────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Task ─────────────────────────────────────────────────────────────────────
+.task/
+
+# ── Private registry credentials ─────────────────────────────────────────────
+.npmrc
+frontend/.npmrc
+
+# ── Runtime data written next to the binary ─────────────────────────────────
+data/
+
+# ── Local kanban board ───────────────────────────────────────────────────────
+.kanban/
+.omc/

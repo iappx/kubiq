@@ -1,0 +1,5 @@
+export { ConfigMapEntity } from '@/domain/entities/config/ConfigMapEntity'
+export { SecretEntity } from '@/domain/entities/config/SecretEntity'
+export { SecretFilters } from '@/domain/entities/config/SecretFilters'
+export { SecretTypeCatalog } from '@/domain/entities/config/SecretTypeCatalog'
+export type { TKubeDataMap } from '@/domain/entities/config/types/TKubeDataMap'

@@ -1,0 +1,8 @@
+export { ServiceAccountEntity } from '@/domain/entities/access/ServiceAccountEntity'
+export { RoleEntity } from '@/domain/entities/access/RoleEntity'
+export { RoleBindingEntity } from '@/domain/entities/access/RoleBindingEntity'
+export { ClusterRoleEntity } from '@/domain/entities/access/ClusterRoleEntity'
+export { ClusterRoleBindingEntity } from '@/domain/entities/access/ClusterRoleBindingEntity'
+export type { TPolicyRule } from '@/domain/entities/access/types/TPolicyRule'
+export type { TRoleRef } from '@/domain/entities/access/types/TRoleRef'
+export type { TRoleSubject } from '@/domain/entities/access/types/TRoleSubject'
