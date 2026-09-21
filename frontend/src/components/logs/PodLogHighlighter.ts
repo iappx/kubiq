@@ -1,3 +1,4 @@
+import { PodLogAnsi } from '@/components/logs/PodLogAnsi'
 import type { TPodLogSegment } from '@/components/logs/types/TPodLogSegment'
 
 export class PodLogHighlighter {
@@ -6,7 +7,10 @@ export class PodLogHighlighter {
             return true
         }
 
-        return PodLogHighlighter.haystack(text).includes(PodLogHighlighter.needle(text, query))
+        // Stripped first, or a search for "32" would match the colour code every line carries.
+        const plain = PodLogAnsi.strip(text)
+
+        return PodLogHighlighter.haystack(plain).includes(PodLogHighlighter.needle(plain, query))
     }
 
     public static count(lines: readonly string[], query: string): number {

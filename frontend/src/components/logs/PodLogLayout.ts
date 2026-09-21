@@ -1,13 +1,15 @@
+import { PodLogAnsi } from '@/components/logs/PodLogAnsi'
 import type { TPodLogWindow } from '@/components/logs/types/TPodLogWindow'
 
 export class PodLogLayout {
     // Only correct while the viewport is monospace: the row count is arithmetic, not a measurement.
     public static rowsOf(text: string, columns: number): number {
-        if (columns <= 0 || text.length <= columns) {
+        const width = PodLogAnsi.width(text)
+        if (columns <= 0 || width <= columns) {
             return 1
         }
 
-        return Math.ceil(text.length / columns)
+        return Math.ceil(width / columns)
     }
 
     public static offsets(lines: readonly string[], rowHeight: number, columns: number, wrap: boolean): number[] {

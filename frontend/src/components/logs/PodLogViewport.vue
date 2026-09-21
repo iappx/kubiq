@@ -52,6 +52,7 @@ import { inject } from 'tsyringe'
 import { ArrowDown } from '@lucide/vue'
 import { motion } from 'motion-v'
 import PodLogRow from '@/components/logs/PodLogRow.vue'
+import { PodLogAnsi } from '@/components/logs/PodLogAnsi'
 import { PodLogHighlighter } from '@/components/logs/PodLogHighlighter'
 import { PodLogLayout } from '@/components/logs/PodLogLayout'
 import { PodLogView } from '@/components/logs/constants/PodLogView'
@@ -291,8 +292,9 @@ export default class PodLogViewport extends VueBase {
 
     let longest = 0
     for (let index = 0; index < lines.length; index += 1) {
-      if (lines[index].length > longest) {
-        longest = lines[index].length
+      const width = PodLogAnsi.width(lines[index])
+      if (width > longest) {
+        longest = width
       }
     }
 

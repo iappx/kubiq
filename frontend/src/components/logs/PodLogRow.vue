@@ -1,21 +1,20 @@
 <template>
   <div :class="['pod-log-row', wrap ? 'pod-log-row-wrap' : '']" :style="{ minHeight: `${height}px`, lineHeight: `${height}px` }">
     <span v-if="prefix" class="pod-log-prefix">{{ prefix }}</span><span
-        v-for="(segment, index) in stampSegments"
-        :key="`s${index}`"
-        :class="segment.match ? 'pod-log-match' : 'pod-log-stamp'"
-    >{{ segment.text }}</span><span
-        v-for="(segment, index) in bodySegments"
-        :key="`b${index}`"
-        :class="segment.match ? 'pod-log-match' : ''"
-    >{{ segment.text }}</span>
+        v-for="(cell, index) in cells"
+        :key="index"
+        :class="classOf(cell)"
+        :style="styleOf(cell)"
+    >{{ cell.text }}</span>
   </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
+import { PodLogAnsi } from '@/components/logs/PodLogAnsi'
 import { PodLogHighlighter } from '@/components/logs/PodLogHighlighter'
-import type { TPodLogSegment } from '@/components/logs/types/TPodLogSegment'
+import type { TPodLogCell } from '@/components/logs/types/TPodLogCell'
+import type { TPodLogRun } from '@/components/logs/types/TPodLogRun'
 
 @Component({})
 export default class PodLogRow extends VueBase {
@@ -37,22 +36,76 @@ export default class PodLogRow extends VueBase {
   @Prop({ required: false, default: false })
   public readonly wrap?: boolean
 
-  public get stamp(): string {
-    if (!this.timestamps) {
-      return ''
+  public get cells(): TPodLogCell[] {
+    const runs = PodLogAnsi.runs(this.text)
+    const stamp = this.timestamps === true ? PodLogRow.stampOf(runs) : null
+    if (stamp === null) {
+      return runs.flatMap(run => this.expand(run, false))
     }
 
-    const separator = this.text.indexOf(' ')
-
-    return separator === -1 ? '' : this.text.slice(0, separator + 1)
+    return [
+      ...this.expand(stamp, true),
+      ...PodLogRow.afterStamp(runs, stamp.text.length).flatMap(run => this.expand(run, false)),
+    ]
   }
 
-  public get stampSegments(): TPodLogSegment[] {
-    return this.stamp === '' ? [] : PodLogHighlighter.segments(this.stamp, this.query ?? '')
+  public classOf(cell: TPodLogCell): string {
+    if (cell.match) {
+      return 'pod-log-match'
+    }
+
+    return cell.stamp ? 'pod-log-stamp' : ''
   }
 
-  public get bodySegments(): TPodLogSegment[] {
-    return PodLogHighlighter.segments(this.text.slice(this.stamp.length), this.query ?? '')
+  public styleOf(cell: TPodLogCell): Record<string, string> {
+    const style: Record<string, string> = {}
+
+    if (cell.style.color !== '') {
+      style.color = cell.style.color
+    }
+    if (cell.style.background !== '') {
+      style.backgroundColor = cell.style.background
+    }
+    if (cell.style.bold) {
+      style.fontWeight = '600'
+    }
+    if (cell.style.dim) {
+      style.opacity = '0.65'
+    }
+    if (cell.style.italic) {
+      style.fontStyle = 'italic'
+    }
+    if (cell.style.underline) {
+      style.textDecoration = 'underline'
+    }
+
+    return style
+  }
+
+  private expand(run: TPodLogRun, stamp: boolean): TPodLogCell[] {
+    return PodLogHighlighter
+        .segments(run.text, this.query ?? '')
+        .map(segment => ({ text: segment.text, match: segment.match, stamp, style: run.style }))
+  }
+
+  // The cluster writes the timestamp ahead of anything the container emits, so it always
+  // sits in the first run and ends at the first space in it.
+  private static stampOf(runs: readonly TPodLogRun[]): TPodLogRun | null {
+    const head = runs[0]
+    if (!head) {
+      return null
+    }
+
+    const at = head.text.indexOf(' ')
+
+    return at === -1 ? null : { text: head.text.slice(0, at + 1), style: head.style }
+  }
+
+  private static afterStamp(runs: readonly TPodLogRun[], length: number): TPodLogRun[] {
+    const head = runs[0]
+    const rest = runs.slice(1)
+
+    return head.text.length === length ? rest : [{ text: head.text.slice(length), style: head.style }, ...rest]
   }
 }
 </script>

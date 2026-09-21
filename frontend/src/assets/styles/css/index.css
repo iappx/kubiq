@@ -74,6 +74,25 @@
     --sidebar-accent-foreground: 200 20% 18%;
     --sidebar-border: 200 16% 88%;
     --sidebar-ring: 189 90% 29%;
+
+    /* The sixteen ANSI colours a container writes into its log. Not the xterm values:
+       those are picked for a black terminal, and half of them vanish on a white page. */
+    --ansi-black: 200 20% 13%;
+    --ansi-red: 0 72% 42%;
+    --ansi-green: 142 58% 28%;
+    --ansi-yellow: 38 96% 30%;
+    --ansi-blue: 218 80% 45%;
+    --ansi-magenta: 300 62% 42%;
+    --ansi-cyan: 189 90% 29%;
+    --ansi-white: 200 9% 46%;
+    --ansi-bright-black: 200 9% 46%;
+    --ansi-bright-red: 0 74% 50%;
+    --ansi-bright-green: 142 52% 34%;
+    --ansi-bright-yellow: 38 92% 38%;
+    --ansi-bright-blue: 218 80% 52%;
+    --ansi-bright-magenta: 300 60% 50%;
+    --ansi-bright-cyan: 189 80% 35%;
+    --ansi-bright-white: 200 20% 13%;
   }
 
   .dark {
@@ -125,6 +144,23 @@
     --sidebar-accent-foreground: 200 12% 90%;
     --sidebar-border: 200 12% 21%;
     --sidebar-ring: 187 72% 58%;
+
+    --ansi-black: 200 10% 38%;
+    --ansi-red: 0 72% 66%;
+    --ansi-green: 142 52% 55%;
+    --ansi-yellow: 38 88% 60%;
+    --ansi-blue: 213 82% 68%;
+    --ansi-magenta: 300 62% 72%;
+    --ansi-cyan: 187 72% 58%;
+    --ansi-white: 200 12% 85%;
+    --ansi-bright-black: 200 9% 55%;
+    --ansi-bright-red: 0 80% 74%;
+    --ansi-bright-green: 142 55% 64%;
+    --ansi-bright-yellow: 45 92% 68%;
+    --ansi-bright-blue: 213 90% 76%;
+    --ansi-bright-magenta: 300 70% 80%;
+    --ansi-bright-cyan: 187 78% 70%;
+    --ansi-bright-white: 0 0% 100%;
   }
 
   /* Motion and density carry no colour, so they are defined once rather than
