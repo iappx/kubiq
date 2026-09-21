@@ -23,9 +23,11 @@
         style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:hsl(0 0% 100%);transition:opacity 0.3s"
 >
     <div style="display:flex;flex-direction:column;align-items:center;gap:1.25rem">
-        <div style="width:3rem;height:3rem;border-radius:0.5rem;background:hsl(245 58% 51%);display:flex;align-items:center;justify-content:center">
-            <span style="font-weight:700;color:#fff;font-size:1.5rem;font-family:system-ui,sans-serif">K</span>
-        </div>
+        <svg style="width:3rem;height:3rem" viewBox="39 26 178 196" fill="hsl(245 58% 51%)" xmlns="http://www.w3.org/2000/svg">
+            <path d="M124.5 27.26A7 7 0 0 1 131.5 27.26L198.49 65.94A7 7 0 0 1 198.49 78.06L131.5 116.74A7 7 0 0 1 124.5 116.74L57.51 78.06A7 7 0 0 1 57.51 65.94Z"/>
+            <path d="M116.5 130.6A7 7 0 0 1 120 136.66L120 214.02A7 7 0 0 1 109.5 220.08L42.51 181.4A7 7 0 0 1 39.01 175.34L39.01 97.98A7 7 0 0 1 49.51 91.92Z"/>
+            <path d="M136 136.66A7 7 0 0 1 139.5 130.6L209.3 90.3A5.13 5.13 0 0 1 216.99 94.74L216.99 101.6A7 7 0 0 1 215.91 105.34L190.62 145.3A7 7 0 0 0 193.8 155.48L212.74 163.54A7 7 0 0 1 216.99 169.98L216.99 175.34A7 7 0 0 1 213.49 181.4L170.28 206.35A7 7 0 0 1 163.28 206.35L139.5 192.62A7 7 0 0 1 136 186.56Z"/>
+        </svg>
         <span style="font-size:1.25rem;font-weight:600;letter-spacing:-0.025em;color:hsl(222 22% 14%);font-family:system-ui,sans-serif">kubiq</span>
     </div>
 </div>
@@ -36,6 +38,10 @@
 
     .dark #splash span:last-of-type {
         color: hsl(220 14% 92%);
+    }
+
+    .dark #splash svg {
+        fill: hsl(247 72% 70%);
     }
 </style>
 <div id="app"></div>

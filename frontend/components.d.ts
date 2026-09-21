@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AppBreadcrumbs: typeof import('./src/components/app/breadcrumbs/AppBreadcrumbs.vue')['default']
+    AppIcon: typeof import('./src/components/app/AppIcon.vue')['default']
     AppLoading: typeof import('./src/components/app/AppLoading.vue')['default']
     AppLogo: typeof import('./src/components/app/AppLogo.vue')['default']
     AppModals: typeof import('./src/components/app/AppModals.vue')['default']
