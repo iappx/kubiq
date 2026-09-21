@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"iappx_k8s_admin/core/utils"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,8 +23,6 @@ const (
 type IoService struct{}
 
 func (a *IoService) WriteFile(path string, content string, options IOOptions) IOResult {
-	log.Printf("WriteFile [%s %s]: %s", options.Mode, options.Range, path)
-
 	fullPath, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -91,8 +88,6 @@ func (a *IoService) WriteFile(path string, content string, options IOOptions) IO
 }
 
 func (a *IoService) ReadFile(path string, options IOOptions) IOResult {
-	log.Printf("ReadFile [%s %s]: %s", options.Mode, options.Range, path)
-
 	fullPath, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -135,8 +130,6 @@ func (a *IoService) ReadFile(path string, options IOOptions) IOResult {
 }
 
 func (a *IoService) MoveFile(source string, target string) IOResult {
-	log.Printf("MoveFile: %s -> %s", source, target)
-
 	fullSource, err := utils.ResolvePath(source)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -159,8 +152,6 @@ func (a *IoService) MoveFile(source string, target string) IOResult {
 }
 
 func (a *IoService) RemoveFile(path string) IOResult {
-	log.Printf("RemoveFile: %s", path)
-
 	fullPath, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -174,8 +165,6 @@ func (a *IoService) RemoveFile(path string) IOResult {
 }
 
 func (a *IoService) CopyFile(src string, dst string) IOResult {
-	log.Printf("CopyFile: %s -> %s", src, dst)
-
 	srcPath, err := utils.ResolvePath(src)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -210,8 +199,6 @@ func (a *IoService) CopyFile(src string, dst string) IOResult {
 }
 
 func (a *IoService) MakeDir(path string) IOResult {
-	log.Printf("MakeDir: %s", path)
-
 	fullPath, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -225,8 +212,6 @@ func (a *IoService) MakeDir(path string) IOResult {
 }
 
 func (a *IoService) ReadDir(path string) IOResult {
-	log.Printf("ReadDir: %s", path)
-
 	fullPath, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -249,8 +234,6 @@ func (a *IoService) ReadDir(path string) IOResult {
 }
 
 func (a *IoService) OpenDir(path string) IOResult {
-	log.Printf("OpenDir: %s", path)
-
 	fullPath, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -265,8 +248,6 @@ func (a *IoService) OpenDir(path string) IOResult {
 }
 
 func (a *IoService) OpenURI(uri string) IOResult {
-	log.Printf("OpenURI: %s", uri)
-
 	err := browser.OpenURL(uri)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -276,8 +257,6 @@ func (a *IoService) OpenURI(uri string) IOResult {
 }
 
 func (a *IoService) AbsolutePath(path string) IOResult {
-	log.Printf("AbsolutePath: %s", path)
-
 	absPath, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -287,8 +266,6 @@ func (a *IoService) AbsolutePath(path string) IOResult {
 }
 
 func (a *IoService) UnzipZIPFile(path string, output string) IOResult {
-	log.Printf("UnzipZIPFile: %s -> %s", path, output)
-
 	fullPath, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -348,8 +325,6 @@ func (a *IoService) UnzipZIPFile(path string, output string) IOResult {
 }
 
 func (a *IoService) UnzipTarGZFile(path string, output string) IOResult {
-	log.Printf("UnzipTarGZFile: %s -> %s", path, output)
-
 	fullPath, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -417,8 +392,6 @@ func (a *IoService) UnzipTarGZFile(path string, output string) IOResult {
 }
 
 func (a *IoService) UnzipGZFile(path string, output string) IOResult {
-	log.Printf("UnzipGZFile: %s -> %s", path, output)
-
 	fullPath, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
@@ -455,8 +428,6 @@ func (a *IoService) UnzipGZFile(path string, output string) IOResult {
 }
 
 func (a *IoService) FileExists(path string) IOResult {
-	log.Printf("FileExists: %s", path)
-
 	path, err := utils.ResolvePath(path)
 	if err != nil {
 		return IOResult{false, err.Error()}
