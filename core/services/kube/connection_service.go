@@ -1,6 +1,10 @@
 package kube
 
-import "time"
+import (
+	"time"
+
+	"iappx_k8s_admin/core/services/journal"
+)
 
 type ConnectionService struct {
 	registry *SessionRegistry
@@ -16,10 +20,24 @@ func NewConnectionService(registry *SessionRegistry) *ConnectionService {
 func (s *ConnectionService) Connect(spec ConnectionSpec) ConnectResult {
 	session, err := newSession(spec)
 	if err != nil {
+		journal.Record(journal.Entry{
+			Level:     journal.LevelError,
+			Component: journalComponent,
+			Event:     "connection.rejected",
+			Message:   err.Error(),
+		})
 		return ConnectResult{Error: err.Error()}
 	}
 
 	s.registry.Add(session)
+
+	journal.Record(journal.Entry{
+		Level:     journal.LevelInfo,
+		Component: journalComponent,
+		Event:     "connection.open",
+		Session:   session.ID,
+		Path:      session.BaseURL.Redacted(),
+	})
 
 	return ConnectResult{Success: true, SessionId: session.ID}
 }
@@ -30,6 +48,13 @@ func (s *ConnectionService) Disconnect(id string) KubeResult {
 	}
 
 	s.registry.Remove(id)
+
+	journal.Record(journal.Entry{
+		Level:     journal.LevelInfo,
+		Component: journalComponent,
+		Event:     "connection.close",
+		Session:   id,
+	})
 
 	return KubeResult{Success: true}
 }

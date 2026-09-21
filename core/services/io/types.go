@@ -1,8 +1,8 @@
 package io
 
 type IOOptions struct {
-	Mode  string // Binary / Text
-	Range string // "start-end" / "start-" / "-end"
+	Mode  string
+	Range string
 }
 
 type IOResult struct {

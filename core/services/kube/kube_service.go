@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"iappx_k8s_admin/core/services/journal"
 )
 
 type KubeService struct {
@@ -30,12 +32,14 @@ func NewKubeService(registry *SessionRegistry) *KubeService {
 }
 
 func (s *KubeService) Send(request Request) (response Response) {
-	// A panic inside a bound method takes the whole application down, so the
-	// entry point turns one into an ordinary failed result.
+	started := time.Now()
+
+	// An unrecovered panic in a bound method takes the whole application down.
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			response = Response{Error: fmt.Sprintf("request failed: %v", recovered)}
 		}
+		recordRequest(request, response, started)
 	}()
 
 	session, found := s.registry.Get(request.SessionId)
@@ -77,6 +81,25 @@ func (s *KubeService) Send(request Request) (response Response) {
 		Headers: flattenHeader(incoming.Header),
 		Body:    string(body),
 	}
+}
+
+func recordRequest(request Request, response Response, started time.Time) {
+	level := journal.LevelInfo
+	if response.Error != "" || response.Status >= 400 {
+		level = journal.LevelError
+	}
+
+	journal.Record(journal.Entry{
+		Level:     level,
+		Component: journalComponent,
+		Event:     "request",
+		Method:    request.Method,
+		Path:      request.Path,
+		Status:    response.Status,
+		Session:   request.SessionId,
+		Duration:  time.Since(started).Milliseconds(),
+		Message:   response.Error,
+	})
 }
 
 func buildRequest(

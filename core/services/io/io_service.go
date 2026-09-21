@@ -26,14 +26,16 @@ type IoService struct{}
 func (a *IoService) WriteFile(path string, content string, options IOOptions) IOResult {
 	log.Printf("WriteFile [%s %s]: %s", options.Mode, options.Range, path)
 
-	fullPath := utils.GetPath(path)
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	if err := os.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
 		return IOResult{false, err.Error()}
 	}
 
 	var data []byte
-	var err error
 
 	switch options.Mode {
 	case Text:
@@ -91,7 +93,10 @@ func (a *IoService) WriteFile(path string, content string, options IOOptions) IO
 func (a *IoService) ReadFile(path string, options IOOptions) IOResult {
 	log.Printf("ReadFile [%s %s]: %s", options.Mode, options.Range, path)
 
-	fullPath := utils.GetPath(path)
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	file, err := os.Open(fullPath)
 	if err != nil {
@@ -132,8 +137,15 @@ func (a *IoService) ReadFile(path string, options IOOptions) IOResult {
 func (a *IoService) MoveFile(source string, target string) IOResult {
 	log.Printf("MoveFile: %s -> %s", source, target)
 
-	fullSource := utils.GetPath(source)
-	fullTarget := utils.GetPath(target)
+	fullSource, err := utils.ResolvePath(source)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
+
+	fullTarget, err := utils.ResolvePath(target)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	if err := os.MkdirAll(filepath.Dir(fullTarget), os.ModePerm); err != nil {
 		return IOResult{false, err.Error()}
@@ -149,7 +161,10 @@ func (a *IoService) MoveFile(source string, target string) IOResult {
 func (a *IoService) RemoveFile(path string) IOResult {
 	log.Printf("RemoveFile: %s", path)
 
-	fullPath := utils.GetPath(path)
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	if err := os.RemoveAll(fullPath); err != nil {
 		return IOResult{false, err.Error()}
@@ -161,8 +176,15 @@ func (a *IoService) RemoveFile(path string) IOResult {
 func (a *IoService) CopyFile(src string, dst string) IOResult {
 	log.Printf("CopyFile: %s -> %s", src, dst)
 
-	srcPath := utils.GetPath(src)
-	dstPath := utils.GetPath(dst)
+	srcPath, err := utils.ResolvePath(src)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
+
+	dstPath, err := utils.ResolvePath(dst)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
@@ -190,7 +212,10 @@ func (a *IoService) CopyFile(src string, dst string) IOResult {
 func (a *IoService) MakeDir(path string) IOResult {
 	log.Printf("MakeDir: %s", path)
 
-	fullPath := utils.GetPath(path)
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	if err := os.MkdirAll(fullPath, os.ModePerm); err != nil {
 		return IOResult{false, err.Error()}
@@ -202,7 +227,10 @@ func (a *IoService) MakeDir(path string) IOResult {
 func (a *IoService) ReadDir(path string) IOResult {
 	log.Printf("ReadDir: %s", path)
 
-	fullPath := utils.GetPath(path)
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	files, err := os.ReadDir(fullPath)
 	if err != nil {
@@ -223,9 +251,12 @@ func (a *IoService) ReadDir(path string) IOResult {
 func (a *IoService) OpenDir(path string) IOResult {
 	log.Printf("OpenDir: %s", path)
 
-	fullPath := utils.GetPath(path)
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
-	err := browser.OpenURL(fullPath)
+	err = browser.OpenURL(fullPath)
 	if err != nil {
 		return IOResult{false, err.Error()}
 	}
@@ -247,7 +278,10 @@ func (a *IoService) OpenURI(uri string) IOResult {
 func (a *IoService) AbsolutePath(path string) IOResult {
 	log.Printf("AbsolutePath: %s", path)
 
-	absPath := utils.GetPath(path)
+	absPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	return IOResult{true, absPath}
 }
@@ -255,8 +289,15 @@ func (a *IoService) AbsolutePath(path string) IOResult {
 func (a *IoService) UnzipZIPFile(path string, output string) IOResult {
 	log.Printf("UnzipZIPFile: %s -> %s", path, output)
 
-	fullPath := utils.GetPath(path)
-	outputPath := utils.GetPath(output)
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
+
+	outputPath, err := utils.ResolvePath(output)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	archive, err := zip.OpenReader(fullPath)
 	if err != nil {
@@ -309,8 +350,15 @@ func (a *IoService) UnzipZIPFile(path string, output string) IOResult {
 func (a *IoService) UnzipTarGZFile(path string, output string) IOResult {
 	log.Printf("UnzipTarGZFile: %s -> %s", path, output)
 
-	fullPath := utils.GetPath(path)
-	outputPath := utils.GetPath(output)
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
+
+	outputPath, err := utils.ResolvePath(output)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	gzipFile, err := os.Open(fullPath)
 	if err != nil {
@@ -371,8 +419,15 @@ func (a *IoService) UnzipTarGZFile(path string, output string) IOResult {
 func (a *IoService) UnzipGZFile(path string, output string) IOResult {
 	log.Printf("UnzipGZFile: %s -> %s", path, output)
 
-	fullPath := utils.GetPath(path)
-	outputPath := utils.GetPath(output)
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
+
+	outputPath, err := utils.ResolvePath(output)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
 	gzipFile, err := os.Open(fullPath)
 	if err != nil {
@@ -402,9 +457,12 @@ func (a *IoService) UnzipGZFile(path string, output string) IOResult {
 func (a *IoService) FileExists(path string) IOResult {
 	log.Printf("FileExists: %s", path)
 
-	path = utils.GetPath(path)
+	path, err := utils.ResolvePath(path)
+	if err != nil {
+		return IOResult{false, err.Error()}
+	}
 
-	_, err := os.Stat(path)
+	_, err = os.Stat(path)
 	if err == nil {
 		return IOResult{true, "true"}
 	}

@@ -1,5 +1,7 @@
 package kube
 
+const journalComponent = "kube"
+
 const (
 	EventStreamChunk = "kube:stream:chunk"
 	EventStreamError = "kube:stream:error"

@@ -8,23 +8,39 @@ import (
 	"strings"
 )
 
-// GetPath resolves path against the executable's directory when it is relative,
-// so a packaged app reads and writes next to its own binary rather than next to
-// whatever the current working directory happens to be.
 func GetPath(path string) string {
-	if !filepath.IsAbs(path) {
-		exePath, err := os.Executable()
-		if err != nil {
-			panic(err)
-		}
-		path = filepath.Join(filepath.Dir(exePath), path)
+	resolved, err := ResolvePath(path)
+	if err != nil {
+		panic(err)
 	}
+	return resolved
+}
+
+func ResolvePath(path string) (string, error) {
+	if rest, found := strings.CutPrefix(path, UserDataScheme); found {
+		root, err := UserDataDir()
+		if err != nil {
+			return "", err
+		}
+		return clean(filepath.Join(root, filepath.FromSlash(rest))), nil
+	}
+
+	if filepath.IsAbs(path) {
+		return clean(path), nil
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+
+	return clean(filepath.Join(filepath.Dir(exePath), path)), nil
+}
+
+func clean(path string) string {
 	return filepath.ToSlash(filepath.Clean(path))
 }
 
-// ParseRange parses an HTTP-style byte range ("bytes=100-200", "100-", "-200")
-// against a known size and returns the inclusive start/end offsets. An empty
-// string means the whole file.
 func ParseRange(s string, size int64) (start int64, end int64, err error) {
 	if s == "" {
 		return 0, size - 1, nil
@@ -41,7 +57,6 @@ func ParseRange(s string, size int64) (start int64, end int64, err error) {
 	startStr := strings.TrimSpace(parts[0])
 	endStr := strings.TrimSpace(parts[1])
 
-	// "-200" — last 200 bytes
 	if startStr == "" && endStr != "" {
 		e, err2 := strconv.ParseInt(endStr, 10, 64)
 		if err2 != nil || e < 0 {
@@ -56,7 +71,6 @@ func ParseRange(s string, size int64) (start int64, end int64, err error) {
 		return start, end, nil
 	}
 
-	// "100-" — from start to EOF
 	if startStr != "" && endStr == "" {
 		start, err = strconv.ParseInt(startStr, 10, 64)
 		if err != nil || start < 0 {
@@ -66,7 +80,6 @@ func ParseRange(s string, size int64) (start int64, end int64, err error) {
 		return start, end, nil
 	}
 
-	// "100-200"
 	if startStr != "" && endStr != "" {
 		start, err = strconv.ParseInt(startStr, 10, 64)
 		if err != nil || start < 0 {

@@ -9,10 +9,6 @@ export class ProcessInfo {
     "id": string;
     "command": string;
     "pty": boolean;
-
-    /**
-     * RFC 3339.
-     */
     "startedAt": string;
     "running": boolean;
 

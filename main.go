@@ -8,38 +8,34 @@ import (
 	"iappx_k8s_admin/core/services/channel"
 	"iappx_k8s_admin/core/services/env"
 	"iappx_k8s_admin/core/services/io"
+	"iappx_k8s_admin/core/services/journal"
 	"iappx_k8s_admin/core/services/kube"
 	"iappx_k8s_admin/core/services/process"
+	"iappx_k8s_admin/core/services/storage"
 	"iappx_k8s_admin/core/tray"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// The frontend build output is embedded into the binary, so a release build is a
-// single self-contained executable. See https://pkg.go.dev/embed.
-//
 //go:embed all:frontend/dist
 var assets embed.FS
 
-// trayIcon is the icon shown in the system tray when the app is minimised to it.
-//
 //go:embed build/appicon.png
 var trayIcon []byte
 
 const (
-	appName        = "kubiq"
-	appDescription = "Kubernetes cluster management console"
-	windowWidth    = 1280
-	windowHeight   = 800
-	minWindowWidth = 960
+	appName         = "kubiq"
+	appDescription  = "Kubernetes cluster management console"
+	windowWidth     = 1280
+	windowHeight    = 800
+	minWindowWidth  = 960
 	minWindowHeight = 600
 )
 
 func main() {
-	// Services listed here are bound into the frontend: every exported method
-	// becomes a typed TS function under frontend/bindings after
-	// `wails3 generate bindings`. Add your own services alongside IoService.
 	kubeSessions := kube.NewSessionRegistry()
+	userData := openUserData()
+	appJournal := openJournal(userData)
 
 	app := application.New(application.Options{
 		Name:        appName,
@@ -49,6 +45,8 @@ func main() {
 		Services: []application.Service{
 			application.NewService(&io.IoService{}),
 			application.NewService(&env.EnvService{}),
+			application.NewService(storage.NewStorageService(userData)),
+			application.NewService(journal.NewJournalService(appJournal)),
 			application.NewService(kube.NewConnectionService(kubeSessions)),
 			application.NewService(kube.NewKubeService(kubeSessions)),
 			application.NewService(channel.NewChannelService(kubeSessions)),
@@ -77,12 +75,40 @@ func main() {
 		URL:              "/",
 	})
 
-	// Keep the app resident in the system tray: closing the window hides it
-	// instead of terminating the process. Quit from the tray menu to exit.
-	// Drop this line if the app should quit when its window is closed.
 	tray.New(app, window, appName, trayIcon).Setup()
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func openUserData() *storage.Storage {
+	userData, err := storage.Open()
+	if err != nil {
+		log.Printf("user data directory is unavailable: %v", err)
+		return nil
+	}
+
+	if err := userData.Migrate(); err != nil {
+		log.Printf("user data migration failed: %v", err)
+	}
+
+	return userData
+}
+
+func openJournal(userData *storage.Storage) *journal.Journal {
+	if userData == nil {
+		return nil
+	}
+
+	appJournal, err := journal.Open(journal.Options{Dir: userData.LogsDir()})
+	if err != nil {
+		log.Printf("application journal is unavailable: %v", err)
+		return nil
+	}
+
+	journal.SetDefault(appJournal)
+	journal.Record(journal.Entry{Level: journal.LevelInfo, Component: "app", Event: "start"})
+
+	return appJournal
 }

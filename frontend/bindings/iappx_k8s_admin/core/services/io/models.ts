@@ -6,14 +6,7 @@
 import { Create as $Create } from "@wailsio/runtime";
 
 export class IOOptions {
-    /**
-     * Binary / Text
-     */
     "Mode": string;
-
-    /**
-     * "start-end" / "start-" / "-end"
-     */
     "Range": string;
 
     /** Creates a new IOOptions instance. */
