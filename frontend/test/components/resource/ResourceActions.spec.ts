@@ -15,6 +15,18 @@ describe('ResourceActions', () => {
         expect(keys('apps', 'deployments')).not.toContain(ResourceActions.logsKey)
     })
 
+    it('offers a shell on pods and on nothing else', () => {
+        expect(keys('', 'pods')).toContain(ResourceActions.shellKey)
+        expect(keys('', 'services')).not.toContain(ResourceActions.shellKey)
+        expect(keys('apps', 'deployments')).not.toContain(ResourceActions.shellKey)
+    })
+
+    it('offers a port forward on pods and services', () => {
+        expect(keys('', 'pods')).toContain(ResourceActions.forwardKey)
+        expect(keys('', 'services')).toContain(ResourceActions.forwardKey)
+        expect(keys('apps', 'deployments')).not.toContain(ResourceActions.forwardKey)
+    })
+
     it('offers scale and restart on a deployment', () => {
         expect(keys('apps', 'deployments')).toEqual([
             ResourceActions.openKey,
@@ -33,6 +45,25 @@ describe('ResourceActions', () => {
 
     it('offers a manual run on a cron job', () => {
         expect(keys('batch', 'cronjobs')).toContain(ResourceActions.triggerKey)
+    })
+
+    it('offers cordon, uncordon and drain on a node and on nothing else', () => {
+        const items = keys('', 'nodes')
+
+        expect(items).toContain(ResourceActions.cordonKey)
+        expect(items).toContain(ResourceActions.uncordonKey)
+        expect(items).toContain(ResourceActions.drainKey)
+        expect(keys('', 'pods')).not.toContain(ResourceActions.cordonKey)
+        expect(keys('', 'namespaces')).not.toContain(ResourceActions.drainKey)
+    })
+
+    it('drops the node actions when the cluster refuses to patch a node', () => {
+        const readOnly = kind('', 'nodes').withDefinition({ verbs: ['list', 'get', 'watch', 'delete'] })
+        const items = ResourceActions.of(readOnly).map(item => item.key)
+
+        expect(items).not.toContain(ResourceActions.cordonKey)
+        expect(items).not.toContain(ResourceActions.drainKey)
+        expect(items).toContain(ResourceActions.deleteKey)
     })
 
     it('keeps delete last, marked dangerous and set apart', () => {

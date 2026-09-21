@@ -5,6 +5,7 @@
   >
     <nav class="flex-1 min-h-0 overflow-y-auto py-2 px-2 space-y-3">
       <sidebar-overview-link :cluster-id="clusterId" :collapsed="collapsed" />
+      <sidebar-helm-link :cluster-id="clusterId" :collapsed="collapsed" />
 
       <ui-deferred-loader :loading="loading">
         <template #loading>
@@ -47,6 +48,7 @@
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
+import SidebarHelmLink from '@/components/clusterShell/SidebarHelmLink.vue'
 import SidebarOverviewLink from '@/components/clusterShell/SidebarOverviewLink.vue'
 import SidebarSection from '@/components/clusterShell/SidebarSection.vue'
 import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
@@ -54,7 +56,7 @@ import type { TClusterSection } from '@/components/clusterShell/types/TClusterSe
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 
 @Component({
-  components: { ChevronLeft, ChevronRight, SidebarOverviewLink, SidebarSection, UiDeferredLoader },
+  components: { ChevronLeft, ChevronRight, SidebarHelmLink, SidebarOverviewLink, SidebarSection, UiDeferredLoader },
 })
 export default class Sidebar extends VueBase {
   @Prop({ required: true })

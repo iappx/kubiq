@@ -29,6 +29,13 @@ describe('KubeWorkloadCatalog', () => {
         expect(KubeWorkloadCatalog.canTrigger(kind('batch', 'jobs'))).toBe(false)
     })
 
+    it('forwards a port to what listens on one', () => {
+        expect(KubeWorkloadCatalog.canForwardPort(kind('', 'pods'))).toBe(true)
+        expect(KubeWorkloadCatalog.canForwardPort(kind('', 'services'))).toBe(true)
+        expect(KubeWorkloadCatalog.canForwardPort(kind('apps', 'deployments'))).toBe(false)
+        expect(KubeWorkloadCatalog.canForwardPort(kind('', 'nodes'))).toBe(false)
+    })
+
     it('offers nothing the cluster does not let the user patch', () => {
         const readOnly = kind('apps', 'deployments').withDefinition({ verbs: ['list', 'get', 'watch'] })
 

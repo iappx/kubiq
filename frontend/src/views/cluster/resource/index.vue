@@ -27,6 +27,17 @@
 
         <template #actions>
           <button
+              v-if="canCreateNamespace"
+              aria-label="Create a namespace"
+              class="btn-icon w-7 h-7"
+              title="Create a namespace"
+              type="button"
+              @click="creatingNamespace = true"
+          >
+            <circle-plus :size="14" />
+          </button>
+
+          <button
               v-if="canCreate"
               aria-label="Create a resource from YAML"
               class="btn-icon w-7 h-7"
@@ -49,6 +60,12 @@
           </button>
         </template>
       </ui-table-toolbar>
+
+      <event-scope-bar
+          v-if="isEventList"
+          :scope="eventScope"
+          @update:scope="setEventScope"
+      />
 
       <ui-error-state
           v-if="state.forbidden"
@@ -74,7 +91,7 @@
       <resource-table
           v-else
           :actions="actions"
-          :busy-keys="state.busyKeys"
+          :busy-keys="busyKeys"
           :columns="columns"
           :cursor="cursor"
           :density="uiStore.density"
@@ -118,6 +135,8 @@
         :width="uiStore.panelWidth"
         @close="uiStore.closeDetail()"
         @delete="askDelete(selectedRow)"
+        @forward="openPortForward(selectedRow)"
+        @shell="openShell(selectedRow)"
         @update:active-tab="detailTab = $event"
         @update:width="uiStore.setPanelWidth($event)"
     >
@@ -160,6 +179,21 @@
         @cancel="pendingScale = null"
         @confirm="confirmScale"
     />
+
+    <drain-node-dialog
+        :busy="acting"
+        :open="!!pendingDrain"
+        :row="pendingDrain"
+        @cancel="pendingDrain = null"
+        @confirm="confirmDrain"
+    />
+
+    <create-namespace-dialog
+        :busy="namespaceStore.creating"
+        :open="creatingNamespace"
+        @cancel="creatingNamespace = false"
+        @confirm="confirmCreateNamespace"
+    />
   </div>
 </template>
 
@@ -167,11 +201,14 @@
 import { Component, VueBase, Watch } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
 import type { RepoEntityBase } from '@iappx/entity-repo'
-import { FilePlus2, Inbox, RefreshCw, Search } from '@lucide/vue'
+import { CirclePlus, FilePlus2, Inbox, RefreshCw, Search } from '@lucide/vue'
 import type { Component as VueComponent } from 'vue'
+import CreateNamespaceDialog from '@/components/resource/CreateNamespaceDialog.vue'
 import CreateResourcePanel from '@/components/resource/CreateResourcePanel.vue'
 import DeleteResourceDialog from '@/components/resource/DeleteResourceDialog.vue'
+import DrainNodeDialog from '@/components/resource/DrainNodeDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import EventScopeBar from '@/components/resource/EventScopeBar.vue'
 import ResourceDetailBody from '@/components/resource/detail/ResourceDetailBody.vue'
 import ResourceDetailPanel from '@/components/resource/ResourceDetailPanel.vue'
 import ResourceTable from '@/components/resource/ResourceTable.vue'
@@ -199,20 +236,32 @@ import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 import type { TResourceListRequest } from '@/application/services/resourceList/types/TResourceListRequest'
 import type { TWorkloadTarget } from '@/application/services/workloadAction/types/TWorkloadTarget'
 import { OpenPodLogsEvent } from '@/domain/events/cluster/OpenPodLogsEvent'
-import { KubeResourceRegistry } from '@/domain/models/kube'
+import { OpenPodShellEvent } from '@/domain/events/terminal/OpenPodShellEvent'
+import { OpenPortForwardEvent } from '@/domain/events/terminal/OpenPortForwardEvent'
+import { EventScopeService } from '@/application/services/eventScope/EventScopeService'
+import type { TNodeTarget } from '@/application/services/node/types/TNodeTarget'
+import type { TEventScope } from '@/domain/entities/cluster'
+import { KubeClusterCatalog, KubeKindLocator, KubeResourceRegistry } from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
 import { ClusterResourceStore } from '@/store/modules/clusterResource/ClusterResourceStore'
+import { CustomResourceKindStore } from '@/store/modules/customResourceKind/CustomResourceKindStore'
+import { NamespaceStore } from '@/store/modules/namespace/NamespaceStore'
+import { NodeStore } from '@/store/modules/node/NodeStore'
 import type { TResourceListState } from '@/store/modules/clusterResource/types/TResourceListState'
 
 @Component({
   components: {
+    CirclePlus,
+    CreateNamespaceDialog,
     CreateResourcePanel,
     DeleteResourceDialog,
+    DrainNodeDialog,
     EmptyState,
+    EventScopeBar,
     FilePlus2,
     RefreshCw,
     ResourceDetailBody,
@@ -243,9 +292,17 @@ export default class ResourcePage extends VueBase {
 
   public pendingScale: TResourceRow | null = null
 
+  public pendingDrain: TResourceRow | null = null
+
   public acting = false
 
   public creating = false
+
+  public creatingNamespace = false
+
+  public eventScope: TEventScope = { type: '', objectKind: '', objectName: '' }
+
+  public fieldSelector = ''
 
   public detailTab: string = DetailTabs.overviewKey
 
@@ -258,7 +315,11 @@ export default class ResourcePage extends VueBase {
       @inject(ClusterConnectionStore) public readonly connectionStore: ClusterConnectionStore,
       @inject(ClusterDiscoveryStore) public readonly discoveryStore: ClusterDiscoveryStore,
       @inject(ClusterResourceStore) public readonly resourceStore: ClusterResourceStore,
+      @inject(CustomResourceKindStore) public readonly customKindStore: CustomResourceKindStore,
+      @inject(NamespaceStore) public readonly namespaceStore: NamespaceStore,
+      @inject(NodeStore) public readonly nodeStore: NodeStore,
       @inject(ResourceObjectStore) public readonly objectStore: ResourceObjectStore,
+      @inject(EventScopeService) private readonly eventScopeService: EventScopeService,
       @inject(EventBus) private readonly eventBus: EventBus,
   ) {
     super()
@@ -277,9 +338,11 @@ export default class ResourcePage extends VueBase {
   }
 
   public get kind(): KubeResourceKind | null {
-    return this.discoveryStore.findBySlug(this.clusterId, this.slug)
+    const served = this.discoveryStore.findBySlug(this.clusterId, this.slug)
         ?? KubeResourceRegistry.findBySlug(this.slug)
         ?? null
+
+    return this.customKindStore.kindOf(this.clusterId, served)
   }
 
   // Discovery may replace the registry entry with a different API version, so reloads key off the kind, not the slug.
@@ -297,6 +360,22 @@ export default class ResourcePage extends VueBase {
 
   public get columns(): TUiTableColumn[] {
     return ResourceColumns.map(this.kind?.columns ?? [])
+  }
+
+  public get columnSignature(): string {
+    return this.columns.map(column => column.key).join('|')
+  }
+
+  public get busyKeys(): string[] {
+    return [...this.state.busyKeys, ...this.nodeStore.busyRowKeys(this.clusterId)]
+  }
+
+  public get isEventList(): boolean {
+    return this.kind !== null && KubeClusterCatalog.isEvent(this.kind)
+  }
+
+  public get canCreateNamespace(): boolean {
+    return this.canCreate && this.kind !== null && KubeClusterCatalog.isNamespace(this.kind) && this.kind.canCreate
   }
 
   public get allRows(): TResourceRow[] {
@@ -402,6 +481,7 @@ export default class ResourcePage extends VueBase {
 
   async created(): Promise<void> {
     this.resetView()
+    await this.resolveCustomColumns()
     await this.reload()
   }
 
@@ -416,8 +496,13 @@ export default class ResourcePage extends VueBase {
 
   @Watch('kindKey')
   async kindChanged(): Promise<void> {
-    this.hiddenKeys = ResourceColumns.defaultHidden(this.columns)
+    await this.resolveCustomColumns()
     await this.reload()
+  }
+
+  @Watch('columnSignature')
+  columnsChanged(): void {
+    this.hiddenKeys = ResourceColumns.defaultHidden(this.columns)
   }
 
   @Watch('namespaces')
@@ -440,6 +525,18 @@ export default class ResourcePage extends VueBase {
 
   public clearFilter(): void {
     void this.setFilter('')
+  }
+
+  public async setEventScope(scope: TEventScope): Promise<void> {
+    const kind = this.kind
+    if (!kind) {
+      return
+    }
+
+    this.eventScope = scope
+    this.fieldSelector = this.eventScopeService.fieldSelectorFor(this.clusterId, kind, scope)
+
+    await this.reload()
   }
 
   public openDetails(row: TResourceRow): void {
@@ -504,6 +601,12 @@ export default class ResourcePage extends VueBase {
       case ResourceActions.logsKey:
         this.openLogs(event.row)
         return
+      case ResourceActions.shellKey:
+        this.openShell(event.row)
+        return
+      case ResourceActions.forwardKey:
+        this.openPortForward(event.row)
+        return
       case ResourceActions.scaleKey:
         this.pendingScale = event.row
         return
@@ -512,6 +615,15 @@ export default class ResourcePage extends VueBase {
         return
       case ResourceActions.triggerKey:
         void this.trigger(event.row)
+        return
+      case ResourceActions.cordonKey:
+        void this.setScheduling(event.row, true)
+        return
+      case ResourceActions.uncordonKey:
+        void this.setScheduling(event.row, false)
+        return
+      case ResourceActions.drainKey:
+        this.pendingDrain = event.row
         return
       case ResourceActions.deleteKey:
         this.askDelete(event.row)
@@ -553,8 +665,53 @@ export default class ResourcePage extends VueBase {
     this.pendingScale = null
   }
 
+  public async confirmDrain(): Promise<void> {
+    const target = this.nodeTargetOf(this.pendingDrain)
+    const podsKind = this.podsKind()
+    if (!target || !podsKind) {
+      return
+    }
+
+    await this.run(() => this.nodeStore.drain({ target, podsKind }))
+    this.pendingDrain = null
+
+    if (!this.state.watching) {
+      await this.reload()
+    }
+  }
+
+  public async confirmCreateNamespace(name: string): Promise<void> {
+    const kind = this.kind
+    if (!kind) {
+      return
+    }
+
+    const created = await this.namespaceStore.create({ clusterId: this.clusterId, kind, name })
+    if (!created) {
+      return
+    }
+
+    this.creatingNamespace = false
+    if (!this.state.watching) {
+      await this.reload()
+    }
+  }
+
   private openLogs(row: TResourceRow): void {
     this.eventBus.emitEvent(new OpenPodLogsEvent(this.clusterId, row.namespace, row.name))
+  }
+
+  public openShell(row: TResourceRow | null): void {
+    if (row) {
+      this.eventBus.emitEvent(new OpenPodShellEvent(this.clusterId, row.namespace, row.name))
+    }
+  }
+
+  public openPortForward(row: TResourceRow | null): void {
+    const kind = this.kind
+    if (row && kind) {
+      this.eventBus.emitEvent(new OpenPortForwardEvent(this.clusterId, row.namespace, kind.resource, row.name))
+    }
   }
 
   private async restart(row: TResourceRow): Promise<void> {
@@ -580,12 +737,45 @@ export default class ResourcePage extends VueBase {
     }))
   }
 
+  private async setScheduling(row: TResourceRow, cordoned: boolean): Promise<void> {
+    const target = this.nodeTargetOf(row)
+    if (!target) {
+      return
+    }
+
+    const changed = await this.run(() => (cordoned
+      ? this.nodeStore.cordon(target)
+      : this.nodeStore.uncordon(target)))
+
+    if (changed && !this.state.watching) {
+      await this.reload()
+    }
+  }
+
   private jobKind(): KubeResourceKind | null {
     const slug = KubeResourceRegistry.find('batch', 'jobs')?.slug ?? ''
 
     return this.discoveryStore.findBySlug(this.clusterId, slug)
         ?? KubeResourceRegistry.find('batch', 'jobs')
         ?? null
+  }
+
+  private podsKind(): KubeResourceKind | null {
+    return KubeKindLocator.find(this.servedKinds, 'v1', 'Pod')
+        ?? KubeResourceRegistry.find('', 'pods')
+        ?? null
+  }
+
+  private nodeTargetOf(row: TResourceRow | null): TNodeTarget | null {
+    const kind = this.kind
+
+    return row && kind
+      ? { clusterId: this.clusterId, kind, name: row.name, rowKey: row.key }
+      : null
+  }
+
+  private resolveCustomColumns(): Promise<void> {
+    return this.customKindStore.resolve(this.clusterId, this.kind)
   }
 
   private async run(action: () => Promise<boolean>): Promise<boolean> {
@@ -625,6 +815,7 @@ export default class ResourcePage extends VueBase {
       kind,
       namespaces: this.namespaces,
       labelSelector: this.labelSelector,
+      fieldSelector: this.fieldSelector,
     }
   }
 
@@ -650,12 +841,16 @@ export default class ResourcePage extends VueBase {
   private resetView(): void {
     this.filterText = ''
     this.labelSelector = ''
+    this.fieldSelector = ''
+    this.eventScope = { type: '', objectKind: '', objectName: '' }
     this.sort = null
     this.cursor = null
     this.selected = []
     this.pendingDelete = null
     this.pendingScale = null
+    this.pendingDrain = null
     this.creating = false
+    this.creatingNamespace = false
     this.detailTab = DetailTabs.overviewKey
     this.hiddenKeys = ResourceColumns.defaultHidden(this.columns)
     this.uiStore.closeDetail()

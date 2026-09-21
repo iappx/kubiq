@@ -7,6 +7,8 @@ export class KubeWorkloadCatalog {
 
     public static readonly cronJobsKey: string = KubeResourceKind.registryKeyOf('batch', 'cronjobs')
 
+    public static readonly servicesKey: string = KubeResourceKind.registryKeyOf('', 'services')
+
     private static readonly scalable: string[] = [
         KubeResourceKind.registryKeyOf('apps', 'deployments'),
         KubeResourceKind.registryKeyOf('apps', 'statefulsets'),
@@ -41,6 +43,11 @@ export class KubeWorkloadCatalog {
 
     public static isPod(kind: KubeResourceKind): boolean {
         return kind.registryKey === KubeWorkloadCatalog.podsKey
+    }
+
+    public static canForwardPort(kind: KubeResourceKind): boolean {
+        return kind.registryKey === KubeWorkloadCatalog.podsKey
+            || kind.registryKey === KubeWorkloadCatalog.servicesKey
     }
 
     public static isSummarised(kind: KubeResourceKind): boolean {

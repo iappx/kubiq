@@ -6,6 +6,10 @@ import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterD
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 import { ClusterOverviewStore } from '@/store/modules/clusterOverview/ClusterOverviewStore'
 import { ClusterResourceStore } from '@/store/modules/clusterResource/ClusterResourceStore'
+import { CustomResourceKindStore } from '@/store/modules/customResourceKind/CustomResourceKindStore'
+import { HelmRepositoryStore } from '@/store/modules/helm/HelmRepositoryStore'
+import { HelmStore } from '@/store/modules/helm/HelmStore'
+import { NodeStore } from '@/store/modules/node/NodeStore'
 import { ResourceObjectStore } from '@/store/modules/resourceObject/ResourceObjectStore'
 
 @singleton()
@@ -17,6 +21,10 @@ export class ClusterSessionHandler {
         @inject(ClusterResourceStore) private readonly resourceStore: ClusterResourceStore,
         @inject(ClusterOverviewStore) private readonly overviewStore: ClusterOverviewStore,
         @inject(ResourceObjectStore) private readonly objectStore: ResourceObjectStore,
+        @inject(NodeStore) private readonly nodeStore: NodeStore,
+        @inject(CustomResourceKindStore) private readonly customKindStore: CustomResourceKindStore,
+        @inject(HelmStore) private readonly helmStore: HelmStore,
+        @inject(HelmRepositoryStore) private readonly helmRepositoryStore: HelmRepositoryStore,
         @inject(KubeSchemaService) private readonly schemaService: KubeSchemaService,
     ) {
         this.eventBus.registerHandler(ClusterDisconnectedEvent, e => this.forget(e.clusterId))
@@ -28,6 +36,10 @@ export class ClusterSessionHandler {
         this.resourceStore.forget(clusterId)
         this.overviewStore.forget(clusterId)
         this.objectStore.forget(clusterId)
+        this.nodeStore.forget(clusterId)
+        this.customKindStore.forget(clusterId)
+        this.helmStore.forget(clusterId)
+        this.helmRepositoryStore.forget(clusterId)
         this.schemaService.forget(clusterId)
     }
 }

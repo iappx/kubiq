@@ -11,6 +11,28 @@
 
     <template #actions>
       <button
+          v-if="canShell"
+          :aria-label="`Open a shell in ${row?.name}`"
+          class="btn-icon w-7 h-7"
+          title="Open shell"
+          type="button"
+          @click="$emit('shell')"
+      >
+        <square-terminal :size="14" />
+      </button>
+
+      <button
+          v-if="canForward"
+          :aria-label="`Forward a port of ${row?.name}`"
+          class="btn-icon w-7 h-7"
+          title="Forward port"
+          type="button"
+          @click="$emit('forward')"
+      >
+        <cable :size="14" />
+      </button>
+
+      <button
           v-if="canDelete"
           :aria-label="`Delete ${row?.name}`"
           class="btn-icon w-7 h-7 text-destructive"
@@ -43,17 +65,18 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
-import { Trash2 } from '@lucide/vue'
+import { Cable, SquareTerminal, Trash2 } from '@lucide/vue'
 import UiSidePanel from '@/components/common/panel/UiSidePanel.vue'
 import UiStatusBadge from '@/components/common/status/UiStatusBadge.vue'
 import UiTabBar from '@/components/common/tabBar/UiTabBar.vue'
 import type { TTab } from '@/components/common/tabBar/UiTabBar.vue'
 import type { TResourceRow } from '@/components/resource/types/TResourceRow'
 import type { KubeResourceKind } from '@/domain/models/kube'
+import { KubeWorkloadCatalog } from '@/domain/models/kube'
 
 @Component({
-  components: { Trash2, UiSidePanel, UiStatusBadge, UiTabBar },
-  emits: ['close', 'delete', 'update:width', 'update:active-tab'],
+  components: { Cable, SquareTerminal, Trash2, UiSidePanel, UiStatusBadge, UiTabBar },
+  emits: ['close', 'delete', 'forward', 'shell', 'update:width', 'update:active-tab'],
 })
 export default class ResourceDetailPanel extends VueBase {
   public static readonly overviewTab: string = 'overview'
@@ -87,6 +110,14 @@ export default class ResourceDetailPanel extends VueBase {
 
   public get canDelete(): boolean {
     return !!this.row && this.kind?.canDelete === true
+  }
+
+  public get canShell(): boolean {
+    return !!this.row && !!this.kind && KubeWorkloadCatalog.isPod(this.kind)
+  }
+
+  public get canForward(): boolean {
+    return !!this.row && !!this.kind && KubeWorkloadCatalog.canForwardPort(this.kind)
   }
 }
 </script>
