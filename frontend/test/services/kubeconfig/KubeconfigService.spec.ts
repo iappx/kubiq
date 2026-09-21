@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The generated Wails bindings are the boundary: the environment answers from
-// here, and everything below the service — provider, context, query — is real.
 const variables: Record<string, string> = {}
 let home = 'C:/Users/tester'
 let separator = ';'
@@ -87,17 +85,23 @@ describe('KubeconfigService', () => {
         })
 
         it('puts a file named from outside in front of the discovered ones', async () => {
-            await expect(service.locate(WORK_CONFIG)).resolves.toEqual([WORK_CONFIG, HOME_CONFIG])
+            await expect(service.locate([WORK_CONFIG])).resolves.toEqual([WORK_CONFIG, HOME_CONFIG])
+        })
+
+        it('keeps the order of several files named from outside', async () => {
+            const extra = 'D:/work/extra.yaml'
+
+            await expect(service.locate([WORK_CONFIG, extra])).resolves.toEqual([WORK_CONFIG, extra, HOME_CONFIG])
         })
 
         it('expands the file named from outside', async () => {
-            await expect(service.locate('~/.kube/config')).resolves.toEqual([HOME_CONFIG])
+            await expect(service.locate(['~/.kube/config'])).resolves.toEqual([HOME_CONFIG])
         })
 
         it('names every file once', async () => {
             variables.KUBECONFIG = `${WORK_CONFIG};${WORK_CONFIG}`
 
-            await expect(service.locate(WORK_CONFIG)).resolves.toEqual([WORK_CONFIG])
+            await expect(service.locate([WORK_CONFIG])).resolves.toEqual([WORK_CONFIG])
         })
 
         it('finds nothing without a home directory and without KUBECONFIG', async () => {
