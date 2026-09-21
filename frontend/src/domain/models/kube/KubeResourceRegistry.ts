@@ -143,7 +143,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'replicationcontrollers', kind: 'ReplicationController',
-                title: 'Replication Controllers', namespaced: true, section: 'workloads', icon: 'Blocks',
+                title: 'Replication Controllers', namespaced: true, section: 'workloads', icon: 'Copy',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
