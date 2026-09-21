@@ -20,6 +20,7 @@ export class DetailFacts {
         DetailFacts.push(facts, 'Pod IP', DetailFacts.status(object).podIP)
         DetailFacts.push(facts, 'Phase', DetailFacts.status(object).phase)
         DetailFacts.push(facts, 'Service account', DetailFacts.spec(object).serviceAccountName)
+        DetailFacts.pushNode(facts, object)
         DetailFacts.push(facts, 'UID', metadata.uid)
         DetailFacts.push(facts, 'Resource version', metadata.resourceVersion)
 
@@ -33,12 +34,45 @@ export class DetailFacts {
         return facts
     }
 
+    public static addressOf(object: Record<string, unknown>, type: string): string {
+        const addresses = DetailFacts.status(object).addresses
+
+        if (!Array.isArray(addresses)) {
+            return ''
+        }
+
+        const found = addresses
+            .filter((address): address is Record<string, unknown> => KubeManifest.isObject(address))
+            .find(address => address.type === type)
+
+        return typeof found?.address === 'string' ? found.address : ''
+    }
+
     public static labelsOf(object: Record<string, unknown>): Record<string, string> {
         return DetailFacts.strings(KubeManifest.metadataOf(object).labels)
     }
 
     public static annotationsOf(object: Record<string, unknown>): Record<string, string> {
         return DetailFacts.strings(KubeManifest.metadataOf(object).annotations)
+    }
+
+    // Everything here is absent on every kind but Node, so `push` drops the lot for the others.
+    private static pushNode(facts: TDetailFact[], object: Record<string, unknown>): void {
+        const reported = DetailFacts.status(object).nodeInfo
+        const nodeInfo = KubeManifest.isObject(reported) ? reported : {}
+
+        DetailFacts.push(facts, 'Internal IP', DetailFacts.addressOf(object, 'InternalIP'))
+        DetailFacts.push(facts, 'Kubelet', nodeInfo.kubeletVersion)
+        DetailFacts.push(facts, 'OS image', nodeInfo.osImage)
+        DetailFacts.push(facts, 'Container runtime', nodeInfo.containerRuntimeVersion)
+        DetailFacts.push(facts, 'Architecture', nodeInfo.architecture)
+
+        if (Object.keys(nodeInfo).length > 0) {
+            facts.push({
+                label: 'Scheduling',
+                value: DetailFacts.spec(object).unschedulable === true ? 'Cordoned' : 'Schedulable',
+            })
+        }
     }
 
     private static strings(value: unknown): Record<string, string> {

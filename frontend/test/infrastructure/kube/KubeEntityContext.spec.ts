@@ -9,9 +9,30 @@ import {
     RoleEntity,
     ServiceAccountEntity,
 } from '@/domain/entities/access'
-import { EventEntity, NamespaceEntity, NodeEntity } from '@/domain/entities/cluster'
-import { ConfigMapEntity, SecretEntity } from '@/domain/entities/config'
-import { IngressEntity, ServiceEntity } from '@/domain/entities/network'
+import {
+    CustomResourceDefinitionEntity,
+    EventEntity,
+    NamespaceEntity,
+    NodeEntity,
+} from '@/domain/entities/cluster'
+import {
+    ConfigMapEntity,
+    HorizontalPodAutoscalerEntity,
+    LeaseEntity,
+    LimitRangeEntity,
+    PodDisruptionBudgetEntity,
+    PriorityClassEntity,
+    ResourceQuotaEntity,
+    RuntimeClassEntity,
+    SecretEntity,
+} from '@/domain/entities/config'
+import {
+    EndpointsEntity,
+    IngressClassEntity,
+    IngressEntity,
+    NetworkPolicyEntity,
+    ServiceEntity,
+} from '@/domain/entities/network'
 import {
     PersistentVolumeClaimEntity,
     PersistentVolumeEntity,
@@ -62,8 +83,18 @@ const cases: [string, string, Constructor<RepoEntityBase>][] = [
     ['events', '/api/v1/namespaces/dev/events', EventEntity],
     ['configMaps', '/api/v1/namespaces/dev/configmaps', ConfigMapEntity],
     ['secrets', '/api/v1/namespaces/dev/secrets', SecretEntity],
+    ['resourceQuotas', '/api/v1/namespaces/dev/resourcequotas', ResourceQuotaEntity],
+    ['limitRanges', '/api/v1/namespaces/dev/limitranges', LimitRangeEntity],
+    ['horizontalPodAutoscalers', '/apis/autoscaling/v2/namespaces/dev/horizontalpodautoscalers', HorizontalPodAutoscalerEntity],
+    ['podDisruptionBudgets', '/apis/policy/v1/namespaces/dev/poddisruptionbudgets', PodDisruptionBudgetEntity],
+    ['priorityClasses', '/apis/scheduling.k8s.io/v1/priorityclasses', PriorityClassEntity],
+    ['runtimeClasses', '/apis/node.k8s.io/v1/runtimeclasses', RuntimeClassEntity],
+    ['leases', '/apis/coordination.k8s.io/v1/namespaces/dev/leases', LeaseEntity],
     ['services', '/api/v1/namespaces/dev/services', ServiceEntity],
+    ['endpoints', '/api/v1/namespaces/dev/endpoints', EndpointsEntity],
     ['ingresses', '/apis/networking.k8s.io/v1/namespaces/dev/ingresses', IngressEntity],
+    ['ingressClasses', '/apis/networking.k8s.io/v1/ingressclasses', IngressClassEntity],
+    ['networkPolicies', '/apis/networking.k8s.io/v1/namespaces/dev/networkpolicies', NetworkPolicyEntity],
     ['persistentVolumes', '/api/v1/persistentvolumes', PersistentVolumeEntity],
     ['persistentVolumeClaims', '/api/v1/namespaces/dev/persistentvolumeclaims', PersistentVolumeClaimEntity],
     ['storageClasses', '/apis/storage.k8s.io/v1/storageclasses', StorageClassEntity],
@@ -72,6 +103,7 @@ const cases: [string, string, Constructor<RepoEntityBase>][] = [
     ['roleBindings', '/apis/rbac.authorization.k8s.io/v1/namespaces/dev/rolebindings', RoleBindingEntity],
     ['clusterRoles', '/apis/rbac.authorization.k8s.io/v1/clusterroles', ClusterRoleEntity],
     ['clusterRoleBindings', '/apis/rbac.authorization.k8s.io/v1/clusterrolebindings', ClusterRoleBindingEntity],
+    ['customResourceDefinitions', '/apis/apiextensions.k8s.io/v1/customresourcedefinitions', CustomResourceDefinitionEntity],
 ]
 
 describe('KubeEntityContext', () => {

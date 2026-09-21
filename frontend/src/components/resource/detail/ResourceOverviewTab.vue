@@ -8,6 +8,10 @@
       <resource-container-list :containers="containers" />
     </resource-section>
 
+    <resource-section v-if="taints.length > 0" :hint="taintHint" title="Taints">
+      <resource-taint-list :taints="taints" />
+    </resource-section>
+
     <resource-section v-if="conditions.length > 0" title="Conditions">
       <resource-condition-list :conditions="conditions" />
     </resource-section>
@@ -28,12 +32,15 @@ import ResourceContainerList from '@/components/resource/detail/ResourceContaine
 import ResourceFactList from '@/components/resource/detail/ResourceFactList.vue'
 import ResourceRelatedGroup from '@/components/resource/detail/ResourceRelatedGroup.vue'
 import ResourceSection from '@/components/resource/detail/ResourceSection.vue'
+import ResourceTaintList from '@/components/resource/detail/ResourceTaintList.vue'
 import { DetailConditions } from '@/components/resource/detail/DetailConditions'
 import { DetailContainers } from '@/components/resource/detail/DetailContainers'
 import { DetailFacts } from '@/components/resource/detail/DetailFacts'
+import { DetailTaints } from '@/components/resource/detail/DetailTaints'
 import type { TDetailCondition } from '@/components/resource/detail/types/TDetailCondition'
 import type { TDetailContainer } from '@/components/resource/detail/types/TDetailContainer'
 import type { TDetailFact } from '@/components/resource/detail/types/TDetailFact'
+import type { TDetailTaint } from '@/components/resource/detail/types/TDetailTaint'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import type { TResourceObjectState } from '@/store/modules/resourceObject/types/TResourceObjectState'
 
@@ -44,6 +51,7 @@ import type { TResourceObjectState } from '@/store/modules/resourceObject/types/
     ResourceFactList,
     ResourceRelatedGroup,
     ResourceSection,
+    ResourceTaintList,
   },
   emits: ['open'],
 })
@@ -64,6 +72,14 @@ export default class ResourceOverviewTab extends VueBase {
 
   public get conditions(): TDetailCondition[] {
     return DetailConditions.of(this.state.object)
+  }
+
+  public get taints(): TDetailTaint[] {
+    return DetailTaints.of(this.state.object)
+  }
+
+  public get taintHint(): string {
+    return `${this.taints.length} on this node`
   }
 
   public get containerHint(): string {

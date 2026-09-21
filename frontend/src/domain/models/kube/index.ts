@@ -1,3 +1,4 @@
+export { KubeClusterCatalog } from '@/domain/models/kube/KubeClusterCatalog'
 export { KubeColumns } from '@/domain/models/kube/KubeColumns'
 export { KubeJsonPath } from '@/domain/models/kube/KubeJsonPath'
 export { KubeKindLocator } from '@/domain/models/kube/KubeKindLocator'

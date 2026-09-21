@@ -59,6 +59,24 @@ describe('KubeUrlBuilder', () => {
         expect(transport.path).toBe('/api/v1/namespaces/dev/pods/web-1/log')
     })
 
+    it('hangs a created subresource off the named object, not off the collection', async () => {
+        const eviction = TestPodEntity.build({ uid: 'uid-1', metadata: { uid: 'uid-1', name: 'web-1' } })
+
+        await of('', 'pods')
+            .withPathParams({ namespace: 'dev', name: 'web-1', subresource: 'eviction' })
+            .create(eviction)
+
+        expect(transport.path).toBe('/api/v1/namespaces/dev/pods/web-1/eviction')
+    })
+
+    it('still posts to the collection when no subresource is named', async () => {
+        const pod = TestPodEntity.build({ uid: 'uid-1', metadata: { uid: 'uid-1', name: 'web-1' } })
+
+        await of('', 'pods').withPathParams({ namespace: 'dev', name: 'web-1' }).create(pod)
+
+        expect(transport.path).toBe('/api/v1/namespaces/dev/pods')
+    })
+
     it('takes the address from the object when a write carries it', async () => {
         const pod = TestPodEntity.build({
             uid: 'uid-1',

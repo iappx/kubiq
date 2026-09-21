@@ -9,16 +9,18 @@ describe('KubeResourceRegistry', () => {
         expect(KubeResourceRegistry.has('example.test', 'widgets')).toBe(false)
     })
 
-    it('covers every section but the custom one', () => {
+    it('covers every section', () => {
         const sections = new Set(KubeResourceRegistry.all().map(p => p.section))
 
         for (const section of KubeSectionCatalog.all()) {
-            if (section === KubeSectionCatalog.custom) {
-                expect(sections.has(section)).toBe(false)
-                continue
-            }
             expect(sections.has(section)).toBe(true)
         }
+    })
+
+    it('puts nothing in the custom section but the definitions themselves', () => {
+        const custom = KubeResourceRegistry.all().filter(p => p.section === KubeSectionCatalog.custom)
+
+        expect(custom.map(p => p.kind)).toEqual(['CustomResourceDefinition'])
     })
 
     it('holds one entry per group and resource', () => {

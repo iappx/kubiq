@@ -17,13 +17,23 @@ export class KubeUrlBuilder implements IUrlBuilder {
         }
 
         const namespace = this.namespace(operation, kind)
-        const path = operation.target === 'single'
+        const subresource = KubeUrlBuilder.param(operation, KubeUrlBuilder.subresourceParam)
+        const path = this.addressesOne(operation, subresource)
             ? kind.objectPath(this.name(operation, kind), namespace)
             : kind.listPath(namespace)
 
-        const subresource = KubeUrlBuilder.param(operation, KubeUrlBuilder.subresourceParam)
-
         return subresource ? `${path}/${subresource}` : path
+    }
+
+    // A subresource hangs off one object even where the operation targets a collection:
+    // creating an Eviction is a POST to .../pods/{name}/eviction, not to .../pods/eviction.
+    protected addressesOne(operation: TRestOperation, subresource: string | undefined): boolean {
+        if (operation.target === 'single') {
+            return true
+        }
+
+        return subresource !== undefined
+            && KubeUrlBuilder.param(operation, KubeUrlBuilder.nameParam) !== undefined
     }
 
     protected namespace(operation: TRestOperation, kind: KubeResourceKind): string | undefined {

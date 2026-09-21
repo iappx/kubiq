@@ -1,6 +1,7 @@
 import type { Component as VueComponent } from 'vue'
 import {
     Archive,
+    ArrowUpNarrowWide,
     Bell,
     Blocks,
     Box,
@@ -8,10 +9,12 @@ import {
     CircleDashed,
     CircleUser,
     Copy,
+    Cpu,
     Database,
     Disc,
     FileText,
     FolderTree,
+    Gauge,
     Globe,
     HardDrive,
     IdCard,
@@ -20,11 +23,18 @@ import {
     Network,
     Play,
     Puzzle,
+    Route,
     Server,
     Shield,
+    ShieldAlert,
     ShieldCheck,
+    ShieldHalf,
+    SlidersHorizontal,
     SquareStack,
+    Timer,
+    TrendingUp,
     Users,
+    Waypoints,
 } from '@lucide/vue'
 
 export class KubeIconResolver {
@@ -32,16 +42,19 @@ export class KubeIconResolver {
 
     private static readonly icons: Record<string, VueComponent> = {
         Archive,
+        ArrowUpNarrowWide,
         Bell,
         Blocks,
         Box,
         CalendarClock,
         CircleUser,
         Copy,
+        Cpu,
         Database,
         Disc,
         FileText,
         FolderTree,
+        Gauge,
         Globe,
         HardDrive,
         IdCard,
@@ -50,11 +63,18 @@ export class KubeIconResolver {
         Network,
         Play,
         Puzzle,
+        Route,
         Server,
         Shield,
+        ShieldAlert,
         ShieldCheck,
+        ShieldHalf,
+        SlidersHorizontal,
         SquareStack,
+        Timer,
+        TrendingUp,
         Users,
+        Waypoints,
     }
 
     // Without the `has` guard a bare index resolves `constructor` and the other prototype members to a real function.

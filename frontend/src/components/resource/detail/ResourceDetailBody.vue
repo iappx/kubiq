@@ -33,6 +33,14 @@
         <resource-overview-tab :kind="target.kind" :state="state" @open="$emit('open', $event)" />
       </div>
 
+      <div v-if="dataOpened" v-show="tab === tabs.dataKey" class="min-h-0 flex-1 overflow-y-auto">
+        <resource-data-tab :kind="target.kind" :state="state" />
+      </div>
+
+      <div v-if="podsOpened" v-show="tab === tabs.podsKey" class="min-h-0 flex-1 overflow-y-auto">
+        <resource-node-pods-tab :target="target" @open="$emit('open', $event)" />
+      </div>
+
       <div v-show="tab === tabs.metadataKey" class="min-h-0 flex-1 overflow-y-auto">
         <resource-metadata-tab :object="state.object" />
       </div>
@@ -54,8 +62,10 @@
 <script lang="ts">
 import { Component, Prop, VueBase, Watch } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
+import ResourceDataTab from '@/components/resource/detail/ResourceDataTab.vue'
 import ResourceEventsTab from '@/components/resource/detail/ResourceEventsTab.vue'
 import ResourceMetadataTab from '@/components/resource/detail/ResourceMetadataTab.vue'
+import ResourceNodePodsTab from '@/components/resource/detail/ResourceNodePodsTab.vue'
 import ResourceOverviewTab from '@/components/resource/detail/ResourceOverviewTab.vue'
 import ResourceYamlTab from '@/components/resource/detail/ResourceYamlTab.vue'
 import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
@@ -68,8 +78,10 @@ import type { TResourceObjectState } from '@/store/modules/resourceObject/types/
 
 @Component({
   components: {
+    ResourceDataTab,
     ResourceEventsTab,
     ResourceMetadataTab,
+    ResourceNodePodsTab,
     ResourceOverviewTab,
     ResourceYamlTab,
     UiDeferredLoader,
@@ -84,6 +96,10 @@ export default class ResourceDetailBody extends VueBase {
 
   @Prop({ required: true })
   public readonly tab: string
+
+  public dataOpened = false
+
+  public podsOpened = false
 
   public eventsOpened = false
 
@@ -131,6 +147,12 @@ export default class ResourceDetailBody extends VueBase {
     }
     if (tab === DetailTabs.yamlKey) {
       this.yamlOpened = true
+    }
+    if (tab === DetailTabs.dataKey) {
+      this.dataOpened = true
+    }
+    if (tab === DetailTabs.podsKey) {
+      this.podsOpened = true
     }
     if (tab !== DetailTabs.eventsKey || this.eventsOpened) {
       return

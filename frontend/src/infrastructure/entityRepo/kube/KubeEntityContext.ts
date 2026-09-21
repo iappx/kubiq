@@ -7,10 +7,31 @@ import {
     RoleEntity,
     ServiceAccountEntity,
 } from '@/domain/entities/access'
-import { EventEntity, NamespaceEntity, NodeEntity } from '@/domain/entities/cluster'
-import { ConfigMapEntity, SecretEntity } from '@/domain/entities/config'
+import {
+    CustomResourceDefinitionEntity,
+    EventEntity,
+    NamespaceEntity,
+    NodeEntity,
+} from '@/domain/entities/cluster'
+import {
+    ConfigMapEntity,
+    HorizontalPodAutoscalerEntity,
+    LeaseEntity,
+    LimitRangeEntity,
+    PodDisruptionBudgetEntity,
+    PriorityClassEntity,
+    ResourceQuotaEntity,
+    RuntimeClassEntity,
+    SecretEntity,
+} from '@/domain/entities/config'
 import { CustomResourceEntity } from '@/domain/entities/kube'
-import { IngressEntity, ServiceEntity } from '@/domain/entities/network'
+import {
+    EndpointsEntity,
+    IngressClassEntity,
+    IngressEntity,
+    NetworkPolicyEntity,
+    ServiceEntity,
+} from '@/domain/entities/network'
 import {
     PersistentVolumeClaimEntity,
     PersistentVolumeEntity,
@@ -74,11 +95,41 @@ export class KubeEntityContext extends EntityContextBase<KubeTransport> {
     @RepoEntitySet(() => SecretEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('', 'secrets'))
     public secrets: RestEntityQuery<SecretEntity>
 
+    @RepoEntitySet(() => ResourceQuotaEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('', 'resourcequotas'))
+    public resourceQuotas: RestEntityQuery<ResourceQuotaEntity>
+
+    @RepoEntitySet(() => LimitRangeEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('', 'limitranges'))
+    public limitRanges: RestEntityQuery<LimitRangeEntity>
+
+    @RepoEntitySet(() => HorizontalPodAutoscalerEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('autoscaling', 'horizontalpodautoscalers'))
+    public horizontalPodAutoscalers: RestEntityQuery<HorizontalPodAutoscalerEntity>
+
+    @RepoEntitySet(() => PodDisruptionBudgetEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('policy', 'poddisruptionbudgets'))
+    public podDisruptionBudgets: RestEntityQuery<PodDisruptionBudgetEntity>
+
+    @RepoEntitySet(() => PriorityClassEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('scheduling.k8s.io', 'priorityclasses'))
+    public priorityClasses: RestEntityQuery<PriorityClassEntity>
+
+    @RepoEntitySet(() => RuntimeClassEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('node.k8s.io', 'runtimeclasses'))
+    public runtimeClasses: RestEntityQuery<RuntimeClassEntity>
+
+    @RepoEntitySet(() => LeaseEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('coordination.k8s.io', 'leases'))
+    public leases: RestEntityQuery<LeaseEntity>
+
     @RepoEntitySet(() => ServiceEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('', 'services'))
     public services: RestEntityQuery<ServiceEntity>
 
+    @RepoEntitySet(() => EndpointsEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('', 'endpoints'))
+    public endpoints: RestEntityQuery<EndpointsEntity>
+
     @RepoEntitySet(() => IngressEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('networking.k8s.io', 'ingresses'))
     public ingresses: RestEntityQuery<IngressEntity>
+
+    @RepoEntitySet(() => IngressClassEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('networking.k8s.io', 'ingressclasses'))
+    public ingressClasses: RestEntityQuery<IngressClassEntity>
+
+    @RepoEntitySet(() => NetworkPolicyEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('networking.k8s.io', 'networkpolicies'))
+    public networkPolicies: RestEntityQuery<NetworkPolicyEntity>
 
     @RepoEntitySet(() => PersistentVolumeEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('', 'persistentvolumes'))
     public persistentVolumes: RestEntityQuery<PersistentVolumeEntity>
@@ -103,4 +154,7 @@ export class KubeEntityContext extends EntityContextBase<KubeTransport> {
 
     @RepoEntitySet(() => ClusterRoleBindingEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('rbac.authorization.k8s.io', 'clusterrolebindings'))
     public clusterRoleBindings: RestEntityQuery<ClusterRoleBindingEntity>
+
+    @RepoEntitySet(() => CustomResourceDefinitionEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('apiextensions.k8s.io', 'customresourcedefinitions'))
+    public customResourceDefinitions: RestEntityQuery<CustomResourceDefinitionEntity>
 }
