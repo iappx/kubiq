@@ -21,38 +21,42 @@
   :root,
   .light {
     --background: 0 0% 100%;
-    --foreground: 222 22% 14%;
+    --foreground: 200 20% 13%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 22% 14%;
+    --card-foreground: 200 20% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 22% 14%;
+    --popover-foreground: 200 20% 13%;
 
-    --primary: 245 58% 51%;
+    --primary: 189 90% 29%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 16% 96%;
-    --secondary-foreground: 222 20% 26%;
+    --secondary: 200 20% 96%;
+    --secondary-foreground: 200 18% 26%;
 
-    --muted: 220 16% 96%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 200 20% 96%;
+    --muted-foreground: 200 9% 46%;
 
-    --accent: 190 85% 36%;
+    /* Violet, not the neighbouring cyan: the accent tints a changed table row,
+       and at 190 that tint would have been the brand colour. */
+    --accent: 262 62% 52%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 55% 36%;
+    /* 142, not the usual 152: the brand sits at 189, and a healthy-green any
+       closer stops reading as a different colour from it. */
+    --success: 142 58% 32%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 45%;
+    --warning: 38 96% 33%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 220 13% 89%;
-    --input: 220 13% 89%;
-    --ring: 245 58% 51%;
+    --border: 200 16% 88%;
+    --input: 200 16% 88%;
+    --ring: 189 90% 29%;
 
     --radius: 0.5rem;
 
@@ -62,50 +66,50 @@
     --elevation-md: 0 2px 8px rgba(16, 24, 40, 0.07);
     --elevation-lg: 0 12px 32px rgba(16, 24, 40, 0.12);
 
-    --sidebar-background: 220 16% 98%;
-    --sidebar-foreground: 222 20% 30%;
-    --sidebar-primary: 245 58% 51%;
+    --sidebar-background: 200 24% 97%;
+    --sidebar-foreground: 200 18% 30%;
+    --sidebar-primary: 189 90% 29%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 16% 94%;
-    --sidebar-accent-foreground: 222 22% 18%;
-    --sidebar-border: 220 13% 89%;
-    --sidebar-ring: 245 58% 51%;
+    --sidebar-accent: 200 22% 93%;
+    --sidebar-accent-foreground: 200 20% 18%;
+    --sidebar-border: 200 16% 88%;
+    --sidebar-ring: 189 90% 29%;
   }
 
   .dark {
-    --background: 222 18% 11%;
-    --foreground: 220 14% 92%;
+    --background: 200 18% 10%;
+    --foreground: 200 12% 92%;
 
-    --card: 222 16% 14%;
-    --card-foreground: 220 14% 92%;
+    --card: 200 16% 13%;
+    --card-foreground: 200 12% 92%;
 
-    --popover: 222 16% 14%;
-    --popover-foreground: 220 14% 92%;
+    --popover: 200 16% 13%;
+    --popover-foreground: 200 12% 92%;
 
-    --primary: 247 72% 70%;
-    --primary-foreground: 222 18% 11%;
+    --primary: 187 72% 58%;
+    --primary-foreground: 200 18% 10%;
 
-    --secondary: 222 14% 19%;
-    --secondary-foreground: 220 12% 82%;
+    --secondary: 200 14% 18%;
+    --secondary-foreground: 200 10% 82%;
 
-    --muted: 222 14% 19%;
-    --muted-foreground: 220 9% 60%;
+    --muted: 200 14% 18%;
+    --muted-foreground: 200 9% 60%;
 
-    --accent: 188 78% 52%;
-    --accent-foreground: 222 18% 11%;
+    --accent: 262 74% 72%;
+    --accent-foreground: 200 18% 10%;
 
-    --destructive: 0 65% 55%;
+    --destructive: 0 72% 62%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 50% 46%;
-    --success-foreground: 222 18% 11%;
+    --success: 142 52% 46%;
+    --success-foreground: 200 18% 10%;
 
     --warning: 38 88% 56%;
-    --warning-foreground: 222 18% 11%;
+    --warning-foreground: 200 18% 10%;
 
-    --border: 222 12% 24%;
-    --input: 222 12% 24%;
-    --ring: 247 72% 70%;
+    --border: 200 12% 23%;
+    --input: 200 12% 23%;
+    --ring: 187 72% 58%;
 
     --radius: 0.5rem;
 
@@ -113,14 +117,48 @@
     --elevation-md: 0 2px 8px rgba(0, 0, 0, 0.45);
     --elevation-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
 
-    --sidebar-background: 222 17% 13%;
-    --sidebar-foreground: 220 12% 78%;
-    --sidebar-primary: 247 72% 70%;
-    --sidebar-primary-foreground: 222 18% 11%;
-    --sidebar-accent: 222 14% 18%;
-    --sidebar-accent-foreground: 220 14% 90%;
-    --sidebar-border: 222 12% 22%;
-    --sidebar-ring: 247 72% 70%;
+    --sidebar-background: 200 18% 12%;
+    --sidebar-foreground: 200 10% 78%;
+    --sidebar-primary: 187 72% 58%;
+    --sidebar-primary-foreground: 200 18% 10%;
+    --sidebar-accent: 200 14% 17%;
+    --sidebar-accent-foreground: 200 12% 90%;
+    --sidebar-border: 200 12% 21%;
+    --sidebar-ring: 187 72% 58%;
+  }
+
+  /* Motion and density carry no colour, so they are defined once rather than
+     mirrored per theme — `:root` matches <html> under `.dark` too. */
+  :root {
+    --motion-instant: 80ms;
+    --motion-fast: 120ms;
+    --motion-normal: 180ms;
+    --motion-moderate: 260ms;
+    --motion-flash: 600ms;
+
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-in: cubic-bezier(0.3, 0, 1, 0.3);
+
+    --density-row: 28px;
+    --density-text: 12px;
+    --density-icon: 14px;
+  }
+
+  [data-density='comfortable'] {
+    --density-row: 36px;
+    --density-text: 13px;
+    --density-icon: 16px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --motion-instant: 1ms;
+      --motion-fast: 1ms;
+      --motion-normal: 1ms;
+      --motion-moderate: 1ms;
+      --motion-flash: 1ms;
+    }
   }
 }
 
@@ -422,6 +460,470 @@
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ui-fade-in {
+    animation: fade-in var(--motion-normal) var(--ease-out);
+  }
+
+  /* ── Table ──────────────────────────────────────────────────────────────
+     Separated borders rather than collapsed: a collapsed border belongs to
+     the table, not the cell, and stops travelling with a sticky cell. */
+  .ui-table {
+    @apply w-full text-left;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--density-text);
+  }
+
+  .ui-table th,
+  .ui-table td {
+    @apply px-3 whitespace-nowrap align-middle;
+    height: var(--density-row);
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .ui-table thead th {
+    @apply font-medium text-muted-foreground;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: hsl(var(--background));
+  }
+
+  .ui-table tbody tr {
+    background-color: hsl(var(--background));
+    transition: background-color var(--motion-instant) var(--ease-standard);
+  }
+
+  .ui-table tbody tr:hover {
+    background-color: color-mix(in srgb, hsl(var(--muted)) 60%, hsl(var(--background)));
+  }
+
+  .ui-table tbody tr[data-selected='true'] {
+    background-color: color-mix(in srgb, hsl(var(--primary)) 10%, hsl(var(--background)));
+  }
+
+  /* Rules plus a left bar rather than an outline: hover and selection are
+     backgrounds, and the global :focus-visible ring already owns `outline`, so
+     the cursor has to be a third visual and not a second copy of either. */
+  .ui-table tbody tr[data-cursor='true'] td {
+    box-shadow:
+      inset 0 1px 0 hsl(var(--primary) / 0.45),
+      inset 0 -1px 0 hsl(var(--primary) / 0.45);
+  }
+
+  .ui-table tbody tr[data-cursor='true'] td:first-child {
+    box-shadow:
+      inset 0 1px 0 hsl(var(--primary) / 0.45),
+      inset 0 -1px 0 hsl(var(--primary) / 0.45),
+      inset 2px 0 0 hsl(var(--primary));
+  }
+
+  .ui-table tbody tr[data-busy='true'] td {
+    opacity: 0.55;
+  }
+
+  .ui-sticky-cell {
+    position: sticky;
+    z-index: 1;
+    background-color: inherit;
+  }
+
+  .ui-sticky-edge {
+    border-right: 1px solid hsl(var(--border));
+  }
+
+  .ui-table thead th.ui-sticky-cell {
+    z-index: 3;
+  }
+
+  .ui-cell {
+    @apply block overflow-hidden;
+    max-width: var(--ui-cell-max, 20rem);
+    text-overflow: ellipsis;
+  }
+
+  .ui-sort-button {
+    @apply inline-flex items-center gap-1 -mx-1 px-1 rounded-sm text-muted-foreground;
+    height: var(--density-row);
+    transition: color var(--motion-instant) var(--ease-standard);
+  }
+
+  .ui-sort-button:hover {
+    color: hsl(var(--foreground));
+  }
+
+  .ui-name-button {
+    @apply rounded-sm font-medium text-foreground text-left;
+    transition: color var(--motion-instant) var(--ease-standard);
+  }
+
+  .ui-name-button:hover {
+    color: hsl(var(--primary));
+  }
+
+  /* One `from` keyframe only: the implicit `to` is the row's own background,
+     so the tint fades back into hover and selection instead of over them. */
+  @keyframes ui-flash-ok {
+    from { background-color: color-mix(in srgb, hsl(var(--accent)) 22%, hsl(var(--background))); }
+  }
+
+  @keyframes ui-flash-warning {
+    from { background-color: color-mix(in srgb, hsl(var(--warning)) 22%, hsl(var(--background))); }
+  }
+
+  @keyframes ui-flash-error {
+    from { background-color: color-mix(in srgb, hsl(var(--destructive)) 22%, hsl(var(--background))); }
+  }
+
+  .ui-table tbody tr[data-flash='ok'] {
+    animation: ui-flash-ok var(--motion-flash) linear;
+  }
+
+  .ui-table tbody tr[data-flash='warning'] {
+    animation: ui-flash-warning var(--motion-flash) linear;
+  }
+
+  .ui-table tbody tr[data-flash='error'] {
+    animation: ui-flash-error var(--motion-flash) linear;
+  }
+
+  .ui-toolbar {
+    @apply flex items-center gap-2 px-4 py-2 border-b border-border;
+  }
+
+  /* ── Cluster shell ──────────────────────────────────────────────────── */
+  .ui-sidebar {
+    @apply flex shrink-0 flex-col overflow-hidden border-r border-sidebar-border;
+    background: hsl(var(--sidebar));
+    transition: width var(--motion-moderate) var(--ease-standard);
+  }
+
+  .ui-sidebar-heading {
+    @apply px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground;
+  }
+
+  .ui-topnav-divider {
+    @apply block w-px shrink-0;
+    height: 20px;
+    background: hsl(var(--border));
+  }
+
+  .ui-switcher {
+    @apply inline-flex items-center gap-2 rounded-md px-2 text-sm font-medium text-foreground;
+    height: 32px;
+    border: 1px solid hsl(var(--border));
+    transition: border-color var(--motion-instant) var(--ease-standard),
+                background-color var(--motion-instant) var(--ease-standard);
+  }
+
+  .ui-switcher:hover {
+    background: hsl(var(--muted));
+    border-color: hsl(var(--primary) / 0.4);
+  }
+
+  .ui-palette-trigger {
+    @apply inline-flex items-center gap-2 rounded-md px-2 text-xs;
+    height: 28px;
+    min-width: 12rem;
+    background: hsl(var(--muted) / 0.6);
+    border: 1px solid hsl(var(--border));
+    transition: border-color var(--motion-instant) var(--ease-standard);
+  }
+
+  .ui-palette-trigger:hover {
+    border-color: hsl(var(--primary) / 0.4);
+  }
+
+  .ui-kbd {
+    @apply ml-auto inline-flex items-center rounded px-1 font-medium text-muted-foreground;
+    height: 18px;
+    font-size: 10px;
+    background: hsl(var(--background));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .ui-command-item {
+    @apply flex w-full items-center gap-2 rounded-md px-2 text-sm text-foreground;
+    height: 36px;
+    transition: background-color var(--motion-instant) var(--ease-standard);
+  }
+
+  .ui-command-item-active {
+    background: hsl(var(--muted));
+  }
+
+  /* ── Cluster catalog ────────────────────────────────────────────────── */
+  .cluster-pin {
+    @apply inline-flex items-center gap-2 pl-2 pr-5 rounded-md text-xs font-medium text-foreground max-w-56;
+    height: 28px;
+    background: hsl(var(--muted));
+    border: 1px solid hsl(var(--border));
+    transition: background-color var(--motion-instant) var(--ease-standard),
+                border-color var(--motion-instant) var(--ease-standard);
+  }
+
+  .cluster-pin:hover {
+    border-color: hsl(var(--primary) / 0.4);
+  }
+
+  .cluster-pin-active {
+    background: hsl(var(--primary) / 0.1);
+    border-color: hsl(var(--primary) / 0.35);
+    color: hsl(var(--primary));
+  }
+
+  .cluster-pin-remove {
+    @apply absolute inline-flex items-center justify-center rounded-sm text-muted-foreground opacity-0;
+    top: 50%;
+    right: 4px;
+    width: 14px;
+    height: 14px;
+    transform: translateY(-50%);
+    transition: opacity var(--motion-instant) var(--ease-standard),
+                color var(--motion-instant) var(--ease-standard);
+  }
+
+  .cluster-pin-remove:hover,
+  .cluster-pin-remove:focus-visible {
+    color: hsl(var(--destructive));
+  }
+
+  /* Revealed on hover only; focus-visible keeps it reachable from the keyboard. */
+  .cluster-pin:hover + .cluster-pin-remove,
+  .cluster-pin-remove:hover,
+  .cluster-pin-remove:focus-visible {
+    opacity: 1;
+  }
+
+  .cluster-pin-toggle {
+    @apply inline-flex shrink-0 items-center justify-center rounded-sm text-transparent;
+    width: 18px;
+    height: 18px;
+    transition: color var(--motion-instant) var(--ease-standard);
+  }
+
+  .ui-table tbody tr:hover .cluster-pin-toggle,
+  .cluster-pin-toggle:focus-visible {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .cluster-pin-toggle:hover {
+    color: hsl(var(--primary));
+  }
+
+  .cluster-pin-toggle-on,
+  .ui-table tbody tr:hover .cluster-pin-toggle-on {
+    color: hsl(var(--primary));
+  }
+
+  /* ── Detail panel ───────────────────────────────────────────────────── */
+  .ui-related-link {
+    @apply flex w-full items-center gap-2 rounded-md px-2 text-xs;
+    height: 28px;
+    border: 1px solid hsl(var(--border));
+    transition: border-color var(--motion-instant) var(--ease-standard),
+                background-color var(--motion-instant) var(--ease-standard);
+  }
+
+  button.ui-related-link:hover {
+    background: hsl(var(--muted));
+    border-color: hsl(var(--primary) / 0.4);
+  }
+
+  /* ── Manifest editor and diff ───────────────────────────────────────── */
+  .ui-editor-line-changed {
+    width: 2px !important;
+    margin-left: 3px;
+    background: hsl(var(--accent));
+  }
+
+  .ui-diff {
+    @apply overflow-x-auto rounded-md border border-border;
+    background: hsl(var(--background));
+    font-family: var(--font-mono);
+    font-size: var(--density-text);
+    line-height: 1.5;
+  }
+
+  .ui-diff-line {
+    @apply flex items-baseline gap-2 whitespace-pre px-2;
+  }
+
+  .ui-diff-gutter {
+    @apply w-8 shrink-0 select-none text-right;
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
+  .ui-diff-sign {
+    @apply w-2 shrink-0 select-none;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .ui-diff-text {
+    @apply min-w-0 flex-1;
+    color: hsl(var(--foreground));
+  }
+
+  .ui-diff-added {
+    background: color-mix(in srgb, hsl(var(--success)) 16%, hsl(var(--background)));
+  }
+
+  .ui-diff-removed {
+    background: color-mix(in srgb, hsl(var(--destructive)) 16%, hsl(var(--background)));
+  }
+
+  .ui-diff-gap {
+    background: hsl(var(--muted) / 0.4);
+  }
+
+  .ui-diff-gap .ui-diff-text {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .ui-conflict {
+    @apply space-y-2 rounded-md p-3;
+    background: color-mix(in srgb, hsl(var(--warning)) 8%, hsl(var(--background)));
+    border: 1px solid hsl(var(--warning) / 0.35);
+  }
+
+  /* ── Overlays ───────────────────────────────────────────────────────── */
+  @keyframes ui-menu-in {
+    from { opacity: 0; transform: scale(0.98); }
+  }
+
+  .ui-menu {
+    @apply bg-popover border border-border rounded-lg p-1;
+    box-shadow: var(--elevation-lg);
+    min-width: 9rem;
+    z-index: 200;
+    transform-origin: var(--reka-dropdown-menu-content-transform-origin, center);
+  }
+
+  .ui-menu[data-state='open'] {
+    animation: ui-menu-in var(--motion-fast) var(--ease-standard);
+  }
+
+  .ui-menu-item {
+    @apply flex w-full items-center gap-2 px-2 rounded-sm text-sm text-foreground cursor-default outline-none;
+    height: 28px;
+    transition: background-color var(--motion-instant) var(--ease-standard);
+  }
+
+  .ui-menu-item[data-highlighted] {
+    background: hsl(var(--muted));
+  }
+
+  .ui-menu-item-danger {
+    color: hsl(var(--destructive));
+  }
+
+  .ui-menu-item-danger[data-highlighted] {
+    background: hsl(var(--destructive) / 0.1);
+  }
+
+  .ui-menu-separator {
+    @apply my-1 h-px;
+    background: hsl(var(--border));
+  }
+
+  .ui-tooltip {
+    @apply bg-popover border border-border rounded-lg px-2 py-1 text-xs text-popover-foreground;
+    box-shadow: var(--elevation-lg);
+    max-width: 24rem;
+    z-index: 200;
+  }
+
+  /* ── Resize handle ──────────────────────────────────────────────────── */
+  .ui-resize-handle {
+    @apply relative shrink-0 p-0;
+    background: transparent;
+    transition: background-color var(--motion-fast) var(--ease-standard);
+  }
+
+  /* The visible gutter is 6px; the pseudo-element widens the pointer target
+     to the 28px floor without taking layout space from the panel. */
+  .ui-resize-handle::after {
+    content: '';
+    position: absolute;
+  }
+
+  .ui-resize-handle[aria-orientation='vertical'] {
+    width: 6px;
+    cursor: col-resize;
+    align-self: stretch;
+  }
+
+  .ui-resize-handle[aria-orientation='vertical']::after {
+    inset: 0 -11px;
+  }
+
+  .ui-resize-handle[aria-orientation='horizontal'] {
+    height: 6px;
+    cursor: row-resize;
+    width: 100%;
+  }
+
+  .ui-resize-handle[aria-orientation='horizontal']::after {
+    inset: -11px 0;
+  }
+
+  .ui-resize-handle:hover,
+  .ui-resize-handle[data-dragging='true'] {
+    background: hsl(var(--ring) / 0.45);
+  }
+
+  /* ── Feedback ───────────────────────────────────────────────────────── */
+  @keyframes ui-progress-sweep {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(250%); }
+  }
+
+  .ui-progress {
+    @apply relative w-full overflow-hidden;
+    height: 2px;
+    background: hsl(var(--primary) / 0.15);
+  }
+
+  .ui-progress-bar {
+    @apply absolute inset-y-0 left-0;
+    width: 40%;
+    background: hsl(var(--primary));
+    animation: ui-progress-sweep 1.2s linear infinite;
+  }
+
+  .ui-progress-value {
+    @apply absolute inset-y-0 left-0;
+    background: hsl(var(--primary));
+    transition: width var(--motion-normal) var(--ease-standard);
+  }
+
+  @keyframes ui-live-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .ui-live-dot {
+    animation: ui-live-pulse 2s ease-in-out infinite;
+  }
+
+  /* The shimmer and the live pulse are decoration and stop; the spinner and
+     the indeterminate bar carry state and are preserved — a frozen spinner
+     reads as a hung application. */
+  @media (prefers-reduced-motion: reduce) {
+    .shimmer {
+      background: hsl(var(--muted));
+      animation: none;
+    }
+
+    .ui-live-dot {
+      animation: none;
+    }
   }
 }
 
