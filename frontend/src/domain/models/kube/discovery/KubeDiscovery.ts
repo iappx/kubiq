@@ -69,16 +69,13 @@ export class KubeDiscovery {
         if (!resource.name || !resource.kind) {
             return false
         }
-        // A subresource such as `pods/log` is reached through its parent and
-        // never appears in the menu as a kind of its own.
+        // A subresource such as `pods/log` is reached through its parent, never listed as a kind of its own.
         if (resource.name.includes('/')) {
             return false
         }
         return (resource.verbs ?? []).includes('list')
     }
 
-    // A group missing from /apis still has to get a version from somewhere when
-    // the caller only handed over the resource lists.
     private static fillFromResourceLists(lists: TApiResourceListDocument[], preferred: Map<string, string>): void {
         const byGroup = new Map<string, string[]>()
         for (let i = 0; i < lists.length; i++) {
@@ -137,8 +134,7 @@ export class KubeDiscovery {
         })
     }
 
-    // The CRD is the better source for columns and scope; discovery stays the
-    // authority on verbs, because those reflect what this cluster actually allows.
+    // The CRD wins on columns and scope, but discovery keeps the verbs: only those reflect what this cluster allows.
     private static applyCrds(crds: TKubeDiscoveryInput['crds'], kinds: Map<string, KubeResourceKind>): void {
         const documents = crds ?? []
         for (let i = 0; i < documents.length; i++) {

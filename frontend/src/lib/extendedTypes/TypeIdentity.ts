@@ -1,7 +1,5 @@
 import { ExtendedTypeInfo } from '@/lib/extendedTypes/ExtendedTypeInfo'
 
-// Keyed by the class object itself: a subclass must not inherit the identity of
-// its base, or the bus would route its events to the base's handlers.
 export class TypeIdentity {
     private static readonly registry = new WeakMap<object, ExtendedTypeInfo>()
 

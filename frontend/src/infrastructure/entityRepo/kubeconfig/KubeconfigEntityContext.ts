@@ -4,8 +4,8 @@ import { KubeconfigEntityQuery } from '@/infrastructure/entityRepo/kubeconfig/Ku
 import { FileSystemTransport } from '@/infrastructure/entityRepo/transport/FileSystemTransport'
 
 export class KubeconfigEntityContext extends EntityContextBase<FileSystemTransport> {
-    // KUBECONFIG may name several files and the user may open another, so the set
-    // holds no path: forFile() binds the fresh query it hands out to one file.
+    // The empty path is deliberate: KUBECONFIG may name several files, so forFile()
+    // binds each fresh query to one of them.
     @RepoEntitySet(() => KubeconfigContextEntity, () => KubeconfigEntityQuery, { file: '' })
     public contexts: KubeconfigEntityQuery
 

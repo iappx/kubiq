@@ -3,9 +3,7 @@ import type { TFilterNode } from '@iappx/entity-repo-query'
 import { KubeFilters } from '@/domain/entities/kube/KubeFilters'
 import type { TPodPhase } from '@/domain/entities/workloads/types/TPodPhase'
 
-// Only paths the API server accepts in a pod fieldSelector. A condition it
-// cannot express — "show me the broken pods" — is PodEntity.isProblematic, not
-// a filter: expressing it here would mean listing every pod and sieving it here.
+// Only paths the API server accepts in a pod fieldSelector: it rejects a list filtered on anything else.
 export class PodFilters {
     public static onNode<T>(filter: FilterFactory<T>, nodeName: string): TFilterNode {
         return filter.opPath(QueryOperators.eq, ['spec', 'nodeName'], nodeName)

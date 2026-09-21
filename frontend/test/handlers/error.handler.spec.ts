@@ -6,8 +6,8 @@ import { ToastStore } from '@/store/modules/toast/ToastStore'
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { ApiError } from '@/domain/errors/ApiError'
 
-// Resolved once: the handler subscribes in its constructor, so a per-test
-// resolution would leave earlier instances listening on the same bus.
+// Resolved once: the handler subscribes in its constructor, and a second instance would
+// leave the first one listening on the same bus.
 container.resolve(ErrorHandler)
 const eventBus = container.resolve(EventBus)
 const store = container.resolve(ToastStore)

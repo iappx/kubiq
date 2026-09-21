@@ -3,8 +3,8 @@ import { container } from 'tsyringe'
 import { ToastService } from '@/application/services/toast/ToastService'
 import { ToastStore } from '@/store/modules/toast/ToastStore'
 
-// Singletons resolved once per file: a second resolution would hand the service
-// a different store than the one the assertions read.
+// Resolved once: a second resolution would hand the service a different store than the
+// one the assertions read.
 const service = container.resolve(ToastService)
 const store = container.resolve(ToastStore)
 

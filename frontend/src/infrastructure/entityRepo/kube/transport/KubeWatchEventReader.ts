@@ -34,8 +34,6 @@ export class KubeWatchEventReader {
         }
     }
 
-    // A 410 is not a failure to report but an instruction to list again: the
-    // resource version the watch started from has been compacted away.
     protected static failure(object?: Record<string, unknown>): TKubeWatchEvent {
         const status = object as TKubeStatus | undefined
         const expired = !!status && (status.code === KubeWatchEventReader.expiredCode || status.reason === 'Expired')

@@ -5,10 +5,8 @@ import type {
     TCustomResourceDefinitionDocument,
 } from '@/domain/models/kube'
 
-// Trimmed copies of what a v1.31 cluster answers on /api, /apis and
-// /apis/{group}/{version}, keeping the cases discovery has to handle:
-// subresources, a resource that cannot be listed, a group with no preferred
-// version, and a superseded group version.
+// The awkward entries are deliberate: subresources, a resource that cannot be listed,
+// a group with no preferred version, and a superseded group version.
 export class KubeDiscoveryFixtures {
     public static coreVersions(): TApiVersionsDocument {
         return { versions: ['v1'] }

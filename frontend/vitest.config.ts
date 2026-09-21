@@ -13,13 +13,10 @@ export default defineConfig({
     resolve: {
         alias: { '@': path.resolve(import.meta.dirname, './src') },
     },
-    // Vite 8 transforms with oxc, not esbuild — an `esbuild` block here would be
-    // silently ignored.
+    // Vite 8 transforms with oxc, not esbuild — an `esbuild` block here is silently ignored.
     oxc: {
-        // The codebase is decorator-driven (tsyringe, @InjectableStore, @Entity).
-        // Class fields must not be defined via Object.defineProperty, or the
-        // property initialisers wipe values the decorators set on the prototype;
-        // `setPublicClassFields` is oxc's spelling of useDefineForClassFields: false.
+        // `setPublicClassFields` is oxc's spelling of useDefineForClassFields: false —
+        // with defineProperty semantics, field initialisers wipe what decorators set.
         target: 'es2020',
         decorator: { legacy: true },
         assumptions: { setPublicClassFields: true },

@@ -2,8 +2,8 @@ import { UnsupportedOperationError } from '@iappx/entity-repo-query'
 import type { TOrderNode } from '@iappx/entity-repo-query'
 import type { IOrderEncoder, TCapabilitySlice, TEncodedQuery } from '@iappx/entity-repo-rest'
 
-// Plugged in so the dialect does not fall back to FlatOrderEncoder, whose slice
-// would let orderBy through and turn into a ?sort= the API server ignores.
+// Without it the dialect falls back to FlatOrderEncoder, and orderBy would compile
+// into a ?sort= the API server ignores.
 export class KubeNoOrderEncoder implements IOrderEncoder {
     public readonly capabilities: TCapabilitySlice = { ordering: { multiple: false, nulls: false, byPath: false } }
 

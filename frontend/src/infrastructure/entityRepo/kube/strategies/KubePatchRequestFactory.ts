@@ -13,8 +13,7 @@ export class KubePatchRequestFactory implements IRequestFactory {
         }
 
         // The API server reads the patch kind off the content type and refuses a
-        // plain application/json; merge-patch is what a serialised set of changed
-        // fields means.
+        // plain application/json.
         return { ...request, headers: { ...request.headers, 'content-type': KubePatchRequestFactory.mergePatchType } }
     }
 }

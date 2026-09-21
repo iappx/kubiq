@@ -60,8 +60,7 @@ func (h *channelHandle) resize(cols int, rows int) error {
 }
 
 func (s *ChannelService) Open(spec ChannelSpec) (result ChannelResult) {
-	// A panic inside a bound method takes the whole application down, so the
-	// entry point turns one into an ordinary failed result.
+	// An unrecovered panic in a bound method takes the whole application down.
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			result = ChannelResult{Error: fmt.Sprintf("channel failed: %v", recovered)}

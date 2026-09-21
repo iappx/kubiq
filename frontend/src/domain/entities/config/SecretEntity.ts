@@ -3,8 +3,7 @@ import { ObjectMetaEntity } from '@/domain/entities/kube/ObjectMetaEntity'
 import { SecretTypeCatalog } from '@/domain/entities/config/SecretTypeCatalog'
 import type { TKubeDataMap } from '@/domain/entities/config/types/TKubeDataMap'
 
-// The entity carries `data` because the manifest on the YAML tab has to be
-// faithful; nothing here exposes a value, and nothing above it should either.
+// `data` is carried so the YAML tab stays faithful; nothing here exposes a value, and nothing above it should either.
 export class SecretEntity extends RepoEntityBase<SecretEntity> {
     @RepoEntityField({ isPrimaryKey: true, isClientOnly: true })
     uid: string

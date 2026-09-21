@@ -22,8 +22,7 @@ export class ContainerWaitingReasonCatalog {
         return Object.prototype.hasOwnProperty.call(ContainerWaitingReasonCatalog.values, reason)
     }
 
-    // An unknown reason counts as an error: the kubelet only reports one while a
-    // container is failing to start, apart from the two transient ones below.
+    // An unknown reason counts as an error: apart from the transient ones, the kubelet reports one only while a container fails to start.
     public static isError(reason: string): boolean {
         return !ContainerWaitingReasonCatalog.transient.includes(reason)
     }

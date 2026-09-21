@@ -41,8 +41,8 @@ export class KubeTransport implements ITransport<TRestRequest> {
         return result as unknown as TRes
     }
 
-    // The Go client appends the path to the server url as it was handed over, so
-    // the query string travels with it rather than as a separate field.
+    // The Go client appends this path to the server url verbatim, so the query string
+    // has to travel inside it rather than as a field of its own.
     public path(request: TRestRequest): string {
         return UrlJoiner.withQuery(request.url, request.query ? this.serializer.serialize(request.query) : '')
     }

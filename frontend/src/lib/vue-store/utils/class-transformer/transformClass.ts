@@ -49,11 +49,8 @@ function _getStoreFragment<S extends object, F extends StoreFragment<S, F>>(Frag
             getters: null,
         }
     }
-    // The chain is walked from the subclass upwards, so what is already in
-    // `result` is the more derived definition and has to win. Spreading the
-    // parent last would silently replace an override with the base method — and
-    // silently, because the store still has a method of that name and the types
-    // still agree.
+    // The chain is walked from the subclass upwards, so what is already in `result` is
+    // the more derived definition: spreading the parent last would replace an override.
     if (!result.actions) {
         result.actions = actions
     } else {

@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { container } from 'tsyringe'
 
-// The generated Wails bindings are the only thing stubbed here — this spec is
-// about the one class that talks to them.
 const send = vi.fn()
 
 vi.mock('../../../bindings/iappx_k8s_admin/core/services/kube', () => ({

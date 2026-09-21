@@ -1,8 +1,6 @@
 import { VueBase } from '@iappx/vue-facing-di'
 import { nextTick } from 'vue'
 
-// Subclasses render the markup, expose a `panel` ref and call handleOpenChange
-// from a @Watch on their own open prop.
 export abstract class ModalShellBase extends VueBase {
     private restoreFocusTo: HTMLElement | null = null
 
@@ -13,9 +11,7 @@ export abstract class ModalShellBase extends VueBase {
     protected abstract onEscape(): void
 
     mounted(): void {
-        // Built here rather than as a field initialiser: an initialiser runs on
-        // the raw class instance, the hook on the reactive proxy — a listener
-        // that captured the raw `this` reads stale state and never fires.
+        // Not a field initialiser: that runs on the raw class instance, so the listener would capture a stale `this`.
         this.escapeHandler = event => {
             if (event.key === 'Escape' && this.isOpen()) {
                 this.onEscape()

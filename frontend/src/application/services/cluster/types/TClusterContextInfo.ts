@@ -9,6 +9,5 @@ export type TClusterContextInfo = {
     authType: TKubeconfigAuthType
     isCurrent: boolean
     isSupported: boolean
-    /** Empty while the authentication method is supported. */
     unsupportedReason: string
 }

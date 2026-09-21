@@ -55,7 +55,6 @@ export class FileSystemTransport implements ITransport<TFileRequest> {
         return null
     }
 
-    // Makes a rejected binding call read the same as a failed result.
     private async call<T>(action: () => Promise<T>, message: string): Promise<T> {
         try {
             return await action()

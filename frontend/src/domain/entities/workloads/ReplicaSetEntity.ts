@@ -48,8 +48,7 @@ export class ReplicaSetEntity extends RepoEntityBase<ReplicaSetEntity> {
         return `${this.readyReplicas}/${this.desiredReplicas}`
     }
 
-    // A deployment keeps its superseded replica sets scaled to zero, and those
-    // are the normal state of a healthy cluster rather than something to flag.
+    // A deployment keeps its superseded replica sets scaled to zero, which is the normal state of a healthy cluster.
     get state(): TKubeObjectState {
         if (this.metadata?.isDeleting) {
             return 'pending'

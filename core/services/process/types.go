@@ -29,10 +29,9 @@ type ProcessResult struct {
 }
 
 type ProcessInfo struct {
-	Id      string `json:"id"`
-	Command string `json:"command"`
-	Pty     bool   `json:"pty"`
-	// RFC 3339.
+	Id        string `json:"id"`
+	Command   string `json:"command"`
+	Pty       bool   `json:"pty"`
 	StartedAt string `json:"startedAt"`
 	Running   bool   `json:"running"`
 }

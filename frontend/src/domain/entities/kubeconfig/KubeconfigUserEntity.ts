@@ -36,7 +36,7 @@ export class KubeconfigUserEntity extends RepoEntityBase<KubeconfigUserEntity> {
     @RepoEntityField()
     usesAuthProvider: boolean
 
-    /** The kubeconfig this entry came from; relative file references resolve against its folder. */
+    // Relative file references in this entry resolve against this kubeconfig's folder, not the working directory.
     @RepoEntityField({ isClientOnly: true })
     filePath: string
 

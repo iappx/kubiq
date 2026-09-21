@@ -24,17 +24,13 @@ export default defineConfigWithVueTs(
             'no-unused-vars': 0,
             'no-case-declarations': 0,
             '@typescript-eslint/no-explicit-any': 0,
-            // Base classes spell out the full signature in their default
-            // implementation and leave the arguments to the overrides — the names
-            // are the documentation, so an unused argument is not a defect here.
+            // Base classes spell out the full signature and leave the arguments to
+            // their overrides, so an unused argument is not a defect here.
             '@typescript-eslint/no-unused-vars': ['error', { args: 'none' }],
             '@typescript-eslint/no-empty-function': 1,
             '@typescript-eslint/no-inferrable-types': 0,
-            // The DI/decorator/reflection infrastructure in src/lib, src/domain and the
-            // event bus legitimately needs `Function` as a registry key, `{}` as a generic
-            // default, `this` aliasing in the type walker and raw hasOwnProperty on plain
-            // objects. These are metaprogramming idioms, not accidents — do not "fix" them.
-            // (typescript-eslint 8 split the former `ban-types` into these three.)
+            // The DI and reflection infrastructure in src/lib needs `Function` as a registry
+            // key, `{}` as a generic default, `this` aliasing and raw hasOwnProperty.
             '@typescript-eslint/no-empty-object-type': 0,
             '@typescript-eslint/no-unsafe-function-type': 0,
             '@typescript-eslint/no-wrapper-object-types': 0,

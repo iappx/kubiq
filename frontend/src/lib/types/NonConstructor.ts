@@ -1,3 +1,2 @@
-// Mapped types drop the construct signature, which is exactly the point here:
-// what is left is the static side of a class.
+// Not a no-op: a mapped type drops the construct signature, leaving the static side.
 export type NonConstructor<T> = { [K in keyof T]: T[K] }

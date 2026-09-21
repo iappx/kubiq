@@ -1,12 +1,6 @@
 import { ITransport } from '@iappx/entity-repo'
 import { TFileRequest } from '@/infrastructure/entityRepo/transport/types/TFileRequest'
 
-/**
- * In-memory stand-in for `FileSystemTransport`.
- *
- * The transport is the boundary of the app, so a spec that is not about the
- * bindings themselves stops here instead of stubbing the generated Go API.
- */
 export class MemoryFileTransport implements ITransport<TFileRequest> {
     public readonly files = new Map<string, string>()
 

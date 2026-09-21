@@ -9,7 +9,6 @@ export abstract class LoadableItemStoreBase<TItem extends object, TStore extends
 
     public storeLoading = false
 
-    /** Milliseconds before a loaded collection goes stale; `0` — never. */
     protected updateInterval = 0
 
     protected nextUpdate = 0
@@ -33,8 +32,6 @@ export abstract class LoadableItemStoreBase<TItem extends object, TStore extends
             this.nextUpdate = Date.now() + this.updateInterval
             this.storeLoaded = true
         } finally {
-            // Even a failed load has to release the flag, or the store never
-            // tries again and the page keeps showing skeletons.
             this.storeLoading = false
         }
     }

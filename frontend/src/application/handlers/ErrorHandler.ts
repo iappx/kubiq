@@ -13,8 +13,6 @@ export class ErrorHandler {
         this.eventBus.registerHandler(AppErrorEvent, e => this.handle(e))
     }
 
-    // A business error is the user's to see; anything else is our own defect and
-    // goes to the console instead of interrupting them with what they cannot fix.
     private handle(event: AppErrorEvent): void {
         if (event.error instanceof ApiError) {
             this.toastService.error(event.error.message, event.error.details)

@@ -9,6 +9,6 @@ export type TConnectionSpec = {
     insecureSkipTlsVerify: boolean
     serverName: string
     proxyUrl: string
-    /** Seconds; 0 leaves the timeout to the Go client. */
+    // 0 leaves the timeout to the Go client.
     timeoutSeconds: number
 }

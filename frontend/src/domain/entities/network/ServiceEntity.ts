@@ -65,8 +65,7 @@ export class ServiceEntity extends RepoEntityBase<ServiceEntity> {
         return this.externalAddresses.join(', ')
     }
 
-    // Only a LoadBalancer waits for something: every other type is usable the
-    // moment the API server has accepted it.
+    // Only a LoadBalancer waits for something: every other type is usable once the API server has accepted it.
     get state(): TKubeObjectState {
         if (this.metadata?.isDeleting) {
             return 'pending'

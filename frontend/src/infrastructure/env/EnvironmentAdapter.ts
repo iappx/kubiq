@@ -25,9 +25,6 @@ export class EnvironmentAdapter {
         return this.value(() => EnvService.Expand(path))
     }
 
-    // An unset variable, an unreachable home directory and a browser without
-    // bindings are all the same answer here: nothing is known, and a caller
-    // that has to guess is better served by an empty value than by a throw.
     private async value(call: () => Promise<EnvResult>): Promise<string> {
         if (!this.runtime.isAvailable()) {
             return ''

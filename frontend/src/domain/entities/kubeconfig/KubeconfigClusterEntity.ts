@@ -22,7 +22,7 @@ export class KubeconfigClusterEntity extends RepoEntityBase<KubeconfigClusterEnt
     @RepoEntityField()
     proxyUrl: string
 
-    /** The kubeconfig this entry came from; relative file references resolve against its folder. */
+    // Relative file references in this entry resolve against this kubeconfig's folder, not the working directory.
     @RepoEntityField({ isClientOnly: true })
     filePath: string
 }

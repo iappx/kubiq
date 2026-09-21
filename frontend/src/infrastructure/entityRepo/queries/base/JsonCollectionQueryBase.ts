@@ -60,8 +60,6 @@ export abstract class JsonCollectionQueryBase<
             throw new ApiError('The data file is corrupted', 'A list of records was expected')
         }
 
-        // Anything without a primary key is not one of ours — a hand-edited
-        // source must not turn into objects that fail later, inside a template.
         return raw
             .filter(item => !!item && typeof item === 'object')
             .map(item => this.entityConstructor.build(item as Record<string, any>))

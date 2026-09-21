@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The generated Wails bindings are the only thing stubbed here — this spec is
-// about the one class that talks to them.
 const get = vi.fn()
 const homeDir = vi.fn()
 const separator = vi.fn()

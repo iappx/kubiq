@@ -5,8 +5,7 @@ import type { TKubeObjectState } from '@/domain/entities/kube/types/TKubeObjectS
 import type { TEventSource } from '@/domain/entities/cluster/types/TEventSource'
 import type { TEventType } from '@/domain/entities/cluster/types/TEventType'
 
-// An Event carries its payload at the top level of the object rather than in
-// spec/status, so the entity mirrors that shape instead of the usual one.
+// An Event carries its payload at the top level of the object, not in spec/status.
 export class EventEntity extends RepoEntityBase<EventEntity> {
     @RepoEntityField({ isPrimaryKey: true, isClientOnly: true })
     uid: string
@@ -38,15 +37,13 @@ export class EventEntity extends RepoEntityBase<EventEntity> {
     @RepoEntityField()
     source: TEventSource
 
-    /** RFC 3339 timestamp. */
     @RepoEntityField()
     firstTimestamp: string
 
-    /** RFC 3339 timestamp. */
     @RepoEntityField()
     lastTimestamp: string
 
-    /** RFC 3339 timestamp; the only one set by the events.k8s.io reporter. */
+    // The only timestamp the events.k8s.io reporter sets, hence the fallback in `lastSeen`.
     @RepoEntityField()
     eventTime: string
 

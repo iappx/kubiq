@@ -10,8 +10,7 @@ const eventBus = container.resolve(EventBus)
 
 describe('event identity', () => {
     it('gives a subclass an identity of its own', () => {
-        // Both are read here, in this order, precisely because a shared
-        // identity would only show up once the base class has been touched.
+        // The base class has to be read first: a shared identity only shows up once it has been touched.
         expect(TypeIdentity.guid(NotificationEvent)).not.toBe(TypeIdentity.guid(ErrorNotificationEvent))
     })
 

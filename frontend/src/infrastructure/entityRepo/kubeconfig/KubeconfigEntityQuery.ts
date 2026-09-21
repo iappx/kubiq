@@ -130,8 +130,6 @@ export class KubeconfigEntityQuery
         }))
     }
 
-    // A hand-edited file may hold an entry with no name; it can be referenced by
-    // nothing, so it is dropped rather than carried around half-built.
     private named<T extends { name?: string }>(entries: T[] | undefined): (T & { name: string })[] {
         return (entries ?? []).filter((entry): entry is T & { name: string } => !!entry?.name)
     }

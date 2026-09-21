@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { container } from 'tsyringe'
 
-// The generated Wails bindings are the only thing stubbed here; the runtime that
-// carries the stream events is the real one.
 const startStream = vi.fn()
 const stopStream = vi.fn()
 

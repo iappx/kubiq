@@ -1,8 +1,7 @@
 import { RepoEntityBase, RepoEntityField } from '@iappx/entity-repo'
 import { ObjectMetaEntity } from '@/domain/entities/kube/ObjectMetaEntity'
 
-// A StorageClass keeps its settings at the top level of the object rather than
-// in a spec, so the entity mirrors that shape.
+// A StorageClass keeps its settings at the top level of the object, not in a spec.
 export class StorageClassEntity extends RepoEntityBase<StorageClassEntity> {
     public static readonly defaultAnnotation: string = 'storageclass.kubernetes.io/is-default-class'
 

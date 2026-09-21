@@ -5,8 +5,6 @@ export type TKubeCondition = {
     status: TKubeConditionStatus
     reason?: string
     message?: string
-    /** RFC 3339 timestamp. */
     lastTransitionTime?: string
-    /** RFC 3339 timestamp. */
     lastProbeTime?: string
 }

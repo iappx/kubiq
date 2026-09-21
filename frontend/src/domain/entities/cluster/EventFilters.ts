@@ -15,8 +15,7 @@ export class EventFilters {
         return filter.opPath(QueryOperators.eq, ['reason'], reason)
     }
 
-    // The uid pins the events to one incarnation of the object: a rebuilt pod of
-    // the same name keeps neither the uid nor the events of its predecessor.
+    // A rebuilt pod of the same name keeps neither the uid nor the events of its predecessor.
     public static forObject<T>(filter: FilterFactory<T>, uid: string): TFilterNode {
         return filter.opPath(QueryOperators.eq, ['involvedObject', 'uid'], uid)
     }

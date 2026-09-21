@@ -51,8 +51,6 @@ export class KubeUrlBuilder implements IUrlBuilder {
         return value === undefined || value === '' ? undefined : String(value)
     }
 
-    // update/patch/create hand the serialised object over as the payload, so the
-    // address is already in it and the caller does not have to repeat it.
     protected static metadata(operation: TRestOperation, key: string): string | undefined {
         const payload = operation.payload as Record<string, unknown> | undefined
         const metadata = payload ? payload.metadata as Record<string, unknown> | undefined : undefined

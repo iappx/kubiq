@@ -20,8 +20,8 @@ const testRemotePort = 8443
 func newForwardServer(t *testing.T, remotePort int, opening *frameRecorder, reply func([]byte) []byte) *httptest.Server {
 	t.Helper()
 
-	// The fake server mirrors a real one: it announces the port on both channels
-	// of the pair, then treats the rest of channel 0 as the stream.
+	// A real server announces the port on both channels of the pair, error
+	// channel included.
 	return newSocketServer(t, []string{testSubprotocol}, func(conn *websocket.Conn) {
 		ctx := context.Background()
 		prefix := portPrefix(remotePort)

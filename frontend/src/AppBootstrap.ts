@@ -14,8 +14,7 @@ export class AppBootstrap {
         const pinia = createPinia()
         const app = createApp(App)
 
-        // Pinia has to be active before anything resolves a store — handlers
-        // inject them, and stores resolved earlier would have no pinia to bind to.
+        // Must precede anything that resolves a store: the handlers below inject them.
         app.use(pinia)
 
         AppBootstrap.registerHandlers()
@@ -37,8 +36,6 @@ export class AppBootstrap {
             .filter((exported): exported is Constructor<unknown> => typeof exported === 'function')
 
         if (handlers.length === 0) {
-            // Silence here would mean an app with no side-effects at all, and
-            // nothing else would ever point at the glob as the reason.
             throw new Error('No event handlers matched ./application/handlers/**/*Handler.ts')
         }
 

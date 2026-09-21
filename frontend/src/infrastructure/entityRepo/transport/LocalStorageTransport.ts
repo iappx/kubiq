@@ -21,8 +21,8 @@ export class LocalStorageTransport implements ITransport<TLocalStorageRequest> {
         try {
             localStorage.setItem(params.key, params.content ?? '')
         } catch (err) {
-            // Quota and privacy modes reject the write; the user has to be told,
-            // because from here on what they see is not what is stored.
+            // Quota and privacy modes reject the write, and from here on what the user
+            // sees is not what is stored.
             throw new ApiError(
                 'Could not save the changes',
                 err instanceof Error ? err.message : String(err),

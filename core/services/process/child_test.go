@@ -32,8 +32,6 @@ const (
 	bulkBlockSize = 800
 )
 
-// The helper process is this very test binary re-executed with a mode switch:
-// it needs no shell and no platform-specific utility to exist.
 func TestMain(m *testing.M) {
 	switch os.Getenv(childModeEnv) {
 	case "":

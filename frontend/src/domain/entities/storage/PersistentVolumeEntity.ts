@@ -66,8 +66,7 @@ export class PersistentVolumeEntity extends RepoEntityBase<PersistentVolumeEntit
         return claim.namespace ? `${claim.namespace}/${claim.name}` : claim.name
     }
 
-    // Released means the claim is gone but the volume still holds its data, so
-    // it needs an operator's decision rather than reading as healthy.
+    // Released means the claim is gone but the data is still there, so it needs an operator's decision, not a healthy tick.
     get state(): TKubeObjectState {
         if (this.metadata?.isDeleting) {
             return 'pending'

@@ -40,8 +40,6 @@ describe('KubeResourceRegistry', () => {
 
     it('leads every table with the name, except the event log', () => {
         for (const kind of KubeResourceRegistry.all()) {
-            // An event's name is a generated string nobody reads, so its table
-            // leads with when the event was last seen, the way kubectl does.
             const expected = kind.kind === 'Event' ? 'lastSeen' : 'name'
             expect(kind.columns[0].key).toBe(expected)
         }

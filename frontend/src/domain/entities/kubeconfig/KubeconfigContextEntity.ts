@@ -19,7 +19,6 @@ export class KubeconfigContextEntity extends RepoEntityBase<KubeconfigContextEnt
     @RepoEntityField()
     namespace: string
 
-    /** The kubeconfig this entry came from. */
     @RepoEntityField({ isClientOnly: true })
     filePath: string
 

@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The generated Wails bindings are the only thing stubbed here — this spec is
-// about the one class that talks to them.
 const connect = vi.fn()
 const disconnect = vi.fn()
 const sessions = vi.fn()

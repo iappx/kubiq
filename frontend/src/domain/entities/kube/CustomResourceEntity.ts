@@ -40,8 +40,7 @@ export class CustomResourceEntity extends RepoEntityBase<CustomResourceEntity> {
         return Array.isArray(conditions) ? conditions as TKubeCondition[] : []
     }
 
-    // A CRD author is free to omit status.conditions or to spell the ready
-    // condition their own way, so anything but an explicit Ready stays unknown.
+    // A CRD author may omit status.conditions or spell readiness their own way, so a missing Ready is unknown, not an error.
     get state(): TKubeObjectState {
         if (this.metadata?.isDeleting) {
             return 'pending'

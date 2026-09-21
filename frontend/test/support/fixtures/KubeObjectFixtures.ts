@@ -1,8 +1,5 @@
-// Shaped like the objects the API server returns. Every builder hands back a
-// fresh deep copy so a test that mutates one cannot leak into the next.
 export class KubeObjectFixtures {
-    // What the query layer of T-0005 does to every item before building an
-    // entity: the primary key has to be flat, and metadata.uid is where it lives.
+    // An entity needs its primary key flat, and metadata.uid is where the cluster keeps it.
     public static withUid<T extends { metadata?: { uid?: string } }>(object: T): T & { uid: string } {
         return { ...object, uid: object.metadata?.uid ?? '' }
     }

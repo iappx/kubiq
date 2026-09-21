@@ -1,5 +1,4 @@
-// additionalPrinterColumns use a narrow slice of JSONPath: a dotted field path
-// with optional array indices, such as `.status.conditions[0].status`.
+// Only the JSONPath slice additionalPrinterColumns use: a dotted field path with optional array indices.
 export class KubeJsonPath {
     public static read(source: unknown, jsonPath: string): unknown {
         const segments = KubeJsonPath.parse(jsonPath)

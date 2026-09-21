@@ -1,6 +1,4 @@
-// Kubernetes orders API versions by maturity first and number second, so
-// v2 > v1 > v2beta1 > v1beta2 > v1beta1 > v1alpha1. Anything unparseable sorts
-// last, since a group may serve a version we cannot rank.
+// Kubernetes ranks maturity before number: v2 > v1 > v2beta1 > v1beta2 > v1beta1 > v1alpha1.
 export class KubeVersionComparer {
     private static readonly pattern: RegExp = /^v(\d+)(?:(alpha|beta)(\d+))?$/
 

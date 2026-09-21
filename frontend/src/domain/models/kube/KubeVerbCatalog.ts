@@ -24,8 +24,7 @@ export class KubeVerbCatalog {
         return Object.keys(KubeVerbCatalog.values) as TKubeVerb[]
     }
 
-    // A cluster may report verbs we do not model (`bind`, `escalate`, `impersonate`);
-    // keeping only the known ones is what makes the result a TKubeVerb[].
+    // A cluster may report verbs we do not model (`bind`, `escalate`); dropping them is what makes the cast sound.
     public static known(verbs: string[] | undefined): TKubeVerb[] {
         return (verbs ?? []).filter(p => KubeVerbCatalog.has(p)) as TKubeVerb[]
     }

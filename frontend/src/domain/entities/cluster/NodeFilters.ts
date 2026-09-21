@@ -13,8 +13,7 @@ export class NodeFilters {
         return filter.opPath(QueryOperators.eq, ['spec', 'unschedulable'], true)
     }
 
-    // The role marker is a label whose presence is what matters; Kubernetes
-    // writes it with an empty value, which is what a selector matches on.
+    // Kubernetes writes the role marker label with an empty value, which is what a selector matches on.
     public static withRole<T>(filter: FilterFactory<T>, role: string): TFilterNode {
         return KubeFilters.withLabel(filter, `${NodeFilters.rolePrefix}${role}`, '')
     }

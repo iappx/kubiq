@@ -10,7 +10,6 @@ export type TPodStatus = {
     qosClass?: TPodQosClass
     podIP?: string
     hostIP?: string
-    /** RFC 3339 timestamp. */
     startTime?: string
     conditions?: TKubeCondition[]
     containerStatuses?: TKubeContainerStatus[]
