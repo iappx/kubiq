@@ -38,7 +38,9 @@ export default class UiResizeHandle extends VueBase {
   @Prop({ required: false, default: UiResizeController.defaultStep })
   public readonly step?: number
 
-  @Prop({ required: false, default: false })
+  // `type` is what makes Vue cast a bare `invert` attribute to true; without it the prop
+  // arrives as an empty string and every `invert === true` below silently reads false.
+  @Prop({ required: false, default: false, type: Boolean })
   public readonly invert?: boolean
 
   @VModel({ name: 'value' })
