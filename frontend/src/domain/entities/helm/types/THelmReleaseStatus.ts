@@ -1,0 +1,10 @@
+export type THelmReleaseStatus =
+    | 'unknown'
+    | 'deployed'
+    | 'uninstalled'
+    | 'superseded'
+    | 'failed'
+    | 'uninstalling'
+    | 'pending-install'
+    | 'pending-upgrade'
+    | 'pending-rollback'
