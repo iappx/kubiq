@@ -14,6 +14,23 @@
       </div>
     </div>
 
+    <table v-else-if="type === 'table'" :data-density="density" aria-hidden="true" class="ui-table">
+      <thead>
+        <tr>
+          <th v-for="c in columns" :key="c" scope="col">
+            <span class="block h-2 rounded shimmer" />
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="i in count" :key="i">
+          <td v-for="c in columns" :key="c">
+            <span :class="['block h-2 rounded shimmer', c === 1 ? 'w-40' : 'w-16']" />
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
     <div v-else class="surface divide-y divide-border">
       <div v-for="i in count" :key="i" class="flex items-center gap-3 px-5 py-4">
         <div class="w-5 h-5 rounded shimmer" />
@@ -26,13 +43,20 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
+import type { TUiTableDensity } from '@/components/common/table/types/TUiTableDensity'
 
 @Component({})
 export default class UiSkeletons extends VueBase {
   @Prop({ required: false, default: 'cards' })
-  public readonly type?: 'cards' | 'rows'
+  public readonly type?: 'cards' | 'rows' | 'table'
 
   @Prop({ required: false, default: 3 })
   public readonly count?: number
+
+  @Prop({ required: false, default: 5 })
+  public readonly columns?: number
+
+  @Prop({ required: false, default: 'compact' })
+  public readonly density?: TUiTableDensity
 }
 </script>
