@@ -4,10 +4,34 @@ import type { TKubeStatus } from '@/infrastructure/entityRepo/kube/transport/typ
 export class KubeStatusReader {
     public static readonly unreachable: string = 'Could not reach the cluster'
 
+    public static readonly forbidden: number = 403
+
+    public static readonly missing: number = 404
+
+    public static readonly conflict: number = 409
+
+    public static readonly gone: number = 410
+
     public static apiError(status: number, body: string, failure: string): ApiError {
         const reported = KubeStatusReader.parse(body)
         const message = reported && reported.message ? reported.message : KubeStatusReader.describe(status)
-        return new ApiError(message, KubeStatusReader.details(reported, body, failure))
+        return new ApiError(message, KubeStatusReader.details(reported, body, failure), status)
+    }
+
+    public static isForbidden(error: unknown): boolean {
+        return ApiError.statusOf(error) === KubeStatusReader.forbidden
+    }
+
+    public static isConflict(error: unknown): boolean {
+        return ApiError.statusOf(error) === KubeStatusReader.conflict
+    }
+
+    public static isGone(error: unknown): boolean {
+        return ApiError.statusOf(error) === KubeStatusReader.gone
+    }
+
+    public static isMissing(error: unknown): boolean {
+        return ApiError.statusOf(error) === KubeStatusReader.missing
     }
 
     public static parse(body: string): TKubeStatus | undefined {
