@@ -5,7 +5,7 @@ import type { TRestRequest, TRestResponse } from '@iappx/entity-repo-rest'
 export class MemoryKubeTransport implements ITransport<TRestRequest> {
     public readonly requests: TRestRequest[] = []
 
-    private readonly answers: TRestResponse[] = []
+    private readonly answers: (TRestResponse | Error)[] = []
 
     private readonly serializer = new QueryStringSerializer()
 
@@ -13,9 +13,16 @@ export class MemoryKubeTransport implements ITransport<TRestRequest> {
         this.answers.push({ status, headers: {}, data })
     }
 
+    public failWith(error: Error): void {
+        this.answers.push(error)
+    }
+
     public async send<TRes>(request: TRestRequest): Promise<TRes> {
         this.requests.push(request)
         const answer = this.answers.shift() ?? { status: 200, headers: {}, data: undefined }
+        if (answer instanceof Error) {
+            throw answer
+        }
         return answer as unknown as TRes
     }
 
