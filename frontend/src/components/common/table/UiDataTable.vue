@@ -55,7 +55,7 @@
               :data-row-key="keys[index]"
               :data-selected="isSelected(keys[index]) ? 'true' : undefined"
               tabindex="-1"
-              @click="setCursor(keys[index])"
+              @click="onRowClick(row, keys[index])"
               @contextmenu.prevent="openMenuAt($event.clientX, $event.clientY, keys[index])"
           >
             <td v-if="selectable" class="ui-sticky-cell w-8" style="left: 0">
@@ -332,6 +332,15 @@ export default class UiDataTable extends VueBase {
     }
   }
 
+  public onRowClick(row: any, key: string): void {
+    if (this.isSelectingText()) {
+      this.setCursor(key)
+      return
+    }
+
+    this.open(row, key)
+  }
+
   public open(row: any, key: string): void {
     this.setCursor(key)
     this.$emit('open', row)
@@ -406,6 +415,10 @@ export default class UiDataTable extends VueBase {
     }
 
     event.preventDefault()
+  }
+
+  private isSelectingText(): boolean {
+    return window.getSelection()?.isCollapsed === false
   }
 
   private moveCursor(delta: number): void {

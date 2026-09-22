@@ -553,7 +553,13 @@
     transition: background-color var(--motion-instant) var(--ease-standard);
   }
 
-  .ui-table tbody tr:hover {
+  /* Only data rows carry `data-row-key`: the empty-state row is a `<tr>` in the
+     same `<tbody>` and must neither look nor behave clickable. */
+  .ui-table tbody tr[data-row-key] {
+    cursor: pointer;
+  }
+
+  .ui-table tbody tr[data-row-key]:hover {
     background-color: color-mix(in srgb, hsl(var(--muted)) 60%, hsl(var(--background)));
   }
 
