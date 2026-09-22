@@ -16,6 +16,7 @@ const fake = vi.hoisted(() => ({
     stopped: [] as string[],
     opened: [] as string[],
     ports: [] as { port: number, name: string }[],
+    names: [] as string[],
     refusal: null as Error | null,
     sequence: 0,
 }))
@@ -80,6 +81,13 @@ vi.mock('@/application/services/portForward/PortForwardService', () => ({
             return fake.ports
         }
 
+        public async names(): Promise<string[]> {
+            if (fake.refusal) {
+                throw fake.refusal
+            }
+            return fake.names
+        }
+
         public urlOf(forward: TPortForward): string {
             return `http://${forward.address}:${forward.localPort}`
         }
@@ -103,11 +111,13 @@ describe('PortForwardStore', () => {
     beforeEach(() => {
         store.forwards = []
         store.ports = []
+        store.names = []
         store.target = null
         fake.forwards.clear()
         fake.stopped.length = 0
         fake.opened.length = 0
         fake.ports = []
+        fake.names = []
         fake.refusal = null
         fake.sequence = 0
     })
@@ -207,6 +217,26 @@ describe('PortForwardStore', () => {
 
         expect(store.target).toBeNull()
         expect(store.ports).toEqual([])
+    })
+
+    it('offers the names of the namespace it was asked about', async () => {
+        fake.names = ['api-0', 'web-2']
+
+        await store.loadNames('prod', 'payments', 'pods')
+
+        expect(store.names).toEqual(['api-0', 'web-2'])
+    })
+
+    it('raises a refused name list and offers nothing', async () => {
+        const seen: AppErrorEvent[] = []
+        eventBus.registerHandler(AppErrorEvent, (event) => { seen.push(event) })
+        fake.names = ['api-0']
+        fake.refusal = new ApiError('You cannot list pods in that namespace')
+
+        await store.loadNames('prod', 'payments', 'pods')
+
+        expect(store.names).toEqual([])
+        expect(seen).toHaveLength(1)
     })
 
     it('clears its list for a cluster that went away', async () => {

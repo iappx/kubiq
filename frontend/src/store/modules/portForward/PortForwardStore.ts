@@ -17,6 +17,8 @@ export class PortForwardStore extends StoreBase<PortForwardStore> implements IPo
 
     public ports: TPortForwardPort[] = []
 
+    public names: string[] = []
+
     public target: TPortForwardTarget | null = null
 
     public starting = false
@@ -95,6 +97,15 @@ export class PortForwardStore extends StoreBase<PortForwardStore> implements IPo
 
     public clearPorts(): void {
         this.ports = []
+    }
+
+    public async loadNames(clusterId: string, namespace: string, resource: string): Promise<void> {
+        try {
+            this.names = await this.portForwardService.names(clusterId, namespace, resource)
+        } catch (err) {
+            this.names = []
+            this.eventBus.emitEvent(new AppErrorEvent(err, 'PortForwardStore.loadNames'))
+        }
     }
 
     public async setTarget(target: TPortForwardTarget | null): Promise<void> {

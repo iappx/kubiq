@@ -200,6 +200,7 @@ declare module 'vue' {
     UiSkeletons: typeof import('./src/components/common/UiSkeletons.vue')['default']
     UiStatusBadge: typeof import('./src/components/common/status/UiStatusBadge.vue')['default']
     UiStatusDot: typeof import('./src/components/common/status/UiStatusDot.vue')['default']
+    UiSuggestField: typeof import('./src/components/common/form/UiSuggestField.vue')['default']
     UiTabBar: typeof import('./src/components/common/tabBar/UiTabBar.vue')['default']
     UiTableToolbar: typeof import('./src/components/common/table/UiTableToolbar.vue')['default']
     UiTimeChart: typeof import('./src/components/chart/UiTimeChart.vue')['default']

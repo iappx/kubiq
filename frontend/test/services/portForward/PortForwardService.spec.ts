@@ -359,4 +359,39 @@ describe('PortForwardService', () => {
 
         expect(ports).toEqual([{ port: 8080, name: 'http' }])
     })
+
+    describe('the names it offers', () => {
+        const named = (kind: string, names: string[]): unknown => ({
+            apiVersion: 'v1',
+            kind: `${kind}List`,
+            metadata: { resourceVersion: '1' },
+            items: names.map((name, index) => ({
+                apiVersion: 'v1',
+                kind,
+                metadata: { uid: `${name}-${index}`, name, namespace: 'payments' },
+                spec: kind === 'Pod' ? { containers: [{ name: 'app' }] } : { ports: [] },
+                status: { phase: 'Running' },
+            })),
+        })
+
+        it('lists the running pods of a namespace, sorted', async () => {
+            restTransport.answerWith(named('Pod', ['web-2', 'api-0']))
+
+            await expect(service.names('prod', 'payments', 'pods')).resolves.toEqual(['api-0', 'web-2'])
+            expect(restTransport.path).toBe('/api/v1/namespaces/payments/pods?fieldSelector=status.phase=Running')
+        })
+
+        it('lists the services of a namespace', async () => {
+            restTransport.answerWith(named('Service', ['api', 'web']))
+
+            await expect(service.names('prod', 'payments', 'services')).resolves.toEqual(['api', 'web'])
+            expect(restTransport.path).toBe('/api/v1/namespaces/payments/services')
+        })
+
+        // The panel opens with no namespace chosen, and a cluster-wide pod list is not what it needs.
+        it('asks the cluster for nothing until a namespace is chosen', async () => {
+            await expect(service.names('prod', '', 'pods')).resolves.toEqual([])
+            expect(restTransport.requests).toHaveLength(0)
+        })
+    })
 })

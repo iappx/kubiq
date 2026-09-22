@@ -8,8 +8,26 @@ export class PortForwardValidator {
 
     private static readonly whole: RegExp = /^\d+$/
 
+    private static readonly label: RegExp = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/
+
+    private static readonly subdomain: RegExp = /^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$/
+
     public validate(draft: TPortForwardDraft): TValidationResult {
         const errors: Record<string, string> = {}
+
+        const namespace = draft.namespace.trim()
+        if (namespace.length === 0) {
+            errors.namespace = 'Choose the namespace the target lives in'
+        } else if (!PortForwardValidator.label.test(namespace)) {
+            errors.namespace = 'Use lowercase letters, digits and dashes'
+        }
+
+        const name = draft.name.trim()
+        if (name.length === 0) {
+            errors.name = 'Choose the pod or the service to forward from'
+        } else if (!PortForwardValidator.subdomain.test(name)) {
+            errors.name = 'Use lowercase letters, digits, dashes and dots'
+        }
 
         const remote = draft.remotePort.trim()
         if (remote.length === 0) {

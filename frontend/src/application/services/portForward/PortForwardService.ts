@@ -92,6 +92,21 @@ export class PortForwardService {
         await this.host.openUri(this.urlOf(session.forward))
     }
 
+    public async names(clusterId: string, namespace: string, resource: string): Promise<string[]> {
+        if (namespace === '') {
+            return []
+        }
+
+        const found = resource === PortForwardLabel.services
+            ? await this.servicesIn(clusterId, namespace)
+            : await this.podsIn(clusterId, namespace)
+
+        return found
+            .map(entity => entity.name)
+            .filter(name => name !== '')
+            .sort((left, right) => left.localeCompare(right))
+    }
+
     public async ports(clusterId: string, namespace: string, resource: string, name: string): Promise<TPortForwardPort[]> {
         if (resource === PortForwardLabel.services) {
             const service = await this.service(clusterId, namespace, name)
@@ -193,6 +208,19 @@ export class PortForwardService {
             .getAll()
 
         return running[0]
+    }
+
+    private podsIn(clusterId: string, namespace: string): Promise<PodEntity[]> {
+        return this.connectionService.context(clusterId).pods
+            .withPathParams({ [KubeUrlBuilder.namespaceParam]: namespace })
+            .rawFilter({ [KubeApiParams.fieldSelector]: PortForwardService.runningPods })
+            .getAll()
+    }
+
+    private servicesIn(clusterId: string, namespace: string): Promise<ServiceEntity[]> {
+        return this.connectionService.context(clusterId).services
+            .withPathParams({ [KubeUrlBuilder.namespaceParam]: namespace })
+            .getAll()
     }
 
     private service(clusterId: string, namespace: string, name: string): Promise<ServiceEntity | undefined> {
