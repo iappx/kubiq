@@ -34,9 +34,11 @@ vi.mock('@/application/services/cluster/ClusterConnectionService', () => ({
     },
 }))
 
+import { ResourceDetailService } from '@/application/services/resourceDetail/ResourceDetailService'
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { ResourceAppliedEvent } from '@/domain/events/cluster/ResourceAppliedEvent'
 import { ResourceCreatedEvent } from '@/domain/events/cluster/ResourceCreatedEvent'
+import { SuccessMessageEvent } from '@/domain/events/app/SuccessMessageEvent'
 import { ApiError } from '@/domain/errors/ApiError'
 import { KubeManifest, KubeResourceRegistry } from '@/domain/models/kube'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
@@ -50,6 +52,20 @@ seam.context = () => EntityRepo.create().use(KubeEntityContext, transport as nev
 
 const deployments = KubeResourceRegistry.find('apps', 'deployments')!
 const served = [deployments, KubeResourceRegistry.find('', 'services')!]
+
+const pods = KubeResourceRegistry.find('', 'pods')!
+const podServed = [pods, KubeResourceRegistry.find('', 'secrets')!]
+
+const clipboardWrites: string[] = []
+
+Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: {
+        writeText: async (text: string) => {
+            clipboardWrites.push(text)
+        },
+    },
+})
 
 setActivePinia(createPinia())
 
@@ -113,6 +129,50 @@ describe('ResourceObjectStore', () => {
 
         expect(store.stateOf(target).loaded).toBe(true)
         expect(store.stateOf(target).relations).toEqual([])
+        expect(store.stateOf(target).relationsLoading).toBe(false)
+    })
+
+    it('says the relations are still coming while it reads them', async () => {
+        let readingWhileFlagged = false
+        const relations = vi.spyOn(ResourceDetailService.prototype, 'relations').mockImplementation(() => {
+            readingWhileFlagged = store.stateOf(target).relationsLoading
+
+            return Promise.resolve([])
+        })
+
+        transport.answerWith(deployment('4011', 3))
+        await store.load(target)
+        relations.mockRestore()
+
+        expect(readingWhileFlagged).toBe(true)
+        expect(store.stateOf(target).relationsLoading).toBe(false)
+    })
+
+    it('stops saying so even when the relations were refused', async () => {
+        const relations = vi.spyOn(ResourceDetailService.prototype, 'relations')
+            .mockRejectedValue(new ApiError('Denied', 'Forbidden', 403))
+
+        transport.answerWith(deployment('4011', 3))
+        await store.load(target)
+        relations.mockRestore()
+
+        expect(store.stateOf(target).relationsLoading).toBe(false)
+    })
+
+    it('reads the events once when a second load is asked for while one is running', async () => {
+        transport.answerWith(deployment('4011', 3))
+        transport.answerWith({ items: [] })
+        await store.load(target)
+
+        transport.reset()
+        transport.answerWith({ items: [], metadata: { resourceVersion: '5000' } })
+        transport.answerWith({ items: [], metadata: { resourceVersion: '5000' } })
+
+        await Promise.all([store.loadEvents(target), store.loadEvents(target)])
+
+        expect(transport.requests).toHaveLength(1)
+        expect(store.stateOf(target).eventsLoaded).toBe(true)
+        expect(store.stateOf(target).eventsLoading).toBe(false)
     })
 
     it('announces an applied change so a toast can name the object', async () => {
@@ -260,5 +320,131 @@ describe('ResourceObjectStore', () => {
         store.forget('prod')
 
         expect(store.stateOf(target).loaded).toBe(false)
+    })
+})
+
+describe('ResourceObjectStore environment', () => {
+    const podTarget = { clusterId: 'prod', kind: pods, name: 'api-7d9-abcde', namespace: 'payments', served: podServed }
+
+    // No labels and no owner, so loading the pod itself costs exactly one read.
+    const pod = {
+        apiVersion: 'v1',
+        kind: 'Pod',
+        metadata: { name: 'api-7d9-abcde', namespace: 'payments', uid: 'p-1', resourceVersion: '5' },
+        spec: {
+            containers: [{
+                name: 'api',
+                env: [
+                    { name: 'LOG_LEVEL', value: 'debug' },
+                    { name: 'DB_PASSWORD', valueFrom: { secretKeyRef: { name: 'db-creds', key: 'password' } } },
+                ],
+            }],
+        },
+    }
+
+    const dbCreds = {
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: { name: 'db-creds', namespace: 'payments' },
+        data: { password: btoa('placeholder-value') },
+    }
+
+    const loadPod = async (): Promise<void> => {
+        transport.answerWith(pod)
+        await store.load(podTarget)
+    }
+
+    beforeEach(() => {
+        transport.reset()
+        store.objects = {}
+        captured.length = 0
+        clipboardWrites.length = 0
+    })
+
+    it('holds one group per container once the references have been read', async () => {
+        await loadPod()
+        transport.answerWith(dbCreds)
+
+        await store.loadEnvironment(podTarget)
+
+        const state = store.stateOf(podTarget)
+        expect(state.environment.map(group => group.container)).toEqual(['api'])
+        expect(state.environmentLoaded).toBe(true)
+        expect(state.environmentLoading).toBe(false)
+        expect(state.environmentError).toBe('')
+    })
+
+    it('resolves a secret reference into a value the panel can mask', async () => {
+        await loadPod()
+        transport.answerWith(dbCreds)
+
+        await store.loadEnvironment(podTarget)
+
+        expect(store.stateOf(podTarget).environment[0].entries[1]).toMatchObject({
+            variable: 'DB_PASSWORD',
+            masked: true,
+            state: 'resolved',
+        })
+    })
+
+    it('keeps its own copy of the failure instead of leaving the tab blank', async () => {
+        await loadPod()
+        transport.failWith(new ApiError('Broken', 'InternalError', 500))
+
+        await store.loadEnvironment(podTarget)
+
+        expect(store.stateOf(podTarget).environmentError).toBe('Broken')
+        expect(store.stateOf(podTarget).environmentLoading).toBe(false)
+    })
+
+    it('reads the references once when a second load is asked for while one is running', async () => {
+        await loadPod()
+        transport.reset()
+        transport.answerWith(dbCreds)
+        transport.answerWith(dbCreds)
+
+        await Promise.all([store.loadEnvironment(podTarget), store.loadEnvironment(podTarget)])
+
+        expect(transport.requests).toHaveLength(1)
+    })
+
+    it('copies a masked value and names the variable without repeating the value', async () => {
+        eventBus.registerHandler(SuccessMessageEvent, record)
+        await loadPod()
+        transport.answerWith(dbCreds)
+        await store.loadEnvironment(podTarget)
+        const secret = store.stateOf(podTarget).environment[0].entries[1]
+
+        const done = await store.copyEnvironmentEntry(podTarget, secret.id)
+
+        eventBus.unregisterHandler(SuccessMessageEvent, record)
+        expect(done).toBe(true)
+        expect(clipboardWrites).toEqual(['placeholder-value'])
+        expect(captured).toHaveLength(1)
+        expect((captured[0] as SuccessMessageEvent).content).toBe(
+            'Copied the secret value of DB_PASSWORD to the clipboard',
+        )
+    })
+
+    it('says that copying a whole container took the secret values with it', async () => {
+        eventBus.registerHandler(SuccessMessageEvent, record)
+        await loadPod()
+        transport.answerWith(dbCreds)
+        await store.loadEnvironment(podTarget)
+
+        const done = await store.copyEnvironmentGroup(podTarget, 'api')
+
+        eventBus.unregisterHandler(SuccessMessageEvent, record)
+        expect(done).toBe(true)
+        expect(clipboardWrites).toEqual(['LOG_LEVEL=debug\nDB_PASSWORD=placeholder-value'])
+        expect((captured[0] as SuccessMessageEvent).content).toBe(
+            'Copied 2 variables of api to the clipboard, secret values included',
+        )
+    })
+
+    it('answers with nothing at all when asked to copy something it does not hold', async () => {
+        expect(await store.copyEnvironmentEntry(podTarget, 'api/0/GONE')).toBe(false)
+        expect(await store.copyEnvironmentGroup(podTarget, 'gone')).toBe(false)
+        expect(clipboardWrites).toEqual([])
     })
 })

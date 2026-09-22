@@ -89,10 +89,17 @@ describe('MetricsColumns', () => {
 })
 
 describe('DetailTabs with metrics', () => {
-    it('discloses a Metrics tab exactly where there is something to chart', () => {
-        expect(DetailTabs.of(pods).map(tab => tab.key)).toContain(DetailTabs.metricsKey)
-        expect(DetailTabs.of(deployments).map(tab => tab.key)).toContain(DetailTabs.metricsKey)
-        expect(DetailTabs.of(secrets).map(tab => tab.key)).not.toContain(DetailTabs.metricsKey)
-        expect(DetailTabs.of(null).map(tab => tab.key)).not.toContain(DetailTabs.metricsKey)
+    it('charts exactly where there is something to chart, without a tab of its own', () => {
+        expect(DetailTabs.hasMetrics(pods)).toBe(true)
+        expect(DetailTabs.hasMetrics(deployments)).toBe(true)
+        expect(DetailTabs.hasMetrics(secrets)).toBe(false)
+
+        expect(DetailTabs.of(pods).map(tab => tab.key)).not.toContain('metrics')
+    })
+
+    it('gives every kind the same Details tab, charted or not', () => {
+        expect(DetailTabs.of(pods).map(tab => tab.key)).toContain(DetailTabs.detailsKey)
+        expect(DetailTabs.of(secrets).map(tab => tab.key)).toContain(DetailTabs.detailsKey)
+        expect(DetailTabs.of(null).map(tab => tab.key)).toContain(DetailTabs.detailsKey)
     })
 })

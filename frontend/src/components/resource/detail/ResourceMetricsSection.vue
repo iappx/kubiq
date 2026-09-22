@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4 px-4 py-3">
+  <div class="space-y-4">
     <resource-section v-if="showUsage" :hint="usageHint" title="Current usage">
       <metrics-notice
           v-if="!usageReady"
@@ -58,7 +58,7 @@ import type { TResourceObjectRef } from '@/store/modules/resourceObject/types/TR
 @Component({
   components: { MetricsNotice, MetricsPanel, MetricsUsageBar, ResourceSection },
 })
-export default class ResourceMetricsTab extends VueBase {
+export default class ResourceMetricsSection extends VueBase {
   @Prop({ required: true })
   public readonly target: TResourceObjectRef
 

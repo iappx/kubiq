@@ -32,6 +32,16 @@ export class KubeWorkloadCatalog {
         KubeWorkloadCatalog.cronJobsKey,
     ]
 
+    private static readonly podTemplated: string[] = [
+        KubeResourceKind.registryKeyOf('apps', 'deployments'),
+        KubeResourceKind.registryKeyOf('apps', 'statefulsets'),
+        KubeResourceKind.registryKeyOf('apps', 'daemonsets'),
+        KubeResourceKind.registryKeyOf('apps', 'replicasets'),
+        KubeResourceKind.registryKeyOf('', 'replicationcontrollers'),
+        KubeWorkloadCatalog.jobsKey,
+        KubeWorkloadCatalog.cronJobsKey,
+    ]
+
     private static readonly summarised: string[] = [
         KubeWorkloadCatalog.podsKey,
         KubeResourceKind.registryKeyOf('apps', 'deployments'),
@@ -58,6 +68,10 @@ export class KubeWorkloadCatalog {
     public static canForwardPort(kind: KubeResourceKind): boolean {
         return kind.registryKey === KubeWorkloadCatalog.podsKey
             || kind.registryKey === KubeWorkloadCatalog.servicesKey
+    }
+
+    public static hasPodTemplate(kind: KubeResourceKind): boolean {
+        return KubeWorkloadCatalog.podTemplated.includes(kind.registryKey)
     }
 
     public static gathersPodsByNamePrefix(kind: KubeResourceKind): boolean {

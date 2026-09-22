@@ -146,7 +146,16 @@ describe('DetailContainers', () => {
 
 describe('DetailTabs', () => {
     it('discloses the object in the order the brief fixes', () => {
-        expect(DetailTabs.of(pods).map(tab => tab.key)).toEqual(['overview', 'metrics', 'metadata', 'events', 'yaml'])
+        expect(DetailTabs.of(pods).map(tab => tab.key))
+            .toEqual(['overview', 'environment', 'details', 'metadata', 'events', 'yaml'])
+    })
+
+    it('gives the facts a tab of their own whether or not the kind can be charted', () => {
+        const secrets = KubeResourceRegistry.find('', 'secrets')!
+
+        expect(DetailTabs.hasMetrics(secrets)).toBe(false)
+        expect(DetailTabs.of(secrets).map(tab => tab.key))
+            .toEqual(['overview', 'data', 'details', 'metadata', 'events', 'yaml'])
     })
 
     it('answers whether a tab is there', () => {

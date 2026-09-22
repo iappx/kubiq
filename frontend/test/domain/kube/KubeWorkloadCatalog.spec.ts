@@ -36,6 +36,26 @@ describe('KubeWorkloadCatalog', () => {
         expect(KubeWorkloadCatalog.canForwardPort(kind('', 'nodes'))).toBe(false)
     })
 
+    it('knows which kinds carry a pod template of their own', () => {
+        const templated = KubeResourceRegistry.all()
+            .filter(candidate => KubeWorkloadCatalog.hasPodTemplate(candidate))
+            .map(candidate => candidate.kind)
+
+        expect(templated).toEqual([
+            'Deployment',
+            'StatefulSet',
+            'DaemonSet',
+            'ReplicaSet',
+            'ReplicationController',
+            'Job',
+            'CronJob',
+        ])
+    })
+
+    it('does not call a pod a template of itself', () => {
+        expect(KubeWorkloadCatalog.hasPodTemplate(kind('', 'pods'))).toBe(false)
+    })
+
     it('offers nothing the cluster does not let the user patch', () => {
         const readOnly = kind('apps', 'deployments').withDefinition({ verbs: ['list', 'get', 'watch'] })
 

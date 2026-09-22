@@ -1,35 +1,17 @@
 import type { TDetailContainer } from '@/components/resource/detail/types/TDetailContainer'
 import type { TUiTone } from '@/components/common/status/types/TUiTone'
+import { PodSpecReader } from '@/domain/entities/workloads'
 import { KubeManifest } from '@/domain/models/kube'
 
 export class DetailContainers {
     public static of(object: Record<string, unknown>): TDetailContainer[] {
-        const spec = DetailContainers.podSpec(object)
+        const spec = PodSpecReader.of(object)
         const statuses = DetailContainers.statuses(object)
 
         return [
             ...DetailContainers.list(spec.initContainers),
             ...DetailContainers.list(spec.containers),
         ].map(container => DetailContainers.describe(container, statuses))
-    }
-
-    private static podSpec(object: Record<string, unknown>): Record<string, unknown> {
-        const spec = KubeManifest.isObject(object.spec) ? object.spec : {}
-        if (Array.isArray(spec.containers)) {
-            return spec
-        }
-
-        const template = KubeManifest.isObject(spec.template) ? spec.template : {}
-        const nested = KubeManifest.isObject(template.spec) ? template.spec : {}
-        if (Array.isArray(nested.containers)) {
-            return nested
-        }
-
-        const jobTemplate = KubeManifest.isObject(spec.jobTemplate) ? spec.jobTemplate : {}
-        const jobSpec = KubeManifest.isObject(jobTemplate.spec) ? jobTemplate.spec : {}
-        const jobTemplateSpec = KubeManifest.isObject(jobSpec.template) ? jobSpec.template : {}
-
-        return KubeManifest.isObject(jobTemplateSpec.spec) ? jobTemplateSpec.spec : {}
     }
 
     private static statuses(object: Record<string, unknown>): Record<string, Record<string, unknown>> {

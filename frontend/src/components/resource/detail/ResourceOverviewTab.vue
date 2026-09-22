@@ -1,8 +1,6 @@
 <template>
   <div class="space-y-4">
-    <resource-section title="Details">
-      <resource-fact-list :facts="facts" />
-    </resource-section>
+    <resource-metrics-section v-if="hasMetrics" :object="state.object" :target="target" />
 
     <resource-section v-if="containers.length > 0" :hint="containerHint" title="Containers">
       <resource-container-list :containers="containers" />
@@ -16,12 +14,16 @@
       <resource-condition-list :conditions="conditions" />
     </resource-section>
 
-    <resource-related-group
-        v-for="group in state.relations"
-        :key="group.title"
-        :group="group"
-        @open="$emit('open', $event)"
-    />
+    <resource-related-skeleton v-if="relationsPending" />
+
+    <template v-else>
+      <resource-related-group
+          v-for="group in state.relations"
+          :key="group.title"
+          :group="group"
+          @open="$emit('open', $event)"
+      />
+    </template>
   </div>
 </template>
 
@@ -29,27 +31,28 @@
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import ResourceConditionList from '@/components/resource/detail/ResourceConditionList.vue'
 import ResourceContainerList from '@/components/resource/detail/ResourceContainerList.vue'
-import ResourceFactList from '@/components/resource/detail/ResourceFactList.vue'
+import ResourceMetricsSection from '@/components/resource/detail/ResourceMetricsSection.vue'
 import ResourceRelatedGroup from '@/components/resource/detail/ResourceRelatedGroup.vue'
+import ResourceRelatedSkeleton from '@/components/resource/detail/ResourceRelatedSkeleton.vue'
 import ResourceSection from '@/components/resource/detail/ResourceSection.vue'
 import ResourceTaintList from '@/components/resource/detail/ResourceTaintList.vue'
 import { DetailConditions } from '@/components/resource/detail/DetailConditions'
 import { DetailContainers } from '@/components/resource/detail/DetailContainers'
-import { DetailFacts } from '@/components/resource/detail/DetailFacts'
+import { DetailTabs } from '@/components/resource/detail/DetailTabs'
 import { DetailTaints } from '@/components/resource/detail/DetailTaints'
 import type { TDetailCondition } from '@/components/resource/detail/types/TDetailCondition'
 import type { TDetailContainer } from '@/components/resource/detail/types/TDetailContainer'
-import type { TDetailFact } from '@/components/resource/detail/types/TDetailFact'
 import type { TDetailTaint } from '@/components/resource/detail/types/TDetailTaint'
-import type { KubeResourceKind } from '@/domain/models/kube'
+import type { TResourceObjectRef } from '@/store/modules/resourceObject/types/TResourceObjectRef'
 import type { TResourceObjectState } from '@/store/modules/resourceObject/types/TResourceObjectState'
 
 @Component({
   components: {
     ResourceConditionList,
     ResourceContainerList,
-    ResourceFactList,
+    ResourceMetricsSection,
     ResourceRelatedGroup,
+    ResourceRelatedSkeleton,
     ResourceSection,
     ResourceTaintList,
   },
@@ -59,11 +62,16 @@ export default class ResourceOverviewTab extends VueBase {
   @Prop({ required: true })
   public readonly state: TResourceObjectState
 
-  @Prop({ required: false, default: null })
-  public readonly kind: KubeResourceKind | null
+  @Prop({ required: true })
+  public readonly target: TResourceObjectRef
 
-  public get facts(): TDetailFact[] {
-    return DetailFacts.of(this.state.object, this.kind)
+  public get hasMetrics(): boolean {
+    return DetailTabs.hasMetrics(this.target.kind)
+  }
+
+  // A reload keeps the groups it already has on screen; only an empty panel gets the skeleton.
+  public get relationsPending(): boolean {
+    return this.state.relationsLoading && this.state.relations.length === 0
   }
 
   public get containers(): TDetailContainer[] {

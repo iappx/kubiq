@@ -1,4 +1,7 @@
 import { inject } from 'tsyringe'
+import { PodEnvironmentService } from '@/application/services/podEnvironment/PodEnvironmentService'
+import { PodEnvironmentText } from '@/application/services/podEnvironment/models/PodEnvironmentText'
+import type { TPodEnvironmentGroup } from '@/application/services/podEnvironment/types/TPodEnvironmentGroup'
 import { ResourceDetailService } from '@/application/services/resourceDetail/ResourceDetailService'
 import { ResourceEventLog } from '@/application/services/resourceEvents/models/ResourceEventLog'
 import { ResourceEventsService } from '@/application/services/resourceEvents/ResourceEventsService'
@@ -11,6 +14,7 @@ import type { TYamlCreateResult } from '@/application/services/resourceYaml/type
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { ResourceAppliedEvent } from '@/domain/events/cluster/ResourceAppliedEvent'
 import { ResourceCreatedEvent } from '@/domain/events/cluster/ResourceCreatedEvent'
+import { SuccessMessageEvent } from '@/domain/events/app/SuccessMessageEvent'
 import { ApiError } from '@/domain/errors/ApiError'
 import { KubeManifest } from '@/domain/models/kube'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
@@ -28,6 +32,7 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
         @inject(ResourceYamlService) private readonly yamlService: ResourceYamlService,
         @inject(ResourceDetailService) private readonly detailService: ResourceDetailService,
         @inject(ResourceEventsService) private readonly eventsService: ResourceEventsService,
+        @inject(PodEnvironmentService) private readonly environmentService: PodEnvironmentService,
         @inject(EventBus) private readonly eventBus: EventBus,
     ) {
         super()
@@ -122,10 +127,16 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
         return KubeManifest.withResourceVersion(edited, KubeManifest.resourceVersionOf(fresh))
     }
 
+    // Two runs at once each overwrite the list with their own page and each stop the watch the
+    // other just started, so rows blink out and the older page can land last. One run at a time.
     public async loadEvents(ref: TResourceObjectRef): Promise<void> {
         const key = ResourceObjectStore.keyOf(ref)
+        if (this.byKey(key).eventsLoading) {
+            return
+        }
+
         const request = this.eventsRequest(ref)
-        this.patch(key, { eventsError: '' })
+        this.patch(key, { eventsLoading: true, eventsError: '' })
 
         try {
             const result = await this.eventsService.list(request)
@@ -144,12 +155,90 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
                 eventsWatching: false,
                 eventsError: err instanceof ApiError ? err.message : 'The events of this object could not be read',
             })
+        } finally {
+            this.patch(key, { eventsLoading: false })
         }
     }
 
     public async stopEvents(ref: TResourceObjectRef): Promise<void> {
         await this.eventsService.stop(this.eventsRequest(ref))
         this.patch(ResourceObjectStore.keyOf(ref), { eventsWatching: false, eventsStaleSince: 0 })
+    }
+
+    public async loadEnvironment(ref: TResourceObjectRef): Promise<void> {
+        const key = ResourceObjectStore.keyOf(ref)
+        if (this.byKey(key).environmentLoading) {
+            return
+        }
+
+        this.patch(key, { environmentLoading: true, environmentError: '' })
+
+        try {
+            const environment = await this.environmentService.describe({
+                clusterId: ref.clusterId,
+                object: this.byKey(key).object,
+                served: ref.served,
+            })
+
+            this.patch(key, { environment, environmentLoaded: true })
+        } catch (err) {
+            this.patch(key, {
+                environmentLoaded: true,
+                environmentError: err instanceof ApiError
+                    ? err.message
+                    : 'The environment of this object could not be read',
+            })
+        } finally {
+            this.patch(key, { environmentLoading: false })
+        }
+    }
+
+    public async copyEnvironmentEntry(ref: TResourceObjectRef, id: string): Promise<boolean> {
+        const entry = this.byKey(ResourceObjectStore.keyOf(ref))
+            .environment
+            .flatMap(group => group.entries)
+            .find(candidate => candidate.id === id)
+
+        if (!entry) {
+            return false
+        }
+
+        try {
+            await this.environmentService.copyEntry(entry)
+            this.eventBus.emitEvent(new SuccessMessageEvent(
+                entry.masked
+                    ? `Copied the secret value of ${entry.variable} to the clipboard`
+                    : `Copied ${entry.variable} to the clipboard`,
+            ))
+
+            return true
+        } catch (err) {
+            this.eventBus.emitEvent(new AppErrorEvent(err, 'ResourceObjectStore.copyEnvironmentEntry'))
+
+            return false
+        }
+    }
+
+    public async copyEnvironmentGroup(ref: TResourceObjectRef, container: string): Promise<boolean> {
+        const group = this.groupOf(ref, container)
+        if (!group) {
+            return false
+        }
+
+        try {
+            const copied = await this.environmentService.copyGroup(group)
+            this.eventBus.emitEvent(new SuccessMessageEvent(
+                PodEnvironmentText.hidesSecret(group)
+                    ? `Copied ${copied} variables of ${container} to the clipboard, secret values included`
+                    : `Copied ${copied} variables of ${container} to the clipboard`,
+            ))
+
+            return true
+        } catch (err) {
+            this.eventBus.emitEvent(new AppErrorEvent(err, 'ResourceObjectStore.copyEnvironmentGroup'))
+
+            return false
+        }
     }
 
     public forget(clusterId: string): void {
@@ -184,6 +273,9 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
 
     // Relations are worth having and never worth failing over: the panel shows the object even if its owner cannot be read.
     private async loadRelations(ref: TResourceObjectRef, object: Record<string, unknown>): Promise<void> {
+        const key = ResourceObjectStore.keyOf(ref)
+        this.patch(key, { relationsLoading: true })
+
         try {
             const relations = await this.detailService.relations({
                 clusterId: ref.clusterId,
@@ -192,9 +284,11 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
                 served: ref.served,
             })
 
-            this.patch(ResourceObjectStore.keyOf(ref), { relations })
+            this.patch(key, { relations })
         } catch {
-            this.patch(ResourceObjectStore.keyOf(ref), { relations: [] })
+            this.patch(key, { relations: [] })
+        } finally {
+            this.patch(key, { relationsLoading: false })
         }
     }
 
@@ -224,6 +318,12 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
         if (!KubeStatusReader.isForbidden(err) && !KubeStatusReader.isMissing(err)) {
             this.eventBus.emitEvent(new AppErrorEvent(err, 'ResourceObjectStore.load'))
         }
+    }
+
+    private groupOf(ref: TResourceObjectRef, container: string): TPodEnvironmentGroup | undefined {
+        return this.byKey(ResourceObjectStore.keyOf(ref))
+            .environment
+            .find(group => group.container === container)
     }
 
     private byKey(key: string): TResourceObjectState {

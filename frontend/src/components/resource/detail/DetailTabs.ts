@@ -1,6 +1,6 @@
 import type { TTab } from '@/components/common/tabBar/UiTabBar.vue'
 import { MetricsScope } from '@/components/metrics/MetricsScope'
-import { KubeClusterCatalog } from '@/domain/models/kube'
+import { KubeClusterCatalog, KubeWorkloadCatalog } from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
 
 export class DetailTabs {
@@ -10,7 +10,9 @@ export class DetailTabs {
 
     public static readonly podsKey: string = 'pods'
 
-    public static readonly metricsKey: string = 'metrics'
+    public static readonly environmentKey: string = 'environment'
+
+    public static readonly detailsKey: string = 'details'
 
     public static readonly metadataKey: string = 'metadata'
 
@@ -29,10 +31,10 @@ export class DetailTabs {
         if (kind && KubeClusterCatalog.isNode(kind)) {
             tabs.push({ key: DetailTabs.podsKey, label: 'Pods' })
         }
-        if (kind && DetailTabs.hasMetrics(kind)) {
-            tabs.push({ key: DetailTabs.metricsKey, label: 'Metrics' })
+        if (kind && DetailTabs.hasEnvironment(kind)) {
+            tabs.push({ key: DetailTabs.environmentKey, label: 'Environment' })
         }
-
+        tabs.push({ key: DetailTabs.detailsKey, label: 'Details' })
         tabs.push({ key: DetailTabs.metadataKey, label: 'Metadata' })
         tabs.push({ key: DetailTabs.eventsKey, label: 'Events' })
 
@@ -49,5 +51,9 @@ export class DetailTabs {
 
     public static hasMetrics(kind: KubeResourceKind): boolean {
         return MetricsScope.supportsHistory(kind)
+    }
+
+    public static hasEnvironment(kind: KubeResourceKind): boolean {
+        return KubeWorkloadCatalog.isPod(kind) || KubeWorkloadCatalog.hasPodTemplate(kind)
     }
 }
