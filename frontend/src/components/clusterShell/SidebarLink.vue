@@ -4,7 +4,7 @@
         :aria-current="active ? 'page' : undefined"
         :class="['nav-link', active ? 'nav-link-active' : '']"
         :href="href"
-        :title="collapsed ? item.title : undefined"
+        :title="tooltip"
         @click="navigate"
     >
       <kube-icon :name="item.icon" :size="18" />
@@ -37,6 +37,10 @@ export default class SidebarLink extends VueBase {
 
   public get path(): string {
     return ClusterRoutes.resource(this.clusterId, this.item.section, this.item.slug)
+  }
+
+  public get tooltip(): string {
+    return this.item.group.length > 0 ? `${this.item.title} · ${this.item.group}` : this.item.title
   }
 }
 </script>

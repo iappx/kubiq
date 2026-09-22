@@ -49,6 +49,25 @@ describe('CommandPaletteIndex.build', () => {
         expect(keys(CommandPaletteIndex.build(input))).toContain('cluster:catalog')
     })
 
+    it('hints a kind with its API group, so two same-named kinds never read alike', () => {
+        const hints = CommandPaletteIndex.build({
+            ...input,
+            kinds: [
+                KubeResourceRegistry.find('', 'pods')!,
+                KubeResourceRegistry.find('apps', 'deployments')!,
+            ],
+        })
+            .filter(item => item.key.startsWith('kind:'))
+            .map(item => item.hint)
+
+        expect(hints).toEqual(['v1', 'apps'])
+    })
+
+    it('finds a kind by typing its API group', () => {
+        expect(keys(CommandPaletteIndex.filter(CommandPaletteIndex.build(input), 'apps', [])))
+            .toEqual(['kind:apps/v1/deployments'])
+    })
+
     it('offers namespaces as a scope rather than a destination', () => {
         const namespace = CommandPaletteIndex.build(input).find(item => item.key === 'namespace:payments')
 

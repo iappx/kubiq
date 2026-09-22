@@ -5,6 +5,7 @@ export type TClusterMenuItem = {
     title: string
     icon: string
     slug: string
+    group: string
     section: TKubeSection
     namespaced: boolean
 }

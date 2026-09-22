@@ -1,4 +1,5 @@
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
+import type { KubeResourceKind } from '@/domain/models/kube'
 import type { TCommandItem } from '@/components/clusterShell/types/TCommandItem'
 import type { TCommandPaletteInput } from '@/components/clusterShell/types/TCommandPaletteInput'
 
@@ -63,11 +64,15 @@ export class CommandPaletteIndex {
         return input.kinds.map(kind => ({
             key: `kind:${kind.key}`,
             label: kind.title,
-            hint: kind.apiVersion,
+            hint: CommandPaletteIndex.apiGroupHint(kind),
             group: CommandPaletteIndex.resourceGroup,
             path: ClusterRoutes.forKind(input.clusterId, kind),
             icon: kind.icon,
         }))
+    }
+
+    private static apiGroupHint(kind: KubeResourceKind): string {
+        return kind.group.length > 0 ? kind.group : kind.apiVersion
     }
 
     private static clusters(input: TCommandPaletteInput): TCommandItem[] {
