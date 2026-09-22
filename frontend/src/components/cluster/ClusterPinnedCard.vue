@@ -8,9 +8,9 @@
     <button
         :aria-current="row.isActive ? 'true' : undefined"
         :class="['cluster-pin', row.isActive ? 'cluster-pin-active' : '']"
-        :title="`${row.name} — ${row.statusTitle}`"
+        :title="`Open ${row.name} — ${row.statusTitle}`"
         type="button"
-        @click="$emit('select', row.clusterId)"
+        @click="$emit('enter', row)"
     >
       <ui-status-dot :label="row.statusTitle" :tone="tone" />
       <span class="truncate">{{ row.name }}</span>
@@ -40,7 +40,7 @@ import type { TUiTone } from '@/components/common/status/types/TUiTone'
 
 @Component({
   components: { MotionDiv: motion.div, UiStatusDot, X },
-  emits: ['select', 'unpin'],
+  emits: ['enter', 'unpin'],
 })
 export default class ClusterPinnedCard extends VueBase {
   @Prop({ required: true })

@@ -4,7 +4,7 @@
       <cluster-pinned-strip
           v-if="pinnedRows.length > 0"
           :rows="pinnedRows"
-          @select="onPinnedSelect"
+          @enter="enter"
           @unpin="togglePin"
       />
 
@@ -77,8 +77,9 @@
           :sort="sort"
           :total-count="allRows.length"
           @connect="connect"
+          @details="select"
           @disconnect="connectionStore.disconnect($event)"
-          @open="select"
+          @open="enter"
           @toggle-pin="togglePin"
           @update:cursor="cursor = $event"
           @update:sort="sort = $event"
@@ -109,10 +110,9 @@
         :namespaces="selectedNamespaces"
         :row="selectedRow"
         :width="panelWidth"
-        @activate="connectionStore.activate($event)"
         @close="selectedId = ''"
-        @connect="connect"
         @disconnect="connectionStore.disconnect($event)"
+        @enter="enterById"
         @toggle-pin="togglePin"
         @update:namespaces="setNamespaces"
         @update:width="panelWidth = $event"
@@ -139,6 +139,7 @@ import UiSkeletons from '@/components/common/UiSkeletons.vue'
 import UiTableToolbar from '@/components/common/table/UiTableToolbar.vue'
 import { ClusterCatalogColumns } from '@/components/cluster/ClusterCatalogColumns'
 import { ClusterRowBuilder } from '@/components/cluster/ClusterRowBuilder'
+import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
@@ -252,6 +253,8 @@ export default class ClustersPage extends VueBase {
       this.catalogStore.loadOnce(),
       this.connectionStore.loadNamespaces(),
     ])
+
+    await this.connectionStore.adopt(this.catalogStore.items.map(context => context.name))
   }
 
   public select(row: TClusterRow): void {
@@ -261,23 +264,35 @@ export default class ClustersPage extends VueBase {
     }
   }
 
+  public enter(row: TClusterRow): void {
+    if (row.status === 'unsupported') {
+      this.select(row)
+      return
+    }
+
+    void this.enterById(row.clusterId)
+  }
+
+  public async enterById(clusterId: string): Promise<void> {
+    if (!this.connectionStore.isConnected(clusterId)) {
+      await this.connectionStore.connect(clusterId, this.catalogStore.sources)
+
+      if (!this.connectionStore.isConnected(clusterId)) {
+        return
+      }
+    }
+
+    this.connectionStore.activate(clusterId)
+    void this.namespaceStore.loadFor(clusterId)
+    await this.$router.push(ClusterRoutes.overview(clusterId))
+  }
+
   public async connect(clusterId: string): Promise<void> {
     await this.connectionStore.connect(clusterId, this.catalogStore.sources)
 
     if (this.connectionStore.isConnected(clusterId)) {
       await this.namespaceStore.loadFor(clusterId)
     }
-  }
-
-  public onPinnedSelect(clusterId: string): void {
-    this.selectedId = clusterId
-    if (this.connectionStore.isConnected(clusterId)) {
-      this.connectionStore.activate(clusterId)
-      void this.namespaceStore.loadFor(clusterId)
-      return
-    }
-
-    void this.connect(clusterId)
   }
 
   public togglePin(clusterId: string): void {

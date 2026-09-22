@@ -17,18 +17,17 @@ describe('ClusterNotificationHandler', () => {
         toasts.items = []
     })
 
-    it('names the cluster and its version when a connection opens', () => {
+    it('stays quiet when a connection opens, because entering the cluster is the feedback', () => {
         eventBus.emitEvent(new ClusterConnectedEvent('prod', 'prod', 'v1.31.2'))
 
-        expect(toasts.items).toHaveLength(1)
-        expect(toasts.items[0].type).toBe('success')
-        expect(toasts.items[0].message).toBe('Connected to prod')
-        expect(toasts.items[0].description).toBe('v1.31.2')
+        expect(toasts.items).toEqual([])
     })
 
     it('says nothing about streams when none were open', () => {
         eventBus.emitEvent(new ClusterDisconnectedEvent('prod', 'prod', 0))
 
+        expect(toasts.items).toHaveLength(1)
+        expect(toasts.items[0].type).toBe('success')
         expect(toasts.items[0].message).toBe('Disconnected from prod')
         expect(toasts.items[0].description).toBeUndefined()
     })

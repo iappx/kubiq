@@ -12,7 +12,6 @@ export class ClusterCatalogColumns {
             { key: 'version', title: 'Version', width: '10%' },
             { key: 'authType', title: 'Authentication', priority: 1 },
             { key: 'source', title: 'Kubeconfig', priority: 1 },
-            { key: 'action', title: '', locked: true, sortable: false, align: 'right', width: '44px' },
         ]
     }
 

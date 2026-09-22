@@ -1,6 +1,5 @@
 import { inject, singleton } from 'tsyringe'
 import { ToastService } from '@/application/services/toast/ToastService'
-import { ClusterConnectedEvent } from '@/domain/events/cluster/ClusterConnectedEvent'
 import { ClusterDisconnectedEvent } from '@/domain/events/cluster/ClusterDisconnectedEvent'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 
@@ -10,11 +9,6 @@ export class ClusterNotificationHandler {
         @inject(EventBus) private readonly eventBus: EventBus,
         @inject(ToastService) private readonly toastService: ToastService,
     ) {
-        this.eventBus.registerHandler(ClusterConnectedEvent, e => this.toastService.success(
-            `Connected to ${e.contextName}`,
-            e.versionText,
-        ))
-
         this.eventBus.registerHandler(ClusterDisconnectedEvent, e => this.toastService.success(
             `Disconnected from ${e.contextName}`,
             ClusterNotificationHandler.streamSummary(e.stoppedStreams),

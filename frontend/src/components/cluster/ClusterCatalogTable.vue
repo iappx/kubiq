@@ -1,5 +1,6 @@
 <template>
   <ui-data-table
+      :actions="actions"
       :busy-keys="busyKeys"
       :columns="columns"
       :cursor="cursor"
@@ -11,6 +12,7 @@
       class="flex-1"
       name-key="name"
       row-key="clusterId"
+      @action="onAction"
       @open="$emit('open', $event)"
       @update:cursor="$emit('update:cursor', $event)"
       @update:sort="$emit('update:sort', $event)"
@@ -29,7 +31,7 @@
         </button>
 
         <button
-            :title="row.name"
+            :title="openTitle(row)"
             class="ui-name-button ui-cell"
             type="button"
             @click.stop="$emit('open', row)"
@@ -42,39 +44,15 @@
     </template>
 
     <template #cell-status="{ row }">
-      <ui-status-badge :label="row.statusTitle" :tone="toneOf(row)" />
-    </template>
-
-    <template #cell-action="{ row }">
-      <button
-          v-if="row.status === 'connected'"
-          :aria-label="`Disconnect from ${row.name}`"
-          :title="`Disconnect from ${row.name}`"
-          class="btn-icon w-7 h-7"
-          type="button"
-          @click.stop="$emit('disconnect', row.clusterId)"
-      >
-        <unplug :size="14" />
-      </button>
-      <button
-          v-else-if="row.status === 'connecting'"
-          :aria-label="`Connecting to ${row.name}`"
-          class="btn-icon w-7 h-7"
-          disabled
-          type="button"
-      >
-        <loader-circle :size="14" class="animate-spin" />
-      </button>
-      <button
-          v-else-if="row.status !== 'unsupported'"
-          :aria-label="`Connect to ${row.name}`"
-          :title="`Connect to ${row.name}`"
-          class="btn-icon w-7 h-7"
-          type="button"
-          @click.stop="$emit('connect', row.clusterId)"
-      >
-        <plug :size="14" />
-      </button>
+      <div class="flex items-center gap-2 min-w-0">
+        <ui-status-badge :label="row.statusTitle" :tone="toneOf(row)" />
+        <loader-circle
+            v-if="row.status === 'connecting'"
+            :size="12"
+            aria-hidden="true"
+            class="animate-spin shrink-0 text-muted-foreground"
+        />
+      </div>
     </template>
 
     <template #empty>
@@ -85,19 +63,21 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
-import { LoaderCircle, Pin, Plug, Unplug } from '@lucide/vue'
+import { LoaderCircle, Pin } from '@lucide/vue'
 import UiDataTable from '@/components/common/table/UiDataTable.vue'
 import UiStatusBadge from '@/components/common/status/UiStatusBadge.vue'
+import { ClusterCatalogActions } from '@/components/cluster/ClusterCatalogActions'
 import { ClusterToneMap } from '@/components/cluster/ClusterToneMap'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
+import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 import type { TUiTableColumn } from '@/components/common/table/types/TUiTableColumn'
 import type { TUiTableDensity } from '@/components/common/table/types/TUiTableDensity'
 import type { TUiTableSort } from '@/components/common/table/types/TUiTableSort'
 import type { TUiTone } from '@/components/common/status/types/TUiTone'
 
 @Component({
-  components: { LoaderCircle, Pin, Plug, UiDataTable, UiStatusBadge, Unplug },
-  emits: ['open', 'connect', 'disconnect', 'toggle-pin', 'update:sort', 'update:cursor'],
+  components: { LoaderCircle, Pin, UiDataTable, UiStatusBadge },
+  emits: ['open', 'details', 'connect', 'disconnect', 'toggle-pin', 'update:sort', 'update:cursor'],
 })
 export default class ClusterCatalogTable extends VueBase {
   @Prop({ required: true })
@@ -124,8 +104,40 @@ export default class ClusterCatalogTable extends VueBase {
   @Prop({ required: false, default: 0 })
   public readonly totalCount?: number
 
+  public get actions(): TUiMenuItem[] {
+    return ClusterCatalogActions.of(this.menuRow)
+  }
+
+  // One action list serves the whole table, and UiDataTable moves the cursor onto the row whose menu is opening.
+  private get menuRow(): TClusterRow | null {
+    return this.rows.find(row => row.clusterId === this.cursor) ?? null
+  }
+
   public toneOf(row: TClusterRow): TUiTone {
     return ClusterToneMap.of(row.status)
+  }
+
+  public openTitle(row: TClusterRow): string {
+    return row.status === 'unsupported' ? `View details for ${row.name}` : `Open ${row.name}`
+  }
+
+  public onAction(event: { action: string; row: TClusterRow }): void {
+    switch (event.action) {
+      case ClusterCatalogActions.enterKey:
+        this.$emit('open', event.row)
+        return
+      case ClusterCatalogActions.detailsKey:
+        this.$emit('details', event.row)
+        return
+      case ClusterCatalogActions.connectKey:
+        this.$emit('connect', event.row.clusterId)
+        return
+      case ClusterCatalogActions.disconnectKey:
+        this.$emit('disconnect', event.row.clusterId)
+        return
+      case ClusterCatalogActions.pinKey:
+        this.$emit('toggle-pin', event.row.clusterId)
+    }
   }
 }
 </script>

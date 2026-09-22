@@ -7,7 +7,7 @@
         :key="row.clusterId"
         :index="index"
         :row="row"
-        @select="$emit('select', $event)"
+        @enter="$emit('enter', $event)"
         @unpin="$emit('unpin', $event)"
     />
   </section>
@@ -21,7 +21,7 @@ import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 
 @Component({
   components: { ClusterPinnedCard, Pin },
-  emits: ['select', 'unpin'],
+  emits: ['enter', 'unpin'],
 })
 export default class ClusterPinnedStrip extends VueBase {
   @Prop({ required: true })

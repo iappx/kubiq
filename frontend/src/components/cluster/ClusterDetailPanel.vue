@@ -57,34 +57,27 @@
 
     <template #footer>
       <div v-if="row" class="flex items-center gap-2">
-        <button
-            v-if="row.status === 'connected'"
-            class="btn-secondary"
-            type="button"
-            @click="$emit('disconnect', row.clusterId)"
-        >
-          <unplug :size="14" />
-          Disconnect
-        </button>
+        <template v-if="row.status === 'connected'">
+          <button class="btn-primary" type="button" @click="$emit('enter', row.clusterId)">
+            <arrow-right :size="14" />
+            Open
+          </button>
+          <button class="btn-secondary" type="button" @click="$emit('disconnect', row.clusterId)">
+            <unplug :size="14" />
+            Disconnect
+          </button>
+        </template>
+
         <button
             v-else
             :disabled="row.status === 'connecting' || row.status === 'unsupported'"
             class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             type="button"
-            @click="$emit('connect', row.clusterId)"
+            @click="$emit('enter', row.clusterId)"
         >
           <loader-circle v-if="row.status === 'connecting'" :size="14" class="animate-spin" />
           <plug v-else :size="14" />
-          {{ row.status === 'connecting' ? 'Connecting' : 'Connect' }}
-        </button>
-
-        <button
-            v-if="row.status === 'connected' && !row.isActive"
-            class="btn-secondary"
-            type="button"
-            @click="$emit('activate', row.clusterId)"
-        >
-          Make active
+          {{ primaryLabel }}
         </button>
       </div>
     </template>
@@ -93,7 +86,7 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
-import { LoaderCircle, Pin, PinOff, Plug, Unplug } from '@lucide/vue'
+import { ArrowRight, LoaderCircle, Pin, PinOff, Plug, Unplug } from '@lucide/vue'
 import ClusterFactRow from '@/components/cluster/ClusterFactRow.vue'
 import UiMultiSelect from '@/components/common/select/UiMultiSelect.vue'
 import UiSidePanel from '@/components/common/panel/UiSidePanel.vue'
@@ -105,6 +98,7 @@ import type { TUiTone } from '@/components/common/status/types/TUiTone'
 
 @Component({
   components: {
+    ArrowRight,
     ClusterFactRow,
     LoaderCircle,
     Pin,
@@ -115,7 +109,7 @@ import type { TUiTone } from '@/components/common/status/types/TUiTone'
     UiStatusBadge,
     Unplug,
   },
-  emits: ['close', 'update:width', 'connect', 'disconnect', 'activate', 'toggle-pin', 'update:namespaces'],
+  emits: ['close', 'update:width', 'enter', 'disconnect', 'toggle-pin', 'update:namespaces'],
 })
 export default class ClusterDetailPanel extends VueBase {
   @Prop({ required: false, default: null })
@@ -132,6 +126,10 @@ export default class ClusterDetailPanel extends VueBase {
 
   public get tone(): TUiTone {
     return this.row ? ClusterToneMap.of(this.row.status) : 'unknown'
+  }
+
+  public get primaryLabel(): string {
+    return this.row?.status === 'connecting' ? 'Connecting' : 'Connect and open'
   }
 
   public get detailClass(): string {
