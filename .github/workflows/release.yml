@@ -1,0 +1,199 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+  NODE_VERSION: '22'
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.declared.outputs.version }}
+      tag: ${{ steps.declared.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check that every build file carries the declared version
+        run: bash .github/scripts/version.sh check
+
+      - id: declared
+        name: Read the declared version
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          {
+            echo "version=$version"
+            echo "tag=v$version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open a draft release
+        env:
+          TAG: ${{ steps.declared.outputs.tag }}
+          VERSION: ${{ steps.declared.outputs.version }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::$TAG is already released — bump VERSION first"
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release delete "$TAG" --yes
+          fi
+          gh release create "$TAG" \
+            --draft \
+            --target "$GITHUB_SHA" \
+            --title "kubiq $VERSION" \
+            --generate-notes
+
+  windows:
+    name: Windows
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install the Wails CLI pinned by go.mod
+        shell: bash
+        run: |
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
+            choco install nsis --no-progress -y
+            "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+
+      - name: Configure the frontend environment
+        shell: bash
+        run: cp frontend/.env.example frontend/.env
+
+      - name: Build the application and its installer
+        run: wails3 task package
+
+      - name: Run the Go suite
+        run: go test ./core/...
+
+      - name: Name the artifacts after the release
+        shell: bash
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          mkdir -p dist
+          cp bin/release/kubiq.exe "dist/kubiq-$VERSION-windows-amd64.exe"
+          cp bin/kubiq-amd64-installer.exe "dist/kubiq-$VERSION-windows-amd64-installer.exe"
+
+      - name: Attach them to the draft release
+        shell: bash
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload "$TAG" dist/* --clobber
+
+  linux:
+    name: Linux
+    needs: prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install the GTK4 and WebKitGTK headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev
+
+      - name: Install the Wails CLI pinned by go.mod
+        run: |
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Configure the frontend environment
+        run: cp frontend/.env.example frontend/.env
+
+      - name: Build the application
+        run: wails3 task linux:build OUTPUT=bin/kubiq
+
+      - name: Run the Go suite
+        run: go test ./core/...
+
+      - name: Run the frontend suite
+        working-directory: frontend
+        run: npm test
+
+      - name: Build the deb and rpm packages
+        env:
+          GOARCH: amd64
+          GIT_COMMITTER_NAME: ${{ github.repository_owner }}
+          GIT_COMMITTER_EMAIL: noreply@github.com
+        run: |
+          wails3 task linux:generate:deb
+          wails3 task linux:generate:rpm
+
+      - name: Name the artifacts after the release
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          mkdir -p dist
+          cp bin/kubiq "dist/kubiq-$VERSION-linux-amd64"
+          cp bin/*.deb bin/*.rpm dist/
+
+      - name: Attach them to the draft release
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload "$TAG" dist/* --clobber
+
+  publish:
+    name: Publish
+    needs: [prepare, windows, linux]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Publish the release and create its tag
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false --latest
+
+  discard:
+    name: Discard the draft
+    needs: [prepare, windows, linux]
+    if: always() && needs.prepare.result == 'success' && (needs.windows.result != 'success' || needs.linux.result != 'success')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Delete the draft left by the failed run
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release delete "$TAG" --yes

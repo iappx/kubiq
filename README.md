@@ -10,6 +10,8 @@ Dense tables you can read at a glance. Live lists that admit when they are stale
 Logs, shells and port forwards in a dock at the bottom. Helm and Argo CD in the same window.
 One native application, no browser tab, nothing to install in your cluster.
 
+[![CI](https://github.com/iappx/kubiq/actions/workflows/ci.yml/badge.svg)](https://github.com/iappx/kubiq/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/iappx/kubiq?label=release&color=c1272d)](https://github.com/iappx/kubiq/releases/latest)
 ![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
 ![Wails](https://img.shields.io/badge/Wails-v3-c1272d)
 ![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vuedotjs&logoColor=white)
@@ -320,7 +322,10 @@ journal redacts before it writes.
 
 ## Getting started
 
-There are no published binaries yet — build it from source. You will need
+Every release ships a Windows installer and a plain `.exe`, and for Linux an `amd64` binary with
+`.deb` and `.rpm` packages — on the [releases page](https://github.com/iappx/kubiq/releases).
+
+To build it from source you will need
 [Go 1.25+](https://go.dev/dl/), [Node 22+](https://nodejs.org/) and the
 [Wails 3 CLI](https://v3alpha.wails.io/):
 
@@ -415,14 +420,25 @@ that mocks the thing it is checking proves nothing.
 | `go build ./core/... .` | Build the Go side |
 | `go vet ./core/...` · `go test ./core/...` | Analyse and test the Go side |
 | `npm test` · `npm run typecheck` · `npm run lint` | From `frontend/` |
+| `bash .github/scripts/version.sh set 1.4.0` | Write a new version into every file that carries one |
 
 > `go build ./...` also compiles `build/ios`, which needs an iOS toolchain — use
 > `go build ./core/... .`.
 
-Application identity — name, company, description, identifier, version — lives in
-`build/config.yml`; run `wails3 task common:update:build-assets` after editing it. The display
-name is `VITE_APP_NAME` in `frontend/.env`, and the palette is the `--primary` / `--accent` /
-`--ring` tokens in `frontend/src/assets/styles/css/index.css`.
+Application identity — name, company, description, identifier — lives in `build/config.yml`; run
+`wails3 task common:update:build-assets` after editing it. The display name is `VITE_APP_NAME` in
+`frontend/.env`, and the palette is the `--primary` / `--accent` / `--ring` tokens in
+`frontend/src/assets/styles/css/index.css`.
+
+**Releases.** The version is the `VERSION` file at the root, and nine build files repeat it —
+`build/config.yml`, the Windows resource, installer and MSIX manifests, the nfpm config and
+`package.json` with its lock. `.github/scripts/version.sh set <x.y.z>` writes all of them at once
+and `… check` fails the build when they disagree. Pushing a changed `VERSION` to `main` runs
+[the release workflow](.github/workflows/release.yml): it builds Windows and Linux on GitHub
+runners, attaches the artifacts to a draft release, and publishing that draft is what creates the
+`v<VERSION>` tag. Every other push and pull request runs
+[the checks](.github/workflows/ci.yml) — the Go suite on Windows and Linux, and the frontend's
+lint, types, tests and bundle.
 
 The rules every change in this repository follows are in [CLAUDE.md](CLAUDE.md); the interface
 brief every screen follows is in [.ai/ui-ux.md](.ai/ui-ux.md).
@@ -431,9 +447,9 @@ brief every screen follows is in [.ai/ui-ux.md](.ai/ui-ux.md).
 
 ## Status
 
-Early, and honest about it: the version is `0.0.1`, Wails 3 is itself in alpha, and there is no
-release pipeline yet. What is in the tour above is what works today, against real clusters —
-every screenshot on this page was taken from the running application.
+Early, and honest about it: the version is `0.0.1` and Wails 3 is itself in alpha. What is in the
+tour above is what works today, against real clusters — every screenshot on this page was taken
+from the running application.
 
 <div align="center">
 <sub>Built by <a href="https://github.com/iappx">IAPPX</a>.</sub>

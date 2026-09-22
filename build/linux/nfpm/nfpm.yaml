@@ -12,7 +12,7 @@ priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
 description: "Kubernetes cluster management console"
 vendor: "IAPPX"
-homepage: "https://wails.io"
+homepage: "https://github.com/iappx/kubiq"
 license: "MIT"
 release: "1"
 
