@@ -12,7 +12,7 @@
       <select-content class="ui-menu max-h-96 overflow-hidden" position="popper">
         <select-viewport class="p-1 w-full min-w-[var(--reka-select-trigger-width)]">
           <select-item
-              v-for="option in options"
+              v-for="option in items"
               :key="option.key"
               :value="option.key"
               class="ui-menu-item relative pl-7"
@@ -43,6 +43,7 @@ import {
   SelectTrigger,
   SelectViewport,
 } from 'reka-ui'
+import { UiSelectOptions } from '@/components/common/select/UiSelectOptions'
 import type { TUiSelectOption } from '@/components/common/select/types/TUiSelectOption'
 
 @Component({
@@ -81,12 +82,16 @@ export default class UiMultiSelect extends VueBase {
     this.$emit('update:modelValue', value)
   }
 
+  public get items(): TUiSelectOption[] {
+    return UiSelectOptions.withSelected(this.options, this.selected)
+  }
+
   public get summary(): string {
     if (this.selected.length === 0) {
       return this.placeholder ?? ''
     }
     if (this.selected.length === 1) {
-      return this.options.find(option => option.key === this.selected[0])?.title ?? this.selected[0]
+      return this.items.find(option => option.key === this.selected[0])?.title ?? this.selected[0]
     }
     return `${this.selected.length} selected`
   }
