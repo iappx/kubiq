@@ -1,85 +1,87 @@
 <template>
-  <div class="flex flex-1 min-w-0 min-h-0 flex-col">
-    <div class="ui-toolbar">
-      <div class="flex items-baseline gap-2 min-w-0">
-        <h2 class="text-sm font-semibold text-foreground truncate">Charts</h2>
-        <span class="text-xs text-muted-foreground tabular shrink-0">{{ rows.length }}</span>
+  <div class="flex flex-1 min-w-0 min-h-0">
+    <div class="flex flex-1 min-w-0 min-h-0 flex-col">
+      <div class="ui-toolbar">
+        <div class="flex items-baseline gap-2 min-w-0">
+          <h2 class="text-sm font-semibold text-foreground truncate">Charts</h2>
+          <span class="text-xs text-muted-foreground tabular shrink-0">{{ rows.length }}</span>
+        </div>
+
+        <div class="ml-auto flex items-center gap-2">
+          <button
+              :aria-pressed="store.allVersions"
+              :class="['pill', store.allVersions ? 'pill-active' : '']"
+              type="button"
+              @click="store.setAllVersions(!store.allVersions)"
+          >All versions</button>
+
+          <ui-search-field
+              :model-value="store.keyword"
+              placeholder="Search charts by name or description"
+              shortcut="/"
+              @update:model-value="store.setKeyword($event)"
+          />
+        </div>
       </div>
 
-      <div class="ml-auto flex items-center gap-2">
-        <button
-            :aria-pressed="store.allVersions"
-            :class="['pill', store.allVersions ? 'pill-active' : '']"
-            type="button"
-            @click="store.setAllVersions(!store.allVersions)"
-        >All versions</button>
-
-        <ui-search-field
-            :model-value="store.keyword"
-            placeholder="Search charts by name or description"
-            shortcut="/"
-            @update:model-value="store.setKeyword($event)"
+      <div class="px-4 pb-2">
+        <helm-repository-filter
+            :names="store.repositoryNames"
+            :selected="store.repoFilter"
+            @select="store.setRepoFilter($event)"
         />
       </div>
-    </div>
 
-    <div class="px-4 pb-2">
-      <helm-repository-filter
-          :names="store.repositoryNames"
-          :selected="store.repoFilter"
-          @select="store.setRepoFilter($event)"
+      <ui-error-state
+          v-if="store.chartsError"
+          :detail="store.chartsErrorDetail"
+          :message="store.chartsError"
+          title="Could not search the repositories"
+          @retry="store.search()"
       />
+
+      <ui-deferred-loader v-else-if="showSkeleton" :loading="true">
+        <template #loading>
+          <ui-skeletons :columns="4" :count="8" :density="density" type="table" />
+        </template>
+      </ui-deferred-loader>
+
+      <ui-data-table
+          v-else
+          :columns="columns"
+          :density="density"
+          :refreshing="store.chartsLoading"
+          :rows="rows"
+          class="flex-1"
+          label="Charts"
+          name-key="ref"
+          row-key="id"
+          @open="open($event)"
+      >
+        <template #empty>
+          <empty-state
+              v-if="store.repositoryNames.length === 0"
+              :icon="emptyIcon"
+              description="Charts come from repositories. Add one on the Repositories tab first."
+              title="No chart repositories"
+          />
+          <empty-state
+              v-else-if="isFiltered"
+              :icon="emptyIcon"
+              :on-action="clear"
+              :title="`No charts match \`${store.keyword}\``"
+              action-label="Clear search"
+              description="helm search repo matches the chart name and its description in the repository indexes you have."
+          />
+          <empty-state
+              v-else
+              :icon="emptyIcon"
+              description="Run Update on the Repositories tab if the index looks out of date."
+              title="No charts in these repositories"
+          />
+        </template>
+      </ui-data-table>
     </div>
-
-    <ui-error-state
-        v-if="store.chartsError"
-        :detail="store.chartsErrorDetail"
-        :message="store.chartsError"
-        title="Could not search the repositories"
-        @retry="store.search()"
-    />
-
-    <ui-deferred-loader v-else-if="showSkeleton" :loading="true">
-      <template #loading>
-        <ui-skeletons :columns="4" :count="8" :density="density" type="table" />
-      </template>
-    </ui-deferred-loader>
-
-    <ui-data-table
-        v-else
-        :columns="columns"
-        :density="density"
-        :refreshing="store.chartsLoading"
-        :rows="rows"
-        class="flex-1"
-        label="Charts"
-        name-key="ref"
-        row-key="id"
-        @open="open($event)"
-    >
-      <template #empty>
-        <empty-state
-            v-if="store.repositoryNames.length === 0"
-            :icon="emptyIcon"
-            description="Charts come from repositories. Add one on the Repositories tab first."
-            title="No chart repositories"
-        />
-        <empty-state
-            v-else-if="isFiltered"
-            :icon="emptyIcon"
-            :on-action="clear"
-            :title="`No charts match \`${store.keyword}\``"
-            action-label="Clear search"
-            description="helm search repo matches the chart name and its description in the repository indexes you have."
-        />
-        <empty-state
-            v-else
-            :icon="emptyIcon"
-            description="Run Update on the Repositories tab if the index looks out of date."
-            title="No charts in these repositories"
-        />
-      </template>
-    </ui-data-table>
 
     <helm-chart-detail-panel
         :active-tab="detailTab"

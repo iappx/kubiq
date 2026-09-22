@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col">
+  <div class="flex min-h-0 flex-1 flex-col">
     <ui-error-state
         v-if="error"
         :detail="errorDetail"
@@ -14,28 +14,32 @@
       </template>
     </ui-deferred-loader>
 
+    <!-- One scroll box per tab, so the tab bar above stays put and a long tab scrolls to its end. -->
     <template v-else-if="detail">
-      <helm-release-overview-tab v-if="tab === tabs.overviewKey" :detail="detail" :row="row" />
+      <div v-if="tab === tabs.overviewKey" class="min-h-0 flex-1 overflow-y-auto">
+        <helm-release-overview-tab :detail="detail" :row="row" />
+      </div>
 
       <helm-release-values-tab v-else-if="tab === tabs.valuesKey" :detail="detail" class="flex-1 min-h-0" />
 
-      <helm-release-resources-tab
-          v-else-if="tab === tabs.resourcesKey"
-          :cluster-id="clusterId"
-          :resources="detail.resources"
-      />
+      <div v-else-if="tab === tabs.resourcesKey" class="min-h-0 flex-1 overflow-y-auto">
+        <helm-release-resources-tab :cluster-id="clusterId" :resources="detail.resources" />
+      </div>
 
       <helm-release-manifest-tab v-else-if="tab === tabs.manifestKey" :detail="detail" class="flex-1 min-h-0" />
 
-      <helm-release-notes-tab v-else-if="tab === tabs.notesKey" :detail="detail" />
+      <div v-else-if="tab === tabs.notesKey" class="min-h-0 flex-1 overflow-y-auto">
+        <helm-release-notes-tab :detail="detail" />
+      </div>
 
-      <helm-release-history-tab
-          v-else-if="tab === tabs.historyKey"
-          :busy="busy"
-          :current-revision="row.revision"
-          :revisions="detail.revisions"
-          @rollback="$emit('rollback', $event)"
-      />
+      <div v-else-if="tab === tabs.historyKey" class="min-h-0 flex-1 overflow-y-auto">
+        <helm-release-history-tab
+            :busy="busy"
+            :current-revision="row.revision"
+            :revisions="detail.revisions"
+            @rollback="$emit('rollback', $event)"
+        />
+      </div>
     </template>
   </div>
 </template>

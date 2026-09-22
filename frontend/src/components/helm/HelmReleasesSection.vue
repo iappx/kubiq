@@ -1,93 +1,95 @@
 <template>
-  <div class="flex flex-1 min-w-0 min-h-0 flex-col">
-    <div class="ui-toolbar">
-      <div class="flex items-baseline gap-2 min-w-0">
-        <h2 class="text-sm font-semibold text-foreground truncate">Releases</h2>
-        <span class="text-xs text-muted-foreground tabular shrink-0">{{ rows.length }}</span>
+  <div class="flex flex-1 min-w-0 min-h-0">
+    <div class="flex flex-1 min-w-0 min-h-0 flex-col">
+      <div class="ui-toolbar">
+        <div class="flex items-baseline gap-2 min-w-0">
+          <h2 class="text-sm font-semibold text-foreground truncate">Releases</h2>
+          <span class="text-xs text-muted-foreground tabular shrink-0">{{ rows.length }}</span>
+        </div>
+
+        <div class="ml-auto flex items-center gap-2">
+          <button
+              :aria-pressed="store.includeSuperseded"
+              :class="['pill', store.includeSuperseded ? 'pill-active' : '']"
+              type="button"
+              @click="store.setIncludeSuperseded(!store.includeSuperseded)"
+          >Superseded</button>
+
+          <ui-search-field
+              :model-value="store.search"
+              placeholder="Filter releases by name"
+              shortcut="/"
+              @update:model-value="store.setSearch($event)"
+          />
+
+          <button
+              :disabled="store.loading"
+              aria-label="Reload the releases"
+              class="btn-icon w-7 h-7"
+              title="Reload the releases"
+              type="button"
+              @click="store.load()"
+          >
+            <refresh-cw :class="store.loading ? 'animate-spin' : ''" :size="14" />
+          </button>
+
+          <button class="btn-primary" type="button" @click="$emit('install')">
+            <download :size="14" />
+            Install chart
+          </button>
+        </div>
       </div>
 
-      <div class="ml-auto flex items-center gap-2">
-        <button
-            :aria-pressed="store.includeSuperseded"
-            :class="['pill', store.includeSuperseded ? 'pill-active' : '']"
-            type="button"
-            @click="store.setIncludeSuperseded(!store.includeSuperseded)"
-        >Superseded</button>
+      <ui-error-state
+          v-if="store.error"
+          :detail="store.errorDetail"
+          :message="store.error"
+          title="Could not list the releases"
+          @retry="store.load()"
+      />
 
-        <ui-search-field
-            :model-value="store.search"
-            placeholder="Filter releases by name"
-            shortcut="/"
-            @update:model-value="store.setSearch($event)"
-        />
+      <ui-deferred-loader v-else-if="showSkeleton" :loading="true">
+        <template #loading>
+          <ui-skeletons :columns="columns.length" :count="10" :density="density" type="table" />
+        </template>
+      </ui-deferred-loader>
 
-        <button
-            :disabled="store.loading"
-            aria-label="Reload the releases"
-            class="btn-icon w-7 h-7"
-            title="Reload the releases"
-            type="button"
-            @click="store.load()"
-        >
-          <refresh-cw :class="store.loading ? 'animate-spin' : ''" :size="14" />
-        </button>
-
-        <button class="btn-primary" type="button" @click="$emit('install')">
-          <download :size="14" />
-          Install chart
-        </button>
-      </div>
+      <helm-release-table
+          v-else
+          :actions="actions"
+          :columns="columns"
+          :cursor="cursor"
+          :density="density"
+          :hidden-keys="hiddenKeys"
+          :refreshing="store.loading"
+          :rows="rows"
+          :sort="sort"
+          label="Helm releases"
+          @action="onAction"
+          @open="open($event)"
+          @update:cursor="cursor = $event"
+          @update:sort="sort = $event"
+      >
+        <template #empty>
+          <empty-state
+              v-if="isFiltered"
+              :icon="emptyIcon"
+              :on-action="clearFilters"
+              :title="noMatchTitle"
+              action-label="Clear filter"
+              description="Superseded and uninstalled revisions are hidden unless you ask for them."
+          />
+          <empty-state
+              v-else
+              :description="emptyDescription"
+              :icon="emptyIcon"
+              :on-action="startInstall"
+              :title="emptyTitle"
+              action-label="Install chart"
+          />
+        </template>
+      </helm-release-table>
     </div>
-
-    <ui-error-state
-        v-if="store.error"
-        :detail="store.errorDetail"
-        :message="store.error"
-        title="Could not list the releases"
-        @retry="store.load()"
-    />
-
-    <ui-deferred-loader v-else-if="showSkeleton" :loading="true">
-      <template #loading>
-        <ui-skeletons :columns="columns.length" :count="10" :density="density" type="table" />
-      </template>
-    </ui-deferred-loader>
-
-    <helm-release-table
-        v-else
-        :actions="actions"
-        :columns="columns"
-        :cursor="cursor"
-        :density="density"
-        :hidden-keys="hiddenKeys"
-        :refreshing="store.loading"
-        :rows="rows"
-        :sort="sort"
-        label="Helm releases"
-        @action="onAction"
-        @open="open($event)"
-        @update:cursor="cursor = $event"
-        @update:sort="sort = $event"
-    >
-      <template #empty>
-        <empty-state
-            v-if="isFiltered"
-            :icon="emptyIcon"
-            :on-action="clearFilters"
-            :title="noMatchTitle"
-            action-label="Clear filter"
-            description="Superseded and uninstalled revisions are hidden unless you ask for them."
-        />
-        <empty-state
-            v-else
-            :description="emptyDescription"
-            :icon="emptyIcon"
-            :on-action="startInstall"
-            :title="emptyTitle"
-            action-label="Install chart"
-        />
-      </template>
-    </helm-release-table>
 
     <helm-release-detail-panel
         :active-tab="detailTab"
