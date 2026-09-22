@@ -4,3 +4,4 @@ export { NamespaceSelectionEntity } from '@/domain/entities/catalog/NamespaceSel
 export { PinnedClusterEntity } from '@/domain/entities/catalog/PinnedClusterEntity'
 export type { TClusterStatus } from '@/domain/entities/catalog/types/TClusterStatus'
 export type { TKubeconfigSourceDraft } from '@/domain/entities/catalog/types/TKubeconfigSourceDraft'
+export type { TKubeconfigSourceMode } from '@/domain/entities/catalog/types/TKubeconfigSourceMode'
