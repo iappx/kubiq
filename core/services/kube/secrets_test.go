@@ -20,6 +20,7 @@ func TestConnectionResultsCarryNoCredentials(t *testing.T) {
 	service := NewConnectionService(registry)
 
 	connected := service.Connect(ConnectionSpec{
+		Label:         "prod",
 		Server:        "https://operator:" + urlPassword + "@127.0.0.1:6443",
 		CaPem:         authority.pem,
 		ClientCertPem: clientPair.certificatePem,
@@ -65,12 +66,13 @@ func TestConnectionResultsCarryNoCredentials(t *testing.T) {
 	}
 }
 
-func TestSessionsReportOnlyIdServerAndCreationTime(t *testing.T) {
+func TestSessionsReportOnlyLabelIdServerAndCreationTime(t *testing.T) {
 	registry := NewSessionRegistry()
 	t.Cleanup(registry.Close)
 	service := NewConnectionService(registry)
 
 	connected := service.Connect(ConnectionSpec{
+		Label:  "prod",
 		Server: "https://operator:SECRET-URL-PASSWORD@127.0.0.1:6443/base",
 		Token:  "SECRET-BEARER-TOKEN",
 	})
@@ -93,11 +95,15 @@ func TestSessionsReportOnlyIdServerAndCreationTime(t *testing.T) {
 		t.Fatalf("expected one session, got %d", len(decoded.Sessions))
 	}
 
-	allowed := map[string]bool{"id": true, "server": true, "createdAt": true}
+	allowed := map[string]bool{"id": true, "label": true, "server": true, "createdAt": true}
 	for field := range decoded.Sessions[0] {
 		if !allowed[field] {
 			t.Fatalf("session info exposes an unexpected field: %q", field)
 		}
+	}
+
+	if label, _ := decoded.Sessions[0]["label"].(string); label != "prod" {
+		t.Fatalf("the label the caller opened the session under was not handed back: %q", label)
 	}
 
 	server, _ := decoded.Sessions[0]["server"].(string)

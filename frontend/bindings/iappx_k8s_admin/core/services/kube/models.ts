@@ -35,6 +35,7 @@ export class ConnectResult {
 }
 
 export class ConnectionSpec {
+    "label": string;
     "server": string;
     "caPem": string;
     "clientCertPem": string;
@@ -49,6 +50,9 @@ export class ConnectionSpec {
 
     /** Creates a new ConnectionSpec instance. */
     constructor($$source: Partial<ConnectionSpec> = {}) {
+        if (!("label" in $$source)) {
+            this["label"] = "";
+        }
         if (!("server" in $$source)) {
             this["server"] = "";
         }
@@ -208,6 +212,7 @@ export class Response {
 
 export class SessionInfo {
     "id": string;
+    "label": string;
     "server": string;
     "createdAt": string;
 
@@ -215,6 +220,9 @@ export class SessionInfo {
     constructor($$source: Partial<SessionInfo> = {}) {
         if (!("id" in $$source)) {
             this["id"] = "";
+        }
+        if (!("label" in $$source)) {
+            this["label"] = "";
         }
         if (!("server" in $$source)) {
             this["server"] = "";

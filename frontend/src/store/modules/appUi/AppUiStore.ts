@@ -18,7 +18,9 @@ export class AppUiStore extends StoreBase<AppUiStore> {
 
     public lastClusterId = ''
 
-    public detailKey = ''
+    public detailNamespace = ''
+
+    public detailName = ''
 
     constructor(
         @inject(UiStateService) private readonly uiStateService: UiStateService,
@@ -31,15 +33,17 @@ export class AppUiStore extends StoreBase<AppUiStore> {
     }
 
     public get detailOpen(): boolean {
-        return this.detailKey !== ''
+        return this.detailName !== ''
     }
 
-    public openDetail(key: string): void {
-        this.detailKey = key
+    public openDetail(namespace: string, name: string): void {
+        this.detailNamespace = namespace
+        this.detailName = name
     }
 
     public closeDetail(): void {
-        this.detailKey = ''
+        this.detailNamespace = ''
+        this.detailName = ''
     }
 
     public load(): void {

@@ -65,7 +65,8 @@ func (s *ConnectionService) Sessions() SessionsResult {
 	infos := make([]SessionInfo, 0, len(sessions))
 	for _, session := range sessions {
 		infos = append(infos, SessionInfo{
-			Id: session.ID,
+			Id:    session.ID,
+			Label: session.Label,
 			// Redacted() drops a password embedded in the server url, which
 			// String() would print in full.
 			Server:    session.BaseURL.Redacted(),

@@ -19,6 +19,41 @@ describe('ClusterRoutes', () => {
         expect(ClusterRoutes.shell(arn)).toBe('/cluster/arn%3Aaws%3Aeks%3Aeu-west-1%3A123456789012%3Acluster%2Fprod')
     })
 
+    it('addresses one object inside a kind, with the tab it should open on', () => {
+        const pods = KubeResourceRegistry.find('', 'pods')
+
+        expect(ClusterRoutes.object('staging', pods!, { namespace: 'prod', name: 'api-7f9', tab: 'events' }))
+            .toBe('/cluster/staging/workloads/pods?ns=prod&name=api-7f9&tab=events')
+    })
+
+    it('leaves the tab out when the object should open on its default', () => {
+        const pods = KubeResourceRegistry.find('', 'pods')
+
+        expect(ClusterRoutes.object('staging', pods!, { namespace: 'prod', name: 'api-7f9' }))
+            .toBe('/cluster/staging/workloads/pods?ns=prod&name=api-7f9')
+    })
+
+    it('leaves the namespace out of a cluster-scoped object', () => {
+        const nodes = KubeResourceRegistry.find('', 'nodes')
+
+        expect(ClusterRoutes.object('staging', nodes!, { namespace: '', name: 'worker-1' }))
+            .toContain('?name=worker-1')
+    })
+
+    it('encodes an object name that would otherwise break the query', () => {
+        const pods = KubeResourceRegistry.find('', 'pods')
+
+        expect(ClusterRoutes.object('staging', pods!, { namespace: 'a&b', name: 'c=d' }))
+            .toBe('/cluster/staging/workloads/pods?ns=a%26b&name=c%3Dd')
+    })
+
+    it('addresses the list alone when no object is named', () => {
+        const pods = KubeResourceRegistry.find('', 'pods')
+
+        expect(ClusterRoutes.object('staging', pods!, { namespace: '', name: '' }))
+            .toBe('/cluster/staging/workloads/pods')
+    })
+
     it('recognises a cluster path', () => {
         expect(ClusterRoutes.isCluster('/cluster/prod/workloads/pods')).toBe(true)
         expect(ClusterRoutes.isCluster('/cluster')).toBe(true)

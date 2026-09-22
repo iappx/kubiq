@@ -16,13 +16,13 @@ export class KubeSessionAdapter {
         @inject(WailsRuntimeService) private readonly runtime: WailsRuntimeService,
     ) {}
 
-    public async connect(spec: TConnectionSpec): Promise<string> {
+    public async connect(spec: TConnectionSpec, label: string): Promise<string> {
         if (!this.runtime.isAvailable()) {
             throw new ApiError(KubeSessionAdapter.NoRuntime, 'The Wails runtime is not available')
         }
 
         const result = await this.call(
-            () => ConnectionService.Connect(new ConnectionSpec(spec)),
+            () => ConnectionService.Connect(new ConnectionSpec({ ...spec, label })),
             KubeSessionAdapter.ConnectFailed,
         )
 
@@ -62,6 +62,7 @@ export class KubeSessionAdapter {
 
         return result.sessions.map(session => ({
             id: session.id,
+            label: session.label,
             server: session.server,
             createdAt: session.createdAt,
         }))

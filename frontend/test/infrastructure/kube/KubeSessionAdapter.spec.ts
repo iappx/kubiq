@@ -55,15 +55,23 @@ describe('KubeSessionAdapter', () => {
     it('hands the specification to the Go side and returns the session id', async () => {
         connect.mockResolvedValue({ success: true, sessionId: 'session-1' })
 
-        await expect(adapter.connect(spec)).resolves.toBe('session-1')
+        await expect(adapter.connect(spec, 'prod')).resolves.toBe('session-1')
         expect(connect.mock.calls[0][0].server).toBe('https://prod.example.internal:6443')
         expect(connect.mock.calls[0][0].token).toBe('fake-token')
+    })
+
+    it('tags the session with the label the caller will recognise it by', async () => {
+        connect.mockResolvedValue({ success: true, sessionId: 'session-1' })
+
+        await adapter.connect(spec, 'prod')
+
+        expect(connect.mock.calls[0][0].label).toBe('prod')
     })
 
     it('raises an ApiError when the connection is refused', async () => {
         connect.mockResolvedValue({ success: false, sessionId: '', error: 'x509: certificate signed by unknown authority' })
 
-        const error = await failure(() => adapter.connect(spec))
+        const error = await failure(() => adapter.connect(spec, 'prod'))
 
         expect(error.message).toBe('Could not connect to the cluster')
         expect(error.details).toContain('x509')
@@ -72,13 +80,13 @@ describe('KubeSessionAdapter', () => {
     it('raises an ApiError when the binding call rejects', async () => {
         connect.mockRejectedValue(new Error('binding is gone'))
 
-        const error = await failure(() => adapter.connect(spec))
+        const error = await failure(() => adapter.connect(spec, 'prod'))
 
         expect(error.details).toBe('binding is gone')
     })
 
     it('says plainly that connecting needs the desktop application', async () => {
-        const error = await failure(() => withoutRuntime.connect(spec))
+        const error = await failure(() => withoutRuntime.connect(spec, 'prod'))
 
         expect(error.message).toContain('desktop application')
         expect(connect).not.toHaveBeenCalled()
@@ -100,14 +108,24 @@ describe('KubeSessionAdapter', () => {
         expect(error.details).toContain('unknown session')
     })
 
-    it('lists the open sessions', async () => {
+    it('lists the open sessions with the label each was opened under', async () => {
         sessions.mockResolvedValue({
             success: true,
-            sessions: [{ id: 'session-1', server: 'https://prod.example.internal:6443', createdAt: '2026-01-01T00:00:00Z' }],
+            sessions: [{
+                id: 'session-1',
+                label: 'prod',
+                server: 'https://prod.example.internal:6443',
+                createdAt: '2026-01-01T00:00:00Z',
+            }],
         })
 
         await expect(adapter.sessions()).resolves.toEqual([
-            { id: 'session-1', server: 'https://prod.example.internal:6443', createdAt: '2026-01-01T00:00:00Z' },
+            {
+                id: 'session-1',
+                label: 'prod',
+                server: 'https://prod.example.internal:6443',
+                createdAt: '2026-01-01T00:00:00Z',
+            },
         ])
     })
 

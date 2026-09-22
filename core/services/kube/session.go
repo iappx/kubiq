@@ -27,6 +27,7 @@ const (
 
 type Session struct {
 	ID         string
+	Label      string
 	BaseURL    *url.URL
 	Client     *http.Client
 	TLSConfig  *tls.Config
@@ -91,6 +92,7 @@ func newSession(spec ConnectionSpec) (*Session, error) {
 
 	return &Session{
 		ID:         newID(),
+		Label:      spec.Label,
 		BaseURL:    baseURL,
 		Client:     &http.Client{Transport: newTransport(tlsConfig, proxyURL)},
 		TLSConfig:  tlsConfig,

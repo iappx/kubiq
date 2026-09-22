@@ -65,21 +65,37 @@ describe('AppUiStore', () => {
         expect(store.lastClusterId).toBe('prod')
     })
 
-    it('holds the open detail row without persisting it', () => {
-        store.openDetail('uid-1')
+    it('holds the addressed object without persisting it', () => {
+        store.openDetail('prod', 'api-7f9')
 
         expect(store.detailOpen).toBe(true)
-        expect(store.detailKey).toBe('uid-1')
+        expect(store.detailNamespace).toBe('prod')
+        expect(store.detailName).toBe('api-7f9')
 
         store.load()
         expect(store.detailOpen).toBe(true)
         expect(memory.has('ui-detail-key')).toBe(false)
     })
 
+    it('counts a cluster-scoped object with no namespace as open', () => {
+        store.openDetail('', 'worker-1')
+
+        expect(store.detailOpen).toBe(true)
+        expect(store.detailName).toBe('worker-1')
+    })
+
+    it('is closed while only a namespace is known', () => {
+        store.openDetail('prod', '')
+
+        expect(store.detailOpen).toBe(false)
+    })
+
     it('closes the detail panel', () => {
-        store.openDetail('uid-1')
+        store.openDetail('prod', 'api-7f9')
         store.closeDetail()
 
         expect(store.detailOpen).toBe(false)
+        expect(store.detailNamespace).toBe('')
+        expect(store.detailName).toBe('')
     })
 })

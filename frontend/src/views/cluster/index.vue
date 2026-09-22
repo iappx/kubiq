@@ -10,7 +10,34 @@
 
     <div class="flex flex-1 min-w-0 min-h-0 flex-col">
       <div class="flex flex-1 min-w-0 min-h-0">
-        <router-view v-if="hasContent" />
+        <ui-error-state
+            v-if="isUnknown"
+            :message="`No kubeconfig context named &quot;${clusterId}&quot; is in the catalog.`"
+            class="flex-1"
+            hint="The context may have been renamed, or the kubeconfig that held it is no longer read."
+            retry-label="Open the cluster catalog"
+            title="Unknown cluster"
+            @retry="openCatalog"
+        />
+
+        <ui-error-state
+            v-else-if="isFailed"
+            :message="entryFailure"
+            :title="`Could not connect to ${clusterId}`"
+            class="flex-1"
+            @retry="retryEntry"
+        />
+
+        <ui-deferred-loader v-else-if="isConnecting" :loading="true" class="flex-1">
+          <template #loading>
+            <div class="flex flex-1 flex-col items-center justify-center gap-3 p-4" role="status">
+              <loader-circle :size="26" class="animate-spin text-muted-foreground" />
+              <p class="text-sm text-muted-foreground">Connecting to {{ clusterId }}</p>
+            </div>
+          </template>
+        </ui-deferred-loader>
+
+        <router-view v-else-if="hasContent" />
 
         <ui-error-state
             v-else-if="discoveryStore.failureOf(clusterId)"
@@ -52,6 +79,7 @@
 <script lang="ts">
 import { Component, VueBase, Watch } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
+import { LoaderCircle } from '@lucide/vue'
 import AppFrame from '@/containers/AppFrame.vue'
 import Sidebar from '@/containers/Sidebar.vue'
 import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
@@ -62,24 +90,25 @@ import PodLogsPanel from '@/components/logs/PodLogsPanel.vue'
 import PortForwardPanel from '@/components/terminal/PortForwardPanel.vue'
 import TerminalLauncher from '@/components/terminal/TerminalLauncher.vue'
 import TerminalPanel from '@/components/terminal/TerminalPanel.vue'
+import { ClusterEntryService } from '@/application/services/clusterEntry/ClusterEntryService'
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
 import { ClusterSectionBuilder } from '@/components/clusterShell/ClusterSectionBuilder'
 import { ShellKeymap } from '@/components/clusterShell/ShellKeymap'
 import { UiKeyboard } from '@/components/common/UiKeyboard'
+import type { TClusterEntryPhase } from '@/application/services/clusterEntry/types/TClusterEntryPhase'
 import type { TClusterSection } from '@/components/clusterShell/types/TClusterSection'
 import { DockTabClosedEvent } from '@/domain/events/dock/DockTabClosedEvent'
 import { PodLogKey } from '@/domain/models/kube'
 import { PortForwardKey, TerminalKey } from '@/domain/models/terminal'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
-import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
-import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 import { DockStore } from '@/store/modules/dock/DockStore'
 
 @Component({
   components: {
     AppFrame,
+    LoaderCircle,
     PodLogsPanel,
     PortForwardPanel,
     Sidebar,
@@ -96,13 +125,32 @@ export default class ClusterShellPage extends VueBase {
 
   constructor(
       @inject(AppUiStore) public readonly uiStore: AppUiStore,
-      @inject(ClusterConnectionStore) public readonly connectionStore: ClusterConnectionStore,
       @inject(ClusterDiscoveryStore) public readonly discoveryStore: ClusterDiscoveryStore,
-      @inject(ClusterNamespaceStore) public readonly namespaceStore: ClusterNamespaceStore,
       @inject(DockStore) public readonly dockStore: DockStore,
+      @inject(ClusterEntryService) private readonly entryService: ClusterEntryService,
       @inject(EventBus) private readonly eventBus: EventBus,
   ) {
     super()
+  }
+
+  public get entryPhase(): TClusterEntryPhase {
+    return this.entryService.phaseOf(this.clusterId)
+  }
+
+  public get isConnecting(): boolean {
+    return this.entryPhase === 'connecting'
+  }
+
+  public get isUnknown(): boolean {
+    return this.entryPhase === 'unknown'
+  }
+
+  public get isFailed(): boolean {
+    return this.entryPhase === 'failed'
+  }
+
+  public get entryFailure(): string {
+    return this.entryService.failureOf(this.clusterId) || 'The cluster could not be reached'
   }
 
   public get isLogTab(): boolean {
@@ -197,21 +245,20 @@ export default class ClusterShellPage extends VueBase {
     return false
   }
 
-  private async enterCluster(): Promise<void> {
-    if (!this.connectionStore.isConnected(this.clusterId)) {
-      await this.$router.replace(ClusterRoutes.catalog)
-      return
+  public openCatalog(): void {
+    void this.$router.push(ClusterRoutes.catalog)
+  }
+
+  public async retryEntry(): Promise<void> {
+    if (await this.entryService.retry(this.clusterId) === 'ready') {
+      this.openDefaultPage()
     }
+  }
 
-    this.connectionStore.activate(this.clusterId)
-    this.uiStore.setLastClusterId(this.clusterId)
-
-    await Promise.all([
-      this.discoveryStore.loadOnce(this.clusterId),
-      this.namespaceStore.loadFor(this.clusterId),
-    ])
-
-    this.openDefaultPage()
+  private async enterCluster(): Promise<void> {
+    if (await this.entryService.enter(this.clusterId) === 'ready') {
+      this.openDefaultPage()
+    }
   }
 
   private openDefaultPage(): void {

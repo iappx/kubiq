@@ -68,7 +68,16 @@
       />
 
       <ui-error-state
-          v-if="state.forbidden"
+          v-if="isUnserved"
+          :message="`This cluster does not serve \`${slug}\`.`"
+          hint="The sidebar lists what the cluster reports through discovery, so a link made against another cluster can name a kind this one has never had."
+          retry-label="Open the overview"
+          title="Kind not served here"
+          @retry="openOverview"
+      />
+
+      <ui-error-state
+          v-else-if="state.forbidden"
           :hint="forbiddenHint"
           :message="forbiddenMessage"
           :retryable="false"
@@ -138,7 +147,7 @@
         @delete="askDelete(selectedRow)"
         @forward="openPortForward(selectedRow)"
         @shell="openShell(selectedRow)"
-        @update:active-tab="detailTab = $event"
+        @update:active-tab="selectTab($event)"
         @update:width="uiStore.setPanelWidth($event)"
     >
       <resource-detail-body
@@ -226,6 +235,7 @@ import { MetricsColumns } from '@/components/metrics/MetricsColumns'
 import { ResourceColumns } from '@/components/resource/ResourceColumns'
 import { ResourceFilter } from '@/components/resource/ResourceFilter'
 import { ResourceRowBuilder } from '@/components/resource/ResourceRowBuilder'
+import { ResourceSelection } from '@/components/resource/ResourceSelection'
 import { ResourceWorkload } from '@/components/resource/ResourceWorkload'
 import type { TTab } from '@/components/common/tabBar/UiTabBar.vue'
 import type { TResourceRow } from '@/components/resource/types/TResourceRow'
@@ -249,6 +259,7 @@ import type { TEventScope } from '@/domain/entities/cluster'
 import { KubeAccessHint, KubeClusterCatalog, KubeKindLocator, KubeResourceRegistry } from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
+import { RouteQueryState } from '@/lib/router/query/RouteQueryState'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
@@ -310,7 +321,7 @@ export default class ResourcePage extends VueBase {
 
   public fieldSelector = ''
 
-  public detailTab: string = DetailTabs.overviewKey
+  public requestedTab: string = DetailTabs.overviewKey
 
   private watchedClusterId = ''
 
@@ -319,6 +330,8 @@ export default class ResourcePage extends VueBase {
   private onResumed!: () => void
 
   private onConnectivity!: (event: AppConnectivityEvent) => void
+
+  private queryState!: RouteQueryState
 
   constructor(
       @inject(AppUiStore) public readonly uiStore: AppUiStore,
@@ -414,8 +427,17 @@ export default class ResourcePage extends VueBase {
     return ResourceActions.of(this.kind)
   }
 
+  public get hasSelection(): boolean {
+    return ResourceSelection.isAddressable(this.kind, this.uiStore.detailNamespace, this.uiStore.detailName)
+  }
+
   public get selectedRow(): TResourceRow | null {
-    return this.allRows.find(row => row.key === this.uiStore.detailKey) ?? null
+    if (!this.hasSelection) {
+      return null
+    }
+
+    return this.listedRow
+        ?? ResourceSelection.rowOf(this.uiStore.detailNamespace, this.uiStore.detailName)
   }
 
   public get servedKinds(): KubeResourceKind[] {
@@ -426,13 +448,29 @@ export default class ResourcePage extends VueBase {
     return DetailTabs.of(this.kind)
   }
 
-  public get detailTarget(): TResourceObjectRef | null {
-    const row = this.selectedRow
-    const kind = this.kind
+  public get detailTab(): string {
+    return ResourceSelection.tabOf(this.detailTabs, this.requestedTab)
+  }
 
-    return row && kind
-        ? { clusterId: this.clusterId, kind, name: row.name, namespace: row.namespace, served: this.servedKinds }
-        : null
+  public get detailTarget(): TResourceObjectRef | null {
+    const kind = this.kind
+    if (!kind || !this.hasSelection) {
+      return null
+    }
+
+    return {
+      clusterId: this.clusterId,
+      kind,
+      name: this.uiStore.detailName,
+      namespace: this.uiStore.detailNamespace,
+      served: this.servedKinds,
+    }
+  }
+
+  public get isUnserved(): boolean {
+    return this.discoveryStore.isDiscovered(this.clusterId)
+        && !this.discoveryStore.isLoading(this.clusterId)
+        && this.discoveryStore.findBySlug(this.clusterId, this.slug) === undefined
   }
 
   public get detailKey(): string {
@@ -507,6 +545,11 @@ export default class ResourcePage extends VueBase {
     return Inbox
   }
 
+  private get listedRow(): TResourceRow | null {
+    return this.allRows.find(row => row.name === this.uiStore.detailName
+        && row.namespace === this.uiStore.detailNamespace) ?? null
+  }
+
   async created(): Promise<void> {
     this.onResumed = () => void this.reconnect()
     this.onConnectivity = (event: AppConnectivityEvent) => {
@@ -518,13 +561,22 @@ export default class ResourcePage extends VueBase {
     this.eventBus.registerHandler(AppConnectivityEvent, this.onConnectivity)
 
     this.resetView()
+    this.queryState = new RouteQueryState(
+      this.$router,
+      ResourceSelection.fields(this.uiStore, () => this.requestedTab, (tab) => { this.requestedTab = tab }),
+    )
+    this.queryState.start()
+    this.dropUnaddressable()
+
     await this.resolveCustomColumns()
     await this.reload()
   }
 
   async beforeUnmount(): Promise<void> {
+    this.queryState.stop()
     this.eventBus.unregisterHandler(AppResumedEvent, this.onResumed)
     this.eventBus.unregisterHandler(AppConnectivityEvent, this.onConnectivity)
+    this.uiStore.closeDetail()
     await this.stopWatch()
   }
 
@@ -535,6 +587,7 @@ export default class ResourcePage extends VueBase {
 
   @Watch('kindKey')
   async kindChanged(): Promise<void> {
+    this.dropUnaddressable()
     await this.resolveCustomColumns()
     await this.reload()
   }
@@ -580,7 +633,15 @@ export default class ResourcePage extends VueBase {
 
   public openDetails(row: TResourceRow): void {
     this.creating = false
-    this.uiStore.openDetail(row.key)
+    this.uiStore.openDetail(row.namespace, row.name)
+  }
+
+  public selectTab(tab: string): void {
+    this.requestedTab = tab
+  }
+
+  public openOverview(): void {
+    void this.$router.push(ClusterRoutes.overview(this.clusterId))
   }
 
   public openCreate(): void {
@@ -603,18 +664,17 @@ export default class ResourcePage extends VueBase {
       return
     }
 
-    if (related.kind.key !== this.kindKey) {
-      await this.$router.push(ClusterRoutes.forKind(this.clusterId, related.kind))
-      await this.reload()
+    if (related.kind.key === this.kindKey) {
+      this.uiStore.openDetail(related.namespace, related.name)
+      this.requestedTab = DetailTabs.overviewKey
+
+      return
     }
 
-    const row = this.allRows.find(candidate => candidate.name === related.name
-        && candidate.namespace === related.namespace)
-
-    if (row) {
-      this.uiStore.openDetail(row.key)
-      this.detailTab = DetailTabs.overviewKey
-    }
+    await this.$router.push(ClusterRoutes.object(this.clusterId, related.kind, {
+      namespace: related.namespace,
+      name: related.name,
+    }))
   }
 
   public async reload(): Promise<void> {
@@ -686,7 +746,7 @@ export default class ResourcePage extends VueBase {
     if (!removed) {
       return
     }
-    if (this.uiStore.detailKey === target.rowKey) {
+    if (this.uiStore.detailName === target.name && this.uiStore.detailNamespace === target.namespace) {
       this.uiStore.closeDetail()
     }
     // A live watch reports the removal itself; without one nothing else tells the list its row is gone.
@@ -861,9 +921,26 @@ export default class ResourcePage extends VueBase {
     return { clusterId: this.clusterId, kind, name: row.name, namespace: row.namespace, rowKey: row.key }
   }
 
+  // Only once the kind is known can an address be judged: before that every tab and every
+  // namespace is still plausible, and throwing one away would break a cold deep link.
+  private dropUnaddressable(): void {
+    if (!this.kind) {
+      return
+    }
+
+    this.requestedTab = this.detailTab
+    if (this.uiStore.detailOpen && !this.hasSelection) {
+      this.uiStore.closeDetail()
+    }
+  }
+
   private request(): TResourceListRequest | null {
     const kind = this.kind
-    if (!kind || !this.connectionStore.isConnected(this.clusterId)) {
+    if (!kind || this.isUnserved || !this.connectionStore.isConnected(this.clusterId)) {
+      return null
+    }
+    // The scope arriving is itself a reload, so refusing here costs nothing and never lists wide.
+    if (!this.connectionStore.isScopeKnown(this.clusterId)) {
       return null
     }
 
@@ -908,9 +985,7 @@ export default class ResourcePage extends VueBase {
     this.pendingDrain = null
     this.creating = false
     this.creatingNamespace = false
-    this.detailTab = DetailTabs.overviewKey
     this.hiddenKeys = ResourceColumns.defaultHidden(this.columns)
-    this.uiStore.closeDetail()
   }
 }
 </script>

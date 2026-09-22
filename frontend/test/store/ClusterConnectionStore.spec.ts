@@ -8,6 +8,7 @@ const fake = vi.hoisted(() => {
     const selections: Record<string, string[]> = {}
     const failOn: Record<string, Error> = {}
     const streamCounts: Record<string, number> = {}
+    const reclaimable: string[] = []
 
     const built = (clusterId: string) => ({
         clusterId,
@@ -25,6 +26,12 @@ const fake = vi.hoisted(() => {
         selections,
         failOn,
         streamCounts,
+        reclaimable,
+        adopt: vi.fn(async () => reclaimable.map((clusterId) => {
+            const connection = built(clusterId)
+            open.set(clusterId, connection)
+            return connection
+        })),
         connect: vi.fn(async (clusterId: string) => {
             const failure = failOn[clusterId]
             if (failure) {
@@ -41,8 +48,12 @@ const fake = vi.hoisted(() => {
         }),
         disconnectAll: vi.fn(async () => open.clear()),
         openStreams: vi.fn((clusterId: string) => streamCounts[clusterId] ?? 0),
-        getSelection: vi.fn(async (clusterId: string) => selections[clusterId] ?? []),
-        getSelections: vi.fn(async () => ({ ...selections })),
+        // The real service builds a fresh array out of the stored entity on every read, so a fake
+        // that hands back the same instance twice would hide an identity change from these tests.
+        getSelection: vi.fn(async (clusterId: string) => [...(selections[clusterId] ?? [])]),
+        getSelections: vi.fn(async () => Object.fromEntries(
+            Object.entries(selections).map(([clusterId, namespaces]) => [clusterId, [...namespaces]]),
+        )),
         setSelection: vi.fn(async (clusterId: string, namespaces: readonly string[]) => {
             const stored = [...namespaces].sort()
             selections[clusterId] = stored
@@ -53,6 +64,8 @@ const fake = vi.hoisted(() => {
 
 vi.mock('@/application/services/cluster/ClusterConnectionService', () => ({
     ClusterConnectionService: class {
+        public adopt = fake.adopt
+
         public connect = fake.connect
 
         public disconnect = fake.disconnect
@@ -107,6 +120,7 @@ describe('ClusterConnectionStore', () => {
         Object.keys(fake.selections).forEach(key => delete fake.selections[key])
         Object.keys(fake.failOn).forEach(key => delete fake.failOn[key])
         Object.keys(fake.streamCounts).forEach(key => delete fake.streamCounts[key])
+        fake.reclaimable.length = 0
         vi.clearAllMocks()
 
         store.connections = []
@@ -114,6 +128,47 @@ describe('ClusterConnectionStore', () => {
         store.connectingIds = []
         store.failures = {}
         store.namespaces = {}
+        store.adopted = false
+    })
+
+    describe('taking back the sessions a reload left open', () => {
+        it('holds a reclaimed connection and announces it like any other', async () => {
+            fake.reclaimable.push('prod')
+
+            await store.adopt(['prod', 'lab'])
+
+            expect(store.isConnected('prod')).toBe(true)
+            expect(eventsOf(ClusterConnectedEvent).map(event => event.clusterId)).toEqual(['prod'])
+        })
+
+        it('offers the service the context names it was given', async () => {
+            await store.adopt(['prod', 'lab'])
+
+            expect(fake.adopt).toHaveBeenCalledWith(['prod', 'lab'])
+        })
+
+        it('does not make a reclaimed cluster active by itself', async () => {
+            fake.reclaimable.push('prod')
+
+            await store.adopt(['prod'])
+
+            expect(store.activeClusterId).toBe('')
+        })
+
+        it('asks once, however many screens ask it to', async () => {
+            await store.adopt(['prod'])
+            await store.adopt(['prod'])
+
+            expect(fake.adopt).toHaveBeenCalledTimes(1)
+        })
+
+        it('reports a failure to read the open sessions instead of throwing', async () => {
+            fake.adopt.mockRejectedValueOnce(new ApiError('Could not read the open cluster connections'))
+
+            await expect(store.adopt(['prod'])).resolves.toBeUndefined()
+
+            expect(eventsOf(AppErrorEvent)).toHaveLength(1)
+        })
     })
 
     describe('connecting', () => {
@@ -317,6 +372,116 @@ describe('ClusterConnectionStore', () => {
 
         it('is empty for a cluster that chose nothing', () => {
             expect(store.namespacesOf('ghost')).toEqual([])
+        })
+    })
+
+    describe('a scope nobody has read yet, told apart from every namespace', () => {
+        it('knows nothing about a cluster it has not read', () => {
+            expect(store.isScopeKnown('prod')).toBe(false)
+        })
+
+        it('reads the same empty scope every time, so nothing downstream sees a change', () => {
+            expect(store.namespacesOf('prod')).toBe(store.namespacesOf('prod'))
+        })
+
+        it('counts a cluster that chose every namespace as known once it has been read', async () => {
+            await store.loadScope('prod')
+
+            expect(store.isScopeKnown('prod')).toBe(true)
+            expect(store.namespacesOf('prod')).toEqual([])
+        })
+
+        it('reads the stored scope of one cluster without touching the others', async () => {
+            fake.selections.prod = ['payments']
+
+            await store.loadScope('prod')
+
+            expect(store.namespacesOf('prod')).toEqual(['payments'])
+            expect(store.isScopeKnown('lab')).toBe(false)
+        })
+
+        it('does not read again what it already knows', async () => {
+            await store.loadScope('prod')
+            await store.loadScope('prod')
+
+            expect(fake.getSelection).toHaveBeenCalledTimes(1)
+        })
+
+        it('settles on every namespace and says so when the scope cannot be read', async () => {
+            fake.getSelection.mockRejectedValueOnce(new ApiError('The catalog could not be read'))
+
+            await store.loadScope('prod')
+
+            expect(store.isScopeKnown('prod')).toBe(true)
+            expect(eventsOf(AppErrorEvent)).toHaveLength(1)
+        })
+
+        it('knows the scope of a connected cluster the instant it reads as connected', async () => {
+            fake.selections.prod = ['payments']
+
+            await store.connect('prod')
+
+            expect(store.isScopeKnown('prod')).toBe(true)
+        })
+
+        it('knows the scope of a reclaimed session the instant it reads as connected', async () => {
+            fake.selections.prod = ['payments']
+            fake.reclaimable.push('prod')
+
+            await store.adopt(['prod'])
+
+            expect(store.isScopeKnown('prod')).toBe(true)
+            expect(store.namespacesOf('prod')).toEqual(['payments'])
+        })
+    })
+
+    describe('a scope that must not look like it changed', () => {
+        it('keeps the array it already held when a whole-map load says the same thing', async () => {
+            fake.selections.prod = ['payments']
+            await store.connect('prod')
+            const held = store.namespacesOf('prod')
+
+            await store.loadNamespaces()
+
+            expect(store.namespacesOf('prod')).toBe(held)
+        })
+
+        it('keeps a scope the whole-map load has no record of at all', async () => {
+            await store.connect('prod')
+            const held = store.namespacesOf('prod')
+
+            await store.loadNamespaces()
+
+            expect(store.namespacesOf('prod')).toBe(held)
+            expect(store.isScopeKnown('prod')).toBe(true)
+        })
+
+        it('keeps the array it already held when the operator re-picks the same namespaces', async () => {
+            await store.setNamespaces('prod', ['payments'])
+            const held = store.namespacesOf('prod')
+
+            await store.setNamespaces('prod', ['payments'])
+
+            expect(store.namespacesOf('prod')).toBe(held)
+        })
+
+        it('hands out a new array the moment the namespaces genuinely differ', async () => {
+            await store.setNamespaces('prod', ['payments'])
+            const held = store.namespacesOf('prod')
+
+            await store.setNamespaces('prod', ['payments', 'billing'])
+
+            expect(store.namespacesOf('prod')).not.toBe(held)
+            expect(store.namespacesOf('prod')).toEqual(['billing', 'payments'])
+        })
+
+        it('still announces the choice even when it changed nothing', async () => {
+            await store.setNamespaces('prod', ['payments'])
+            seen.length = 0
+
+            await store.setNamespaces('prod', ['payments'])
+
+            expect(eventsOf(ClusterNamespacesChangedEvent)).toHaveLength(1)
         })
     })
 })

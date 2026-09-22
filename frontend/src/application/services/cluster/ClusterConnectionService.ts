@@ -56,13 +56,29 @@ export class ClusterConnectionService {
             await this.disconnect(contextName)
         }
 
-        const sessionId = await this.sessionAdapter.connect(spec)
+        const sessionId = await this.sessionAdapter.connect(spec, contextName)
         const version = await this.versions.read(contextName, sessionId)
 
-        const connection = ClusterConnectionService.describe(contextName, spec.server, sessionId, version)
+        const connection = ClusterConnectionService.describe(contextName, spec.server, sessionId, version, Date.now())
         this.live.set(contextName, connection)
 
         return connection
+    }
+
+    // A webview reload throws away `live` while the Go registry keeps every session open,
+    // so an unclaimed session is either ours to take back or nobody's to keep.
+    public async adopt(contextNames: readonly string[]): Promise<TClusterConnection[]> {
+        const sessions = await this.sessionAdapter.sessions()
+        const adopted: TClusterConnection[] = []
+
+        for (const session of sessions) {
+            const connection = await this.reclaim(session, contextNames)
+            if (connection) {
+                adopted.push(connection)
+            }
+        }
+
+        return adopted
     }
 
     public async disconnect(clusterId: string): Promise<TClusterConnection | null> {
@@ -134,6 +150,49 @@ export class ClusterConnectionService {
         return this.sessionAdapter.sessions()
     }
 
+    private async reclaim(session: TKubeSession, contextNames: readonly string[]): Promise<TClusterConnection | null> {
+        if (this.holds(session.id)) {
+            return null
+        }
+        if (session.label === '' || !contextNames.includes(session.label) || this.live.has(session.label)) {
+            await this.discardQuietly(session.id)
+
+            return null
+        }
+
+        const version = await this.versions.read(session.label, session.id)
+        // /version is the cheapest proof the session still answers; a dead one is worth less than a fresh connect.
+        if (!version.isKnown) {
+            this.contexts.release(session.label)
+            await this.discardQuietly(session.id)
+
+            return null
+        }
+
+        const connection = ClusterConnectionService.describe(
+            session.label,
+            session.server,
+            session.id,
+            version,
+            Date.parse(session.createdAt) || Date.now(),
+        )
+        this.live.set(session.label, connection)
+
+        return connection
+    }
+
+    private holds(sessionId: string): boolean {
+        return [...this.live.values()].some(connection => connection.sessionId === sessionId)
+    }
+
+    private async discardQuietly(sessionId: string): Promise<void> {
+        try {
+            await this.sessionAdapter.disconnect(sessionId)
+        } catch {
+            return
+        }
+    }
+
     private require(clusterId: string): TClusterConnection {
         const connection = this.live.get(clusterId)
         if (!connection) {
@@ -151,6 +210,7 @@ export class ClusterConnectionService {
         server: string,
         sessionId: string,
         version: KubeServerVersion,
+        connectedAt: number,
     ): TClusterConnection {
         return {
             clusterId: contextName,
@@ -160,7 +220,7 @@ export class ClusterConnectionService {
             version: version.text,
             canOpenChannel: KubeChannelSupport.isSupported(version),
             channelBlockReason: KubeChannelSupport.reason(version),
-            connectedAt: Date.now(),
+            connectedAt,
         }
     }
 }

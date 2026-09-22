@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const variables: Record<string, string> = {}
 const connect = vi.fn()
 const disconnect = vi.fn()
+const openSessions = vi.fn()
 const send = vi.fn()
 
 vi.mock('../../../bindings/iappx_k8s_admin/core/services/env', () => ({
@@ -22,7 +23,7 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/kube', () => ({
     ConnectionService: {
         Connect: (...args: unknown[]) => connect(...args),
         Disconnect: (...args: unknown[]) => disconnect(...args),
-        Sessions: () => Promise.resolve({ success: true, sessions: [] }),
+        Sessions: () => openSessions(),
     },
     KubeService: {
         Send: (...args: unknown[]) => send(...args),
@@ -90,8 +91,10 @@ describe('ClusterConnectionService', () => {
         Object.keys(variables).forEach(key => delete variables[key])
         connect.mockReset()
         disconnect.mockReset()
+        openSessions.mockReset()
         send.mockReset()
         disconnect.mockResolvedValue({ success: true })
+        openSessions.mockResolvedValue({ success: true, sessions: [] })
         send.mockResolvedValue({
             success: true,
             status: 200,
@@ -409,6 +412,84 @@ describe('ClusterConnectionService', () => {
             expect(service.connections).toEqual([])
             expect(contexts.has('prod')).toBe(false)
             expect(contexts.has('staging')).toBe(false)
+        })
+    })
+
+    describe('taking back the sessions a reload left open', () => {
+        const openSession = (label: string, id: string): Record<string, string> => ({
+            id,
+            label,
+            server: `https://${label}.example.internal:6443`,
+            createdAt: '2026-01-01T09:00:00Z',
+        })
+
+        it('claims a session whose label names a context the catalog still lists', async () => {
+            openSessions.mockResolvedValue({ success: true, sessions: [openSession('prod', 'session-1')] })
+
+            const adopted = await service.adopt(['prod', 'staging'])
+
+            expect(adopted.map(connection => connection.clusterId)).toEqual(['prod'])
+            expect(service.isConnected('prod')).toBe(true)
+            expect(service.connection('prod')?.sessionId).toBe('session-1')
+            expect(connect).not.toHaveBeenCalled()
+        })
+
+        it('keeps the time the session was actually opened, not the time it was claimed', async () => {
+            openSessions.mockResolvedValue({ success: true, sessions: [openSession('prod', 'session-1')] })
+
+            const [adopted] = await service.adopt(['prod'])
+
+            expect(adopted.connectedAt).toBe(Date.parse('2026-01-01T09:00:00Z'))
+        })
+
+        it('reads the version of the claimed session, so its abilities are known', async () => {
+            openSessions.mockResolvedValue({ success: true, sessions: [openSession('prod', 'session-1')] })
+
+            const [adopted] = await service.adopt(['prod'])
+
+            expect(adopted.version).toBe('v1.31.2')
+            expect(adopted.canOpenChannel).toBe(true)
+        })
+
+        it('closes a session no context answers to rather than leaving it open forever', async () => {
+            openSessions.mockResolvedValue({ success: true, sessions: [openSession('renamed', 'session-9')] })
+
+            await expect(service.adopt(['prod'])).resolves.toEqual([])
+
+            expect(disconnect).toHaveBeenCalledWith('session-9')
+        })
+
+        it('closes a session opened before labels existed', async () => {
+            openSessions.mockResolvedValue({
+                success: true,
+                sessions: [{ id: 'session-8', label: '', server: 'https://x:6443', createdAt: '2026-01-01T09:00:00Z' }],
+            })
+
+            await expect(service.adopt(['prod'])).resolves.toEqual([])
+
+            expect(disconnect).toHaveBeenCalledWith('session-8')
+        })
+
+        it('closes a session that can no longer report a version and does not pass it off as live', async () => {
+            openSessions.mockResolvedValue({ success: true, sessions: [openSession('prod', 'session-1')] })
+            send.mockRejectedValue(new Error('connection refused'))
+
+            await expect(service.adopt(['prod'])).resolves.toEqual([])
+
+            expect(disconnect).toHaveBeenCalledWith('session-1')
+            expect(service.isConnected('prod')).toBe(false)
+            expect(contexts.has('prod')).toBe(false)
+        })
+
+        it('leaves a session it is already holding alone', async () => {
+            sessionsInOrder('session-1')
+            await service.connect('prod')
+            openSessions.mockResolvedValue({ success: true, sessions: [openSession('prod', 'session-1')] })
+
+            await expect(service.adopt(['prod'])).resolves.toEqual([])
+
+            expect(disconnect).not.toHaveBeenCalled()
+            expect(service.isConnected('prod')).toBe(true)
         })
     })
 

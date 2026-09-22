@@ -20,6 +20,7 @@ const (
 )
 
 type ConnectionSpec struct {
+	Label                 string `json:"label"`
 	Server                string `json:"server"`
 	CaPem                 string `json:"caPem"`
 	ClientCertPem         string `json:"clientCertPem"`
@@ -46,6 +47,7 @@ type KubeResult struct {
 
 type SessionInfo struct {
 	Id        string `json:"id"`
+	Label     string `json:"label"`
 	Server    string `json:"server"`
 	CreatedAt string `json:"createdAt"`
 }
