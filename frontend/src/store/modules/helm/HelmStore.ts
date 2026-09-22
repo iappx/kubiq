@@ -30,7 +30,7 @@ export class HelmStore extends StoreBase<HelmStore> {
 
     public errorDetail = ''
 
-    public namespace = ''
+    public namespaces: string[] = []
 
     public search = ''
 
@@ -61,11 +61,12 @@ export class HelmStore extends StoreBase<HelmStore> {
         return this.releases.find(release => release.id === this.selectedId) ?? null
     }
 
-    public async enter(clusterId: string): Promise<void> {
+    public async enter(clusterId: string, namespaces: readonly string[] = []): Promise<void> {
         if (this.clusterId !== clusterId) {
             this.clusterId = clusterId
             this.reset()
         }
+        this.namespaces = [...namespaces]
 
         await this.check(false)
         if (this.availability.available) {
@@ -102,7 +103,7 @@ export class HelmStore extends StoreBase<HelmStore> {
             this.clearFailure()
             try {
                 this.releases = await this.helmService.listReleases(this.clusterId, {
-                    namespace: this.namespace,
+                    namespaces: this.namespaces,
                     search: this.search,
                     includeSuperseded: this.includeSuperseded,
                 })
@@ -115,10 +116,10 @@ export class HelmStore extends StoreBase<HelmStore> {
         })
     }
 
-    public setNamespace(namespace: string): Promise<void> {
-        this.namespace = namespace
+    public setNamespaces(namespaces: readonly string[]): Promise<void> {
+        this.namespaces = [...namespaces]
 
-        return this.load()
+        return this.isAvailable ? this.load() : Promise.resolve()
     }
 
     public setSearch(search: string): Promise<void> {
@@ -134,7 +135,6 @@ export class HelmStore extends StoreBase<HelmStore> {
     }
 
     public clearFilters(): Promise<void> {
-        this.namespace = ''
         this.search = ''
 
         return this.load()
@@ -217,7 +217,7 @@ export class HelmStore extends StoreBase<HelmStore> {
         this.releases = []
         this.checked = false
         this.availability = HelmStore.blankAvailability()
-        this.namespace = ''
+        this.namespaces = []
         this.search = ''
         this.includeSuperseded = false
         this.clearFailure()

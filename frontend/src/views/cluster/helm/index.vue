@@ -25,7 +25,6 @@
             v-if="tab === releasesKey"
             :busy="operationStore.isRunning"
             :density="uiStore.density"
-            :namespaces="namespaces"
             :width="uiStore.panelWidth"
             @install="startInstall(null)"
             @rollback="askRollback($event)"
@@ -34,7 +33,11 @@
             @upgrade="startUpgrade($event)"
         />
 
-        <helm-repositories-section v-else-if="tab === repositoriesKey" :density="uiStore.density" />
+        <helm-repositories-section
+            v-else-if="tab === repositoriesKey"
+            :density="uiStore.density"
+            @browse="browseRepository($event)"
+        />
 
         <helm-charts-section
             v-else
@@ -131,8 +134,11 @@ import { HelmReleaseRolledBackEvent } from '@/domain/events/helm/HelmReleaseRoll
 import { HelmReleaseUninstalledEvent } from '@/domain/events/helm/HelmReleaseUninstalledEvent'
 import { HelmReleaseUpgradedEvent } from '@/domain/events/helm/HelmReleaseUpgradedEvent'
 import { HelmRepositoriesChangedEvent } from '@/domain/events/helm/HelmRepositoriesChangedEvent'
+import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
+import { RouteQueryState } from '@/lib/router/query/RouteQueryState'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
+import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 import { HelmOperationStore } from '@/store/modules/helm/HelmOperationStore'
 import { HelmRepositoryStore } from '@/store/modules/helm/HelmRepositoryStore'
@@ -194,12 +200,15 @@ export default class ClusterHelmPage extends VueBase {
 
   private onRepositoriesChanged!: () => void
 
+  private queryState!: RouteQueryState
+
   constructor(
       @inject(AppUiStore) public readonly uiStore: AppUiStore,
       @inject(HelmStore) public readonly helmStore: HelmStore,
       @inject(HelmRepositoryStore) public readonly repositoryStore: HelmRepositoryStore,
       @inject(HelmOperationStore) public readonly operationStore: HelmOperationStore,
       @inject(ClusterNamespaceStore) private readonly namespaceStore: ClusterNamespaceStore,
+      @inject(ClusterConnectionStore) private readonly connectionStore: ClusterConnectionStore,
       @inject(HelmInstallValidator) private readonly installValidator: HelmInstallValidator,
       @inject(HelmUpgradeValidator) private readonly upgradeValidator: HelmUpgradeValidator,
       @inject(EventBus) private readonly eventBus: EventBus,
@@ -231,6 +240,10 @@ export default class ClusterHelmPage extends VueBase {
 
   public get namespaces(): string[] {
     return this.namespaceStore.availableOf(this.clusterId)
+  }
+
+  public get scope(): string[] {
+    return this.connectionStore.namespacesOf(this.clusterId)
   }
 
   public get unavailableReason(): string {
@@ -271,6 +284,14 @@ export default class ClusterHelmPage extends VueBase {
     this.eventBus.registerHandler(HelmReleaseUninstalledEvent, this.onReleaseChanged)
     this.eventBus.registerHandler(HelmReleaseRolledBackEvent, this.onReleaseChanged)
     this.eventBus.registerHandler(HelmRepositoriesChangedEvent, this.onRepositoriesChanged)
+
+    this.queryState = new RouteQueryState(this.$router, [{
+      key: ClusterRoutes.tabKey,
+      read: () => this.tab,
+      write: tab => void this.switchTab(tab),
+      defaultValue: ClusterHelmPage.releasesKey,
+    }])
+    this.queryState.start()
   }
 
   async mounted(): Promise<void> {
@@ -278,6 +299,7 @@ export default class ClusterHelmPage extends VueBase {
   }
 
   beforeUnmount(): void {
+    this.queryState.stop()
     this.eventBus.unregisterHandler(HelmReleaseInstalledEvent, this.onReleaseChanged)
     this.eventBus.unregisterHandler(HelmReleaseUpgradedEvent, this.onReleaseChanged)
     this.eventBus.unregisterHandler(HelmReleaseUninstalledEvent, this.onReleaseChanged)
@@ -288,6 +310,11 @@ export default class ClusterHelmPage extends VueBase {
   @Watch('clusterId')
   async clusterChanged(): Promise<void> {
     await this.enter()
+  }
+
+  @Watch('scope')
+  async scopeChanged(): Promise<void> {
+    await this.helmStore.setNamespaces(this.scope)
   }
 
   public async switchTab(tab: string): Promise<void> {
@@ -301,6 +328,12 @@ export default class ClusterHelmPage extends VueBase {
     }
   }
 
+  public async browseRepository(name: string): Promise<void> {
+    this.tab = ClusterHelmPage.chartsKey
+
+    await this.repositoryStore.setRepoFilter(name)
+  }
+
   public startInstall(chart: THelmChartRow | null): void {
     this.closePanels()
     this.installChart = chart?.ref ?? ''
@@ -308,7 +341,7 @@ export default class ClusterHelmPage extends VueBase {
     this.installValues = chart && this.repositoryStore.chartDetail?.ref === chart.ref
         ? this.repositoryStore.chartDetail.values
         : ''
-    this.installNamespace = this.helmStore.namespace
+    this.installNamespace = this.scope.length === 1 ? this.scope[0] : ''
     this.installErrors = {}
     this.installOpen = true
   }
@@ -395,7 +428,7 @@ export default class ClusterHelmPage extends VueBase {
   }
 
   private async enter(): Promise<void> {
-    await this.helmStore.enter(this.clusterId)
+    await this.helmStore.enter(this.clusterId, this.scope)
 
     if (this.helmStore.isAvailable && this.tab !== ClusterHelmPage.releasesKey) {
       await this.repositoryStore.enter(this.clusterId)

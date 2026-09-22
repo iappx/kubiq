@@ -14,12 +14,6 @@
             @click="store.setIncludeSuperseded(!store.includeSuperseded)"
         >Superseded</button>
 
-        <helm-namespace-select
-            :model-value="store.namespace"
-            :namespaces="namespaces"
-            @update:model-value="store.setNamespace($event)"
-        />
-
         <ui-search-field
             :model-value="store.search"
             placeholder="Filter releases by name"
@@ -80,17 +74,17 @@
             v-if="isFiltered"
             :icon="emptyIcon"
             :on-action="clearFilters"
-            action-label="Clear filters"
+            :title="noMatchTitle"
+            action-label="Clear filter"
             description="Superseded and uninstalled revisions are hidden unless you ask for them."
-            title="No releases match these filters"
         />
         <empty-state
             v-else
+            :description="emptyDescription"
             :icon="emptyIcon"
             :on-action="startInstall"
+            :title="emptyTitle"
             action-label="Install chart"
-            description="Nothing has been installed with Helm in this cluster yet."
-            title="No Helm releases"
         />
       </template>
     </helm-release-table>
@@ -134,7 +128,6 @@ import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
 import UiSearchField from '@/components/common/search/UiSearchField.vue'
 import UiSkeletons from '@/components/common/UiSkeletons.vue'
-import HelmNamespaceSelect from '@/components/helm/HelmNamespaceSelect.vue'
 import HelmReleaseDetailPanel from '@/components/helm/HelmReleaseDetailPanel.vue'
 import HelmReleaseDetailBody from '@/components/helm/detail/HelmReleaseDetailBody.vue'
 import HelmReleaseTable from '@/components/helm/HelmReleaseTable.vue'
@@ -153,7 +146,6 @@ import { HelmStore } from '@/store/modules/helm/HelmStore'
   components: {
     Download,
     EmptyState,
-    HelmNamespaceSelect,
     HelmReleaseDetailBody,
     HelmReleaseDetailPanel,
     HelmReleaseTable,
@@ -171,9 +163,6 @@ export default class HelmReleasesSection extends VueBase {
 
   @Prop({ required: true })
   public readonly width: number
-
-  @Prop({ required: false, default: () => [] })
-  public readonly namespaces?: string[]
 
   @Prop({ required: false, default: false })
   public readonly busy?: boolean
@@ -213,7 +202,29 @@ export default class HelmReleasesSection extends VueBase {
   }
 
   public get isFiltered(): boolean {
-    return this.store.search !== '' || this.store.namespace !== ''
+    return this.store.search !== ''
+  }
+
+  public get noMatchTitle(): string {
+    return `No releases match "${this.store.search}"`
+  }
+
+  public get emptyTitle(): string {
+    return `No Helm releases ${this.scopeLabel}`
+  }
+
+  public get emptyDescription(): string {
+    return `Nothing has been installed with Helm ${this.scopeLabel} yet.`
+  }
+
+  public get scopeLabel(): string {
+    const scope = this.store.namespaces
+
+    if (scope.length === 0) {
+      return 'in this cluster'
+    }
+
+    return scope.length === 1 ? `in ${scope[0]}` : `in the ${scope.length} selected namespaces`
   }
 
   public get showSkeleton(): boolean {

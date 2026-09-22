@@ -6,6 +6,8 @@ import { HelmLimits } from '@/application/services/helm/constants/HelmLimits'
 import { HelmManifestReader } from '@/application/services/helm/models/HelmManifestReader'
 import { HelmOperationPlan } from '@/application/services/helm/models/HelmOperationPlan'
 import { HelmOperationSession } from '@/application/services/helm/models/HelmOperationSession'
+import { HelmReleaseOrder } from '@/application/services/helm/models/HelmReleaseOrder'
+import { HelmScopeFanOut } from '@/application/services/helm/models/HelmScopeFanOut'
 import type { IHelmOperationSink } from '@/application/services/helm/types/IHelmOperationSink'
 import type { THelmManifestResource } from '@/application/services/helm/types/THelmManifestResource'
 import type { THelmReleaseFilter } from '@/application/services/helm/types/THelmReleaseFilter'
@@ -72,11 +74,11 @@ export class HelmService {
         }
 
         const probed = await this.versions.read(environment.executable)
-        // The "nowhere to be found" wording is only honest when nothing answered at all:
-        // a helm that ran and reported a version keeps the reason the probe wrote.
-        const answer = probed.available || probed.version !== '' || location.source !== 'none'
-            ? probed
-            : { ...probed, reason: HelmService.notFound(location.name) }
+        // Only the probe's own "not found" may be rewritten: a helm that answered, or one
+        // that answered too late, keeps the reason the probe wrote.
+        const answer = probed.reason === HelmVersionAdapter.missing && location.source === 'none'
+            ? { ...probed, reason: HelmService.notFound(location.name) }
+            : probed
 
         this.probes.set(environment.executable, answer)
 
@@ -103,14 +105,30 @@ export class HelmService {
         this.probes.clear()
     }
 
+    // helm list reads one namespace or all of them, never a chosen few: a scope of several is that many invocations.
     public async listReleases(clusterId: string, filter: THelmReleaseFilter): Promise<HelmReleaseEntity[]> {
         const context = await this.context(clusterId)
+        const scopes = HelmScopeFanOut.scopesOf(filter.namespaces)
+        const batches = await new HelmScopeFanOut(
+            scopes,
+            HelmLimits.maxParallelScopes,
+            namespace => HelmService.releasesIn(context, namespace, filter),
+        ).gather()
+
+        return batches.length === 1 ? batches[0] : HelmReleaseOrder.merge(batches, HelmLimits.maxReleases)
+    }
+
+    private static releasesIn(
+        context: HelmEntityContext,
+        namespace: string,
+        filter: THelmReleaseFilter,
+    ): Promise<HelmReleaseEntity[]> {
         let query = context.releases
             .orderBy('updated', 'desc')
             .take(HelmLimits.maxReleases)
 
-        if (filter.namespace !== '') {
-            query = query.andWhere(condition => condition.eq('namespace', filter.namespace))
+        if (namespace !== '') {
+            query = query.andWhere(condition => condition.eq('namespace', namespace))
         }
         if (filter.search !== '') {
             query = query.andWhere(condition => condition.contains('name', filter.search))

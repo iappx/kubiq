@@ -115,16 +115,54 @@ describe('HelmStore', () => {
         await store.enter('staging')
         fake.listReleases.mockClear()
 
-        await store.setNamespace('dev')
+        await store.setNamespaces(['dev', 'prod'])
         await store.setSearch('web')
         await store.setIncludeSuperseded(true)
 
         expect(fake.listReleases).toHaveBeenCalledTimes(3)
         expect(fake.listReleases).toHaveBeenLastCalledWith('staging', {
-            namespace: 'dev',
+            namespaces: ['dev', 'prod'],
             search: 'web',
             includeSuperseded: true,
         })
+    })
+
+    it('takes the global namespace scope on entering and reloads when it changes', async () => {
+        await store.enter('staging', ['dev'])
+
+        expect(fake.listReleases).toHaveBeenLastCalledWith('staging', {
+            namespaces: ['dev'],
+            search: '',
+            includeSuperseded: false,
+        })
+
+        await store.setNamespaces([])
+
+        expect(fake.listReleases).toHaveBeenLastCalledWith('staging', {
+            namespaces: [],
+            search: '',
+            includeSuperseded: false,
+        })
+    })
+
+    it('does not run helm for a scope change while helm is unavailable', async () => {
+        fake.state.availability = { available: false, executable: 'helm', version: '', reason: 'nope', detail: '' }
+        await store.enter('staging', ['dev'])
+
+        await store.setNamespaces(['prod'])
+
+        expect(fake.listReleases).not.toHaveBeenCalled()
+        expect(store.namespaces).toEqual(['prod'])
+    })
+
+    it('clears the text filter without touching the namespace scope', async () => {
+        await store.enter('staging', ['dev'])
+        await store.setSearch('web')
+
+        await store.clearFilters()
+
+        expect(store.search).toBe('')
+        expect(store.namespaces).toEqual(['dev'])
     })
 
     it('keeps a failure on screen and reports it once, without throwing outwards', async () => {
@@ -135,6 +173,16 @@ describe('HelmStore', () => {
         expect(store.error).toBe('Error: Kubernetes cluster unreachable')
         expect(store.errorDetail).toBe('dial tcp: i/o timeout')
         expect(errors).toHaveLength(1)
+    })
+
+    it('leaves the loading flag down when the listing failed, so the skeleton gives way', async () => {
+        fake.state.failWith = new ApiError('Helm did not answer within 30 seconds', '"helm list" was stopped')
+
+        await store.enter('staging')
+
+        expect(store.loading).toBe(false)
+        expect(store.releases).toEqual([])
+        expect(store.error).toBe('Helm did not answer within 30 seconds')
     })
 
     it('reads values, manifest, notes, history and the rendered objects in one open', async () => {
@@ -182,12 +230,12 @@ describe('HelmStore', () => {
 
     it('forgets everything it knew when the cluster changes', async () => {
         fake.state.releases = [release('web')]
-        await store.enter('staging')
+        await store.enter('staging', ['dev'])
 
         fake.state.releases = []
         await store.enter('production')
 
         expect(store.releases).toEqual([])
-        expect(store.namespace).toBe('')
+        expect(store.namespaces).toEqual([])
     })
 })

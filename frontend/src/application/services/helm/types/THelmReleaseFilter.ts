@@ -1,5 +1,5 @@
 export type THelmReleaseFilter = {
-    namespace: string
+    namespaces: readonly string[]
     search: string
     includeSuperseded: boolean
 }

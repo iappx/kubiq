@@ -6,15 +6,13 @@ const written: Record<string, string> = {}
 const removed: string[] = []
 const variables: Record<string, string> = {}
 const start = vi.fn()
+const kill = vi.fn()
 const openUri = vi.fn()
 
 vi.mock('../../../bindings/iappx_k8s_admin/core/services/process', () => ({
     ProcessService: {
         Start: (...args: unknown[]) => start(...args),
-        Kill: (id: string) => {
-            ;(window as any)._wails.dispatchWailsEvent({ name: 'process:exit', data: { processId: id, code: -1 } })
-            return Promise.resolve({ success: true, error: '' })
-        },
+        Kill: (...args: unknown[]) => kill(...args),
         Write: () => Promise.resolve({ success: true, error: '' }),
         Resize: () => Promise.resolve({ success: true, error: '' }),
         List: () => Promise.resolve({ success: true, processes: [], error: '' }),
@@ -68,8 +66,12 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/io', () => ({
 }))
 
 import { HelmService } from '@/application/services/helm/HelmService'
+import { HelmLimits } from '@/application/services/helm/constants/HelmLimits'
 import type { IHelmOperationSink } from '@/application/services/helm/types/IHelmOperationSink'
+import { ApiError } from '@/domain/errors/ApiError'
+import { HelmTimeouts } from '@/domain/models/helm/HelmTimeouts'
 import { HelmContextProvider } from '@/infrastructure/entityRepo/helm/HelmContextProvider'
+import { HelmVersionAdapter } from '@/infrastructure/helm/HelmVersionAdapter'
 import { MemoryProcessHost } from '../../support/MemoryProcessHost'
 
 const host = new MemoryProcessHost()
@@ -107,6 +109,18 @@ const sink = () => {
     return { lines, exits, handler }
 }
 
+const flush = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0))
+
+const record = (name: string, namespace: string, updated: string) => ({
+    name,
+    namespace,
+    updated,
+    revision: 1,
+    status: 'deployed',
+    chart: 'nginx-15.1.0',
+    app_version: '1.25.3',
+})
+
 const settings = (helmPath: string): void => {
     files['userdata:settings/app.json'] = JSON.stringify({ kubectlPath: '', helmPath, nodeShellImage: '', closeToTray: false })
 }
@@ -115,8 +129,10 @@ describe('HelmService', () => {
     beforeEach(() => {
         host.reset()
         start.mockReset()
+        kill.mockReset()
         openUri.mockReset()
         start.mockImplementation((spec: any) => host.start(spec))
+        kill.mockImplementation((id: string) => host.kill(id))
         Object.keys(files).forEach(key => delete files[key])
         Object.keys(written).forEach(key => delete written[key])
         Object.keys(variables).forEach(key => delete variables[key])
@@ -189,6 +205,20 @@ describe('HelmService', () => {
             expect(availability.detail).toContain('executable file not found')
         })
 
+        it('says that helm never answered rather than that it was never found', async () => {
+            vi.useFakeTimers()
+            host.script({ hold: true })
+
+            const probed = service.availability('staging')
+            await vi.advanceTimersByTimeAsync(HelmTimeouts.probeMs)
+            const availability = await probed
+
+            expect(availability.available).toBe(false)
+            expect(availability.reason).toBe(HelmVersionAdapter.unresponsive)
+            expect(availability.reason).not.toContain('Settings')
+            vi.useRealTimers()
+        })
+
         it('probes once and only probes again when asked to', async () => {
             host.script({ stdout: 'v3.14.0\n' })
             await service.availability('staging')
@@ -204,11 +234,96 @@ describe('HelmService', () => {
         it('turns the screen filters into one helm list invocation', async () => {
             host.script({ stdout: '[]' })
 
-            await service.listReleases('staging', { namespace: 'dev', search: 'web', includeSuperseded: true })
+            await service.listReleases('staging', { namespaces: ['dev'], search: 'web', includeSuperseded: true })
 
+            expect(host.started).toHaveLength(1)
             expect(host.lastArgs).toEqual(expect.arrayContaining([
                 'list', '--namespace', 'dev', '--filter', 'web', '--all', '--date', '--reverse', '--max', '500',
             ]))
+        })
+
+        it('scans every namespace at once when the scope is empty', async () => {
+            host.script({ stdout: '[]' })
+
+            await service.listReleases('staging', { namespaces: [], search: '', includeSuperseded: false })
+
+            expect(host.started).toHaveLength(1)
+            expect(host.lastArgs).toEqual(expect.arrayContaining(['list', '--all-namespaces']))
+            expect(host.lastArgs).not.toContain('--namespace')
+        })
+
+        it('runs one helm per namespace in scope and merges what they answered', async () => {
+            host.script({ stdout: JSON.stringify([record('web', 'dev', '2026-05-01 10:00:00 +0000 UTC')]) })
+            host.script({ stdout: JSON.stringify([record('api', 'prod', '2026-05-03 10:00:00 +0000 UTC')]) })
+            host.script({ stdout: JSON.stringify([record('cache', 'infra', '2026-05-02 10:00:00 +0000 UTC')]) })
+
+            const releases = await service.listReleases('staging', {
+                namespaces: ['dev', 'prod', 'infra'],
+                search: '',
+                includeSuperseded: false,
+            })
+
+            expect(host.started.map(spec => spec.args[spec.args.indexOf('--namespace') + 1]))
+                .toEqual(['dev', 'prod', 'infra'])
+            expect(host.started.every(spec => !spec.args.includes('--all-namespaces'))).toBe(true)
+            expect(releases.map(release => release.name)).toEqual(['api', 'cache', 'web'])
+        })
+
+        it('never has more than the allowed number of helm processes in flight', async () => {
+            const scope = Array.from({ length: 14 }, (unused, index) => `ns-${index}`)
+            scope.forEach(() => host.script({ hold: true }))
+
+            const listed = service.listReleases('staging', {
+                namespaces: scope,
+                search: '',
+                includeSuperseded: false,
+            })
+
+            await flush()
+            const firstWave = host.started.length
+
+            let finished = 0
+            for (let round = 0; round <= scope.length && finished < host.started.length; round++) {
+                const running = host.started.length
+                while (finished < running) {
+                    finished += 1
+                    host.exit(`process-${finished}`, 0)
+                }
+                await flush()
+            }
+            await listed
+
+            expect(firstWave).toBe(HelmLimits.maxParallelScopes)
+            expect(host.started).toHaveLength(scope.length)
+        })
+
+        it('ends a helm list that never returns as a failure instead of never answering', async () => {
+            vi.useFakeTimers()
+            host.script({ hold: true })
+
+            const listed = service
+                .listReleases('staging', { namespaces: [], search: '', includeSuperseded: false })
+                .catch(err => err)
+            await vi.advanceTimersByTimeAsync(HelmTimeouts.readMs)
+            const failure = await listed as ApiError
+
+            expect(failure).toBeInstanceOf(ApiError)
+            expect(failure.message).toContain('did not answer')
+            expect(host.killed).toEqual(['process-1'])
+            vi.useRealTimers()
+        })
+
+        it('names the namespace whose helm failed instead of dropping its releases', async () => {
+            host.script({ stdout: JSON.stringify([record('web', 'dev', '2026-05-01 10:00:00 +0000 UTC')]) })
+            host.script({ stderr: 'Error: query: failed to query with labels\n', code: 1 })
+
+            const failure = await service
+                .listReleases('staging', { namespaces: ['dev', 'prod'], search: '', includeSuperseded: false })
+                .catch(err => err) as ApiError
+
+            expect(failure).toBeInstanceOf(ApiError)
+            expect(failure.message).toBe('Error: query: failed to query with labels (namespace "prod")')
+            expect(failure.details).toContain('failed to query with labels')
         })
 
         it('reads the history of one release', async () => {
