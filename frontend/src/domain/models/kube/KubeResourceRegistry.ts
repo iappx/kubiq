@@ -83,6 +83,7 @@ export class KubeResourceRegistry {
                     KubeColumns.objectName(),
                     KubeColumns.namespace(),
                     { key: 'readyText', title: 'Ready' },
+                    { key: 'containerHealth', title: 'Containers' },
                     KubeColumns.state(),
                     { key: 'restartCount', title: 'Restarts', align: 'right' },
                     { key: 'nodeName', title: 'Node' },

@@ -24,6 +24,10 @@
       @update:selected="$emit('update:selected', $event)"
       @update:sort="$emit('update:sort', $event)"
   >
+    <template #cell-containerHealth="{ row }">
+      <pod-containers-cell :containers="row.containerHealth" />
+    </template>
+
     <template #cell-state="{ row }">
       <ui-status-badge :label="row.statusTitle" :tone="row.tone" />
     </template>
@@ -40,6 +44,7 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
+import PodContainersCell from '@/components/resource/PodContainersCell.vue'
 import UiAge from '@/components/common/time/UiAge.vue'
 import UiDataTable from '@/components/common/table/UiDataTable.vue'
 import UiStatusBadge from '@/components/common/status/UiStatusBadge.vue'
@@ -52,7 +57,7 @@ import type { TUiTableSort } from '@/components/common/table/types/TUiTableSort'
 import type { TUiTone } from '@/components/common/status/types/TUiTone'
 
 @Component({
-  components: { UiAge, UiDataTable, UiStatusBadge },
+  components: { PodContainersCell, UiAge, UiDataTable, UiStatusBadge },
   emits: ['open', 'action', 'update:sort', 'update:selected', 'update:cursor'],
 })
 export default class ResourceTable extends VueBase {

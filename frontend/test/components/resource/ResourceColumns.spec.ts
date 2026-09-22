@@ -27,6 +27,22 @@ describe('ResourceColumns.map', () => {
         expect(byKey(ResourceColumns.map(pods.columns), 'restartCount')?.align).toBe('right')
     })
 
+    it('marks the container indicator unsortable and gives it a width of its own', () => {
+        const containers = byKey(ResourceColumns.map(pods.columns), ResourceColumns.containersKey)
+
+        expect(containers?.sortable).toBe(false)
+        expect(containers?.width).toBe('120px')
+        expect(containers?.locked).toBe(false)
+    })
+
+    it('leaves every other column sortable rather than opting each one in', () => {
+        const unsortable = ResourceColumns.map(pods.columns)
+            .filter(column => column.sortable === false)
+            .map(column => column.key)
+
+        expect(unsortable).toEqual([ResourceColumns.containersKey])
+    })
+
     it('carries a printer-column priority through', () => {
         const columns: TKubeColumn[] = [{ key: 'extra', title: 'Extra', priority: 1 }]
 
@@ -87,5 +103,12 @@ describe('ResourceColumns.defaultHidden', () => {
 
     it('shows every column of a kind that stays inside the cap', () => {
         expect(ResourceColumns.defaultHidden(ResourceColumns.map(pods.columns))).toEqual([])
+    })
+
+    it('leaves the container indicator visible on a pod table, and hideable from the picker', () => {
+        const mapped = ResourceColumns.map(pods.columns)
+
+        expect(ResourceColumns.defaultHidden(mapped)).not.toContain(ResourceColumns.containersKey)
+        expect(ResourceColumns.isLocked(ResourceColumns.containersKey)).toBe(false)
     })
 })

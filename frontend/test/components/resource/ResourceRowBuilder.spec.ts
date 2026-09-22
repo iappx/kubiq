@@ -37,6 +37,21 @@ describe('ResourceRowBuilder', () => {
         expect(row.nodeName).toBe('node-a')
     })
 
+    it('carries the per-container health as a structured value the cell slot owns', () => {
+        const [row] = ResourceRowBuilder.build([pod('api-0', 'uid-1')], pods.columns)
+
+        expect(row.containerHealth).toEqual([
+            { name: 'app', isInit: false, state: 'ok', statusTitle: 'Running' },
+        ])
+    })
+
+    it('leaves a kind that declares no container column without one', () => {
+        const entity = CustomResourceEntity.build({ metadata: { name: 'widget-a' } })
+        const columns: TKubeColumn[] = [{ key: 'name', title: 'Name' }]
+
+        expect(ResourceRowBuilder.build([entity], columns)[0]).not.toHaveProperty('containerHealth')
+    })
+
     it('carries the state as a tone and as the word beside it', () => {
         const [row] = ResourceRowBuilder.build([pod('api-0', 'uid-1')], pods.columns)
 

@@ -47,6 +47,19 @@ describe('KubeResourceRegistry', () => {
         }
     })
 
+    it('shows the container indicator beside Ready, and only on pods', () => {
+        const pods = KubeResourceRegistry.find('', 'pods') as KubeResourceKind
+        const keys = pods.columns.map(column => column.key)
+
+        expect(keys.indexOf('containerHealth')).toBe(keys.indexOf('readyText') + 1)
+
+        const others = KubeResourceRegistry.all()
+            .filter(kind => kind.columns.some(column => column.key === 'containerHealth'))
+            .map(kind => kind.kind)
+
+        expect(others).toEqual(['Pod'])
+    })
+
     it('gives a namespace column to namespaced kinds only', () => {
         for (const kind of KubeResourceRegistry.all()) {
             const hasNamespaceColumn = kind.columns.some(p => p.key === 'namespace')

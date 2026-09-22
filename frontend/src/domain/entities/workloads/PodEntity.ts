@@ -2,8 +2,10 @@ import { RepoEntityBase, RepoEntityField } from '@iappx/entity-repo'
 import { ObjectMetaEntity } from '@/domain/entities/kube/ObjectMetaEntity'
 import { KubeObjectStateCatalog } from '@/domain/entities/kube/KubeObjectStateCatalog'
 import { ContainerWaitingReasonCatalog } from '@/domain/entities/workloads/ContainerWaitingReasonCatalog'
+import { PodContainerHealth } from '@/domain/entities/workloads/PodContainerHealth'
 import type { TKubeObjectState } from '@/domain/entities/kube/types/TKubeObjectState'
 import type { TKubeContainerStatus } from '@/domain/entities/workloads/types/TKubeContainerStatus'
+import type { TPodContainerHealth } from '@/domain/entities/workloads/types/TPodContainerHealth'
 import type { TPodPhase } from '@/domain/entities/workloads/types/TPodPhase'
 import type { TPodSpec } from '@/domain/entities/workloads/types/TPodSpec'
 import type { TPodStatus } from '@/domain/entities/workloads/types/TPodStatus'
@@ -53,6 +55,10 @@ export class PodEntity extends RepoEntityBase<PodEntity> {
 
     get containerStatuses(): TKubeContainerStatus[] {
         return [...(this.status?.initContainerStatuses ?? []), ...(this.status?.containerStatuses ?? [])]
+    }
+
+    get containerHealth(): TPodContainerHealth[] {
+        return PodContainerHealth.of(this.spec, this.status)
     }
 
     get containerCount(): number {

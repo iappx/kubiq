@@ -7,6 +7,8 @@ export class ResourceColumns {
 
     public static readonly namespaceKey: string = 'namespace'
 
+    public static readonly containersKey: string = 'containerHealth'
+
     public static readonly stateKey: string = 'state'
 
     public static readonly ageKey: string = 'createdAt'
@@ -14,12 +16,19 @@ export class ResourceColumns {
     private static readonly widths: Record<string, string> = {
         [ResourceColumns.nameKey]: '22%',
         [ResourceColumns.namespaceKey]: '14%',
+        [ResourceColumns.containersKey]: '120px',
         [ResourceColumns.stateKey]: '140px',
         [ResourceColumns.ageKey]: '80px',
     }
 
+    private static readonly unsortable: string[] = [ResourceColumns.containersKey]
+
     public static isLocked(key: string): boolean {
         return key === ResourceColumns.nameKey || key === ResourceColumns.stateKey || key === ResourceColumns.ageKey
+    }
+
+    public static isSortable(key: string): boolean {
+        return !ResourceColumns.unsortable.includes(key)
     }
 
     public static map(columns: readonly TKubeColumn[]): TUiTableColumn[] {
@@ -42,6 +51,9 @@ export class ResourceColumns {
         }
         if (column.priority !== undefined) {
             mapped.priority = column.priority
+        }
+        if (!ResourceColumns.isSortable(column.key)) {
+            mapped.sortable = false
         }
 
         const width = ResourceColumns.widths[column.key]
