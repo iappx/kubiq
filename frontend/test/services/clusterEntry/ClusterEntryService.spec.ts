@@ -336,6 +336,16 @@ describe('ClusterEntryService', () => {
 
             expect(service.phaseOf('staging')).toBe('ready')
         })
+
+        it('forgets the old failure the moment a new attempt starts, so the shell never flashes it', async () => {
+            await service.enter('staging')
+            fake.state.connectFails = null
+
+            const pending = service.enter('staging')
+
+            expect(service.phaseOf('staging')).toBe('connecting')
+            await expect(pending).resolves.toBe('ready')
+        })
     })
 
     describe('a catalog that cannot be read at all', () => {

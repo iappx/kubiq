@@ -10,8 +10,10 @@
           <dropdown-menu-separator v-if="item.separatorBefore" class="ui-menu-separator" />
           <dropdown-menu-item
               :class="['ui-menu-item', item.danger ? 'ui-menu-item-danger' : '']"
+              :title="item.hint"
               @select="$emit('select', item.key)"
           >
+            <ui-status-dot v-if="item.tone" :size="8" :tone="item.tone" />
             <component :is="item.icon" v-if="item.icon" :size="14" aria-hidden="true" />
             <span class="truncate">{{ item.label }}</span>
           </dropdown-menu-item>
@@ -31,6 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from 'reka-ui'
+import UiStatusDot from '@/components/common/status/UiStatusDot.vue'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 
 @Component({
@@ -41,6 +44,7 @@ import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
     DropdownMenuRoot,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
+    UiStatusDot,
   },
   emits: ['select'],
 })

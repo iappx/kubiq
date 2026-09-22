@@ -857,9 +857,10 @@
   }
 
   .ui-menu {
-    @apply bg-popover border border-border rounded-lg p-1;
+    @apply bg-popover border border-border rounded-lg p-1 overflow-y-auto;
     box-shadow: var(--elevation-lg);
     min-width: 9rem;
+    max-height: var(--reka-dropdown-menu-content-available-height, 20rem);
     z-index: 200;
     transform-origin: var(--reka-dropdown-menu-content-transform-origin, center);
   }

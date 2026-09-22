@@ -57,6 +57,18 @@ export class ClusterConnectionStore extends StoreBase<ClusterConnectionStore> {
         return this.failures[clusterId] ?? ''
     }
 
+    // A failure describes the attempt that produced it, so a fresh attempt must drop it before the
+    // shell paints — otherwise entering a cluster that failed once flashes the old error first.
+    public clearFailure(clusterId: string): void {
+        if (!(clusterId in this.failures)) {
+            return
+        }
+
+        const remaining = { ...this.failures }
+        delete remaining[clusterId]
+        this.failures = remaining
+    }
+
     // A missing entry is a scope nobody has read yet; an empty one is the operator asking for every
     // namespace. Reading them as the same value is what sends a list cluster-wide by accident.
     public isScopeKnown(clusterId: string): boolean {
@@ -212,16 +224,6 @@ export class ClusterConnectionStore extends StoreBase<ClusterConnectionStore> {
             ...this.failures,
             [clusterId]: err instanceof ApiError ? err.message : 'The cluster could not be reached',
         }
-    }
-
-    private clearFailure(clusterId: string): void {
-        if (!(clusterId in this.failures)) {
-            return
-        }
-
-        const remaining = { ...this.failures }
-        delete remaining[clusterId]
-        this.failures = remaining
     }
 
     private async guard(context: string, action: () => Promise<void>): Promise<void> {

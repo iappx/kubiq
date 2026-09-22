@@ -3,7 +3,7 @@
     <template #trigger>
       <button
           :aria-label="`Active cluster: ${label}. Switch cluster`"
-          :title="`Active cluster: ${label}`"
+          :title="title"
           class="ui-switcher"
           type="button"
       >
@@ -20,7 +20,9 @@ import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import { ChevronDown } from '@lucide/vue'
 import UiDropdownMenu from '@/components/common/menu/UiDropdownMenu.vue'
 import UiStatusDot from '@/components/common/status/UiStatusDot.vue'
-import type { TClusterConnection } from '@/application/services/cluster/types/TClusterConnection'
+import { ClusterSwitchOptions } from '@/components/clusterShell/ClusterSwitchOptions'
+import { ClusterToneMap } from '@/components/cluster/ClusterToneMap'
+import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 import type { TUiTone } from '@/components/common/status/types/TUiTone'
 
@@ -29,45 +31,44 @@ import type { TUiTone } from '@/components/common/status/types/TUiTone'
   emits: ['switch', 'catalog'],
 })
 export default class ClusterSwitcher extends VueBase {
-  public static readonly catalogKey: string = 'catalog'
-
   @Prop({ required: true })
-  public readonly connections: TClusterConnection[]
+  public readonly rows: TClusterRow[]
 
   @Prop({ required: false, default: '' })
   public readonly clusterId?: string
 
-  public get active(): TClusterConnection | null {
-    return this.connections.find(connection => connection.clusterId === this.clusterId) ?? null
+  public get active(): TClusterRow | null {
+    return this.rows.find(row => row.clusterId === this.clusterId) ?? null
   }
 
+  // The route names a context the catalog may not have read yet, and that name is the cluster's.
   public get label(): string {
-    return this.active?.contextName ?? 'No cluster'
+    const name = this.active?.name ?? this.clusterId ?? ''
+
+    return name === '' ? 'No cluster' : name
+  }
+
+  public get title(): string {
+    return this.active === null
+        ? `Active cluster: ${this.label}`
+        : `Active cluster: ${this.label} — ${this.active.statusTitle}`
   }
 
   public get tone(): TUiTone {
-    return this.active ? 'ok' : 'unknown'
+    return this.active === null ? 'unknown' : ClusterToneMap.of(this.active.status)
   }
 
   public get items(): TUiMenuItem[] {
-    const open = this.connections.map(connection => ({
-      key: connection.clusterId,
-      label: connection.contextName,
-    }))
-
-    return [
-      ...open,
-      { key: ClusterSwitcher.catalogKey, label: 'Cluster catalog', separatorBefore: open.length > 0 },
-    ]
+    return ClusterSwitchOptions.build(this.rows)
   }
 
   public onSelect(key: string): void {
-    if (key === ClusterSwitcher.catalogKey) {
+    if (key === ClusterSwitchOptions.catalogKey) {
       this.$emit('catalog')
       return
     }
 
-    this.$emit('switch', key)
+    this.$emit('switch', ClusterSwitchOptions.clusterIdOf(key))
   }
 }
 </script>

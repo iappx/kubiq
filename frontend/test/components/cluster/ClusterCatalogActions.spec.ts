@@ -18,6 +18,7 @@ const row = (status: TClusterStatus, overrides: Partial<TClusterRow> = {}): TClu
     isPinned: false,
     isCurrent: false,
     isActive: false,
+    isConnected: status === 'connected',
     canOpenChannel: true,
     detail: '',
     ...overrides,

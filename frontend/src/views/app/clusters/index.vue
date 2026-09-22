@@ -139,6 +139,7 @@ import UiSkeletons from '@/components/common/UiSkeletons.vue'
 import UiTableToolbar from '@/components/common/table/UiTableToolbar.vue'
 import { ClusterCatalogColumns } from '@/components/cluster/ClusterCatalogColumns'
 import { ClusterRowBuilder } from '@/components/cluster/ClusterRowBuilder'
+import { ClusterRowSource } from '@/components/cluster/ClusterRowSource'
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
@@ -199,15 +200,7 @@ export default class ClustersPage extends VueBase {
   }
 
   public get allRows(): TClusterRow[] {
-    return ClusterRowBuilder.build({
-      contexts: this.catalogStore.items,
-      connections: this.connectionStore.connections,
-      pinned: this.catalogStore.pinned,
-      connectingIds: this.connectionStore.connectingIds,
-      failures: this.connectionStore.failures,
-      health: this.healthStore.health,
-      activeClusterId: this.connectionStore.activeClusterId,
-    })
+    return ClusterRowSource.build(this.catalogStore, this.connectionStore, this.healthStore)
   }
 
   public get rows(): TClusterRow[] {

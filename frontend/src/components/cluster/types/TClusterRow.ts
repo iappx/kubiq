@@ -15,6 +15,7 @@ export type TClusterRow = {
     isPinned: boolean
     isCurrent: boolean
     isActive: boolean
+    isConnected: boolean
     canOpenChannel: boolean
     detail: string
 }

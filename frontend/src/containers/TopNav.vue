@@ -9,7 +9,7 @@
 
       <cluster-switcher
           :cluster-id="clusterId"
-          :connections="connectionStore.connections"
+          :rows="clusterRows"
           @catalog="goToCatalog"
           @switch="switchCluster"
       />
@@ -62,9 +62,13 @@ import ClusterSwitcher from '@/components/clusterShell/ClusterSwitcher.vue'
 import NamespaceScope from '@/components/clusterShell/NamespaceScope.vue'
 import PaletteTrigger from '@/components/clusterShell/PaletteTrigger.vue'
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
+import { ClusterRowSource } from '@/components/cluster/ClusterRowSource'
 import { AppEnvironment } from '@/config/AppEnvironment'
+import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
+import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
+import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 
 @Component({
   components: {
@@ -80,10 +84,16 @@ import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterN
 })
 export default class TopNav extends VueBase {
   constructor(
+      @inject(ClusterCatalogStore) public readonly catalogStore: ClusterCatalogStore,
       @inject(ClusterConnectionStore) public readonly connectionStore: ClusterConnectionStore,
+      @inject(ClusterHealthStore) public readonly healthStore: ClusterHealthStore,
       @inject(ClusterNamespaceStore) public readonly namespaceStore: ClusterNamespaceStore,
   ) {
     super()
+  }
+
+  public get clusterRows(): TClusterRow[] {
+    return ClusterRowSource.build(this.catalogStore, this.connectionStore, this.healthStore)
   }
 
   public get docsUrl(): string {
@@ -112,8 +122,13 @@ export default class TopNav extends VueBase {
     void this.$router.push(ClusterRoutes.catalog)
   }
 
+  // The shell connects whatever cluster its route names, so switching to an unconnected one is
+  // still a plain navigation.
   public switchCluster(clusterId: string): void {
-    this.connectionStore.activate(clusterId)
+    if (clusterId === '' || clusterId === this.clusterId) {
+      return
+    }
+
     void this.$router.push(ClusterRoutes.shell(clusterId))
   }
 

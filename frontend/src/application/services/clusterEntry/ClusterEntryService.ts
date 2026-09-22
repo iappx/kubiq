@@ -64,6 +64,8 @@ export class ClusterEntryService {
         const catalog = container.resolve(ClusterCatalogStore)
         const connections = container.resolve(ClusterConnectionStore)
 
+        connections.clearFailure(clusterId)
+
         await catalog.loadOnce()
         await connections.adopt(catalog.items.map(context => context.name))
 

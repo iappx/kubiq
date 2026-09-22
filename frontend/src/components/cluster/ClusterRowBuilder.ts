@@ -31,6 +31,7 @@ export class ClusterRowBuilder {
                 isPinned: input.pinned.includes(context.name),
                 isCurrent: context.isCurrent,
                 isActive: input.activeClusterId === context.name,
+                isConnected: connection !== undefined,
                 canOpenChannel: connection?.canOpenChannel ?? false,
                 detail: ClusterRowBuilder.detailOf(context, connection, status, input),
             }

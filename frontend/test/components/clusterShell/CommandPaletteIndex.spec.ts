@@ -1,23 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import { CommandPaletteIndex } from '@/components/clusterShell/CommandPaletteIndex'
 import { KubeResourceRegistry } from '@/domain/models/kube'
-import type { TClusterConnection } from '@/application/services/cluster/types/TClusterConnection'
+import { ClusterStatusCatalog } from '@/domain/entities/catalog/ClusterStatusCatalog'
+import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
+import type { TClusterStatus } from '@/domain/entities/catalog/types/TClusterStatus'
 import type { TCommandItem } from '@/components/clusterShell/types/TCommandItem'
 
-const connection = (clusterId: string): TClusterConnection => ({
-    clusterId,
-    contextName: clusterId,
-    server: `https://${clusterId}.example.com`,
-    sessionId: `session-${clusterId}`,
-    version: 'v1.32.0',
-    canOpenChannel: true,
-    channelBlockReason: '',
-    connectedAt: 0,
+const row = (name: string, status: TClusterStatus): TClusterRow => ({
+    clusterId: name,
+    name,
+    status,
+    statusTitle: ClusterStatusCatalog.title(status),
+    clusterName: `${name}-cluster`,
+    server: `https://${name}.example.com`,
+    namespace: 'default',
+    authType: 'Token',
+    version: status === 'connected' ? 'v1.32.0' : '',
+    source: `${name}.yaml`,
+    filePath: `D:/work/${name}.yaml`,
+    isPinned: false,
+    isCurrent: false,
+    isActive: false,
+    isConnected: status === 'connected',
+    canOpenChannel: status === 'connected',
+    detail: '',
 })
 
 const input = {
     clusterId: 'prod',
-    connections: [connection('prod'), connection('lab')],
+    clusters: [row('prod', 'connected'), row('dr', 'available'), row('lab', 'connected')],
     kinds: [
         KubeResourceRegistry.find('', 'pods')!,
         KubeResourceRegistry.find('apps', 'deployments')!,
@@ -38,15 +49,35 @@ describe('CommandPaletteIndex.build', () => {
         expect(pods?.path).toBe('/cluster/prod/workloads/pods')
     })
 
-    it('offers the other connected clusters, never the one already open', () => {
-        const clusters = keys(CommandPaletteIndex.build(input))
+    it('offers every other cluster the catalog knows, connected or not, never the one already open', () => {
+        const clusters = keys(CommandPaletteIndex.build(input)).filter(key => key.startsWith('cluster:'))
 
-        expect(clusters).toContain('cluster:lab')
-        expect(clusters).not.toContain('cluster:prod')
+        expect(clusters).toEqual(['cluster:lab', 'cluster:dr'])
     })
 
     it('always offers the catalog', () => {
-        expect(keys(CommandPaletteIndex.build(input))).toContain('cluster:catalog')
+        expect(keys(CommandPaletteIndex.build(input))).toContain(CommandPaletteIndex.catalogKey)
+    })
+
+    it('keeps a context named like the catalog entry from taking its key', () => {
+        const items = CommandPaletteIndex.build({ ...input, clusterId: '', clusters: [row('catalog', 'available')] })
+
+        expect(keys(items)).toEqual(['cluster:catalog', CommandPaletteIndex.catalogKey])
+    })
+
+    it('hints a cluster with its status, so one still to connect reads apart from an open one', () => {
+        const items = CommandPaletteIndex.build(input)
+
+        expect(items.find(item => item.key === 'cluster:lab')?.hint)
+            .toBe('Connected · https://lab.example.com')
+        expect(items.find(item => item.key === 'cluster:dr')?.hint)
+            .toBe('Available · https://dr.example.com')
+    })
+
+    it('sends a cluster to its own shell, which is what connects it', () => {
+        const dr = CommandPaletteIndex.build(input).find(item => item.key === 'cluster:dr')
+
+        expect(dr?.path).toBe('/cluster/dr')
     })
 
     it('hints a kind with its API group, so two same-named kinds never read alike', () => {
@@ -78,7 +109,7 @@ describe('CommandPaletteIndex.build', () => {
     it('offers only clusters when none is open, because nothing else is in scope', () => {
         const items = CommandPaletteIndex.build({ ...input, clusterId: '' })
 
-        expect(keys(items)).toEqual(['cluster:prod', 'cluster:lab', 'cluster:catalog'])
+        expect(keys(items)).toEqual(['cluster:prod', 'cluster:lab', 'cluster:dr', CommandPaletteIndex.catalogKey])
     })
 })
 
@@ -104,11 +135,13 @@ describe('CommandPaletteIndex.filter', () => {
     })
 
     it('puts recent entries first', () => {
-        expect(keys(CommandPaletteIndex.filter(items, '', ['cluster:catalog']))[0]).toBe('cluster:catalog')
+        expect(keys(CommandPaletteIndex.filter(items, '', [CommandPaletteIndex.catalogKey]))[0])
+            .toBe(CommandPaletteIndex.catalogKey)
     })
 
     it('drops a recent entry the query no longer matches', () => {
-        expect(keys(CommandPaletteIndex.filter(items, 'pods', ['cluster:catalog']))).toEqual(['kind:/v1/pods'])
+        expect(keys(CommandPaletteIndex.filter(items, 'pods', [CommandPaletteIndex.catalogKey])))
+            .toEqual(['kind:/v1/pods'])
     })
 
     it('answers with nothing when nothing matches', () => {

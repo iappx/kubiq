@@ -1,3 +1,4 @@
+import { ClusterChoices } from '@/components/cluster/ClusterChoices'
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import type { TCommandItem } from '@/components/clusterShell/types/TCommandItem'
@@ -11,6 +12,9 @@ export class CommandPaletteIndex {
     public static readonly clusterGroup: string = 'Clusters'
 
     public static readonly namespaceGroup: string = 'Namespaces'
+
+    // Every cluster key is `cluster:<context name>`, and a context may well be named "catalog".
+    public static readonly catalogKey: string = 'catalog'
 
     public static build(input: TCommandPaletteInput): TCommandItem[] {
         return [
@@ -77,7 +81,7 @@ export class CommandPaletteIndex {
 
     private static clusters(input: TCommandPaletteInput): TCommandItem[] {
         const catalog: TCommandItem = {
-            key: 'cluster:catalog',
+            key: CommandPaletteIndex.catalogKey,
             label: 'Cluster catalog',
             hint: 'All known contexts',
             group: CommandPaletteIndex.clusterGroup,
@@ -85,19 +89,18 @@ export class CommandPaletteIndex {
             icon: 'FolderTree',
         }
 
-        const connected = input.connections
-            .filter(connection => connection.clusterId !== input.clusterId)
-            .map(connection => ({
-                key: `cluster:${connection.clusterId}`,
-                label: connection.contextName,
-                hint: connection.server,
+        const clusters = ClusterChoices.ordered(input.clusters)
+            .filter(row => row.clusterId !== input.clusterId)
+            .map(row => ({
+                key: `cluster:${row.clusterId}`,
+                label: row.name,
+                hint: ClusterChoices.hintOf(row),
                 group: CommandPaletteIndex.clusterGroup,
-                path: ClusterRoutes.shell(connection.clusterId),
-                clusterId: connection.clusterId,
+                path: ClusterRoutes.shell(row.clusterId),
                 icon: 'Server',
             }))
 
-        return [...connected, catalog]
+        return [...clusters, catalog]
     }
 
     private static namespaces(input: TCommandPaletteInput): TCommandItem[] {

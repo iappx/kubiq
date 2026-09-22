@@ -5,6 +5,5 @@ export type TCommandItem = {
     group: string
     path?: string
     namespace?: string
-    clusterId?: string
     icon?: string
 }

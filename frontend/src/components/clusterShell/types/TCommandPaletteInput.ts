@@ -1,9 +1,9 @@
 import type { KubeResourceKind } from '@/domain/models/kube'
-import type { TClusterConnection } from '@/application/services/cluster/types/TClusterConnection'
+import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 
 export type TCommandPaletteInput = {
     clusterId: string
-    connections: readonly TClusterConnection[]
+    clusters: readonly TClusterRow[]
     kinds: readonly KubeResourceKind[]
     namespaces: readonly string[]
 }

@@ -129,6 +129,20 @@ describe('ClusterRowBuilder', () => {
             expect(row.detail).toContain('cannot reach the API server')
         })
 
+        it('tells a session that stopped answering from one that was never opened', () => {
+            const rows = ClusterRowBuilder.build(input({
+                contexts: [context('prod'), context('lab')],
+                connections: [connection('prod')],
+                health: { prod: 'unreachable' },
+                failures: { lab: 'dial tcp: i/o timeout' },
+            }))
+
+            expect(rows.map(row => [row.status, row.isConnected])).toEqual([
+                ['unreachable', true],
+                ['unreachable', false],
+            ])
+        })
+
         it('leaves a merely unstable cluster reading as connected', () => {
             const [row] = ClusterRowBuilder.build(input({
                 contexts: [context('prod')],
