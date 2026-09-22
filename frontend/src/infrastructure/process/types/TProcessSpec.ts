@@ -3,4 +3,5 @@ export type TProcessSpec = {
     args: readonly string[]
     env?: Record<string, string>
     dir?: string
+    timeoutMs?: number
 }

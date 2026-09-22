@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { container } from 'tsyringe'
 
 const start = vi.fn()
+const kill = vi.fn()
 
 vi.mock('../../../bindings/iappx_k8s_admin/core/services/process', () => ({
     ProcessService: {
         Start: (...args: unknown[]) => start(...args),
-        Kill: () => Promise.resolve({ success: true, error: '' }),
+        Kill: (...args: unknown[]) => kill(...args),
         Write: () => Promise.resolve({ success: true, error: '' }),
         Resize: () => Promise.resolve({ success: true, error: '' }),
         List: () => Promise.resolve({ success: true, processes: [], error: '' }),
@@ -20,8 +21,10 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/process', () => ({
 }))
 
 import { ApiError } from '@/domain/errors/ApiError'
+import { HelmTimeouts } from '@/domain/models/helm/HelmTimeouts'
 import { HelmTransport } from '@/infrastructure/entityRepo/helm/transport/HelmTransport'
 import { ProcessAdapter } from '@/infrastructure/process/ProcessAdapter'
+import { ProcessCollector } from '@/infrastructure/process/ProcessCollector'
 import { MemoryProcessHost } from '../../support/MemoryProcessHost'
 
 const host = new MemoryProcessHost()
@@ -34,7 +37,9 @@ describe('HelmTransport', () => {
     beforeEach(() => {
         host.reset()
         start.mockReset()
+        kill.mockReset()
         start.mockImplementation((spec: any) => host.start(spec))
+        kill.mockImplementation((id: string) => host.kill(id))
         ;(window as any).chrome = { webview: { postMessage: () => undefined } }
     })
 
@@ -103,6 +108,34 @@ describe('HelmTransport', () => {
         host.script({ stdout: 'not json at all' })
 
         await expect(transport.send({ args: ['list'], json: true })).rejects.toThrow(ApiError)
+    })
+
+    it('names a helm that never answered instead of waiting on it for ever', async () => {
+        vi.useFakeTimers()
+        host.script({ hold: true })
+
+        const failure = transport.send({ args: ['list', '--output', 'json'], json: true }).catch(err => err)
+        await vi.advanceTimersByTimeAsync(HelmTimeouts.readMs)
+        const error = await failure as ApiError
+
+        expect(error).toBeInstanceOf(ApiError)
+        expect(error.message).toBe(`Helm did not answer within ${HelmTimeouts.seconds(HelmTimeouts.readMs)} seconds`)
+        expect(error.status).toBe(ProcessCollector.expiredCode)
+        expect(host.killed).toEqual(['process-1'])
+        vi.useRealTimers()
+    })
+
+    it('names the subcommand without repeating the flag values that followed it', async () => {
+        vi.useFakeTimers()
+        host.script({ hold: true })
+
+        const failure = transport.send({ args: ['get', 'values', 'web', '--output', 'yaml'] }).catch(err => err)
+        await vi.advanceTimersByTimeAsync(HelmTimeouts.readMs)
+        const error = await failure as ApiError
+
+        expect(error.details).toContain('"helm get values web"')
+        expect(error.details).not.toContain('yaml')
+        vi.useRealTimers()
     })
 
     it('degrades to nothing outside the desktop host instead of throwing', async () => {

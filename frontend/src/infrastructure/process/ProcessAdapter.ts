@@ -59,10 +59,15 @@ export class ProcessAdapter {
             return { code: ProcessAdapter.unavailableCode, stdout: '', stderr: '' }
         }
 
-        const collector = new ProcessCollector()
-        await this.start(spec, collector)
+        const collector = new ProcessCollector(spec.timeoutMs ?? 0)
+        const run = await this.start(spec, collector)
+        const outcome = await collector.outcome()
 
-        return collector.outcome()
+        if (outcome.code === ProcessCollector.expiredCode) {
+            void run.kill()
+        }
+
+        return outcome
     }
 
     private static specOf(spec: TProcessSpec): StartSpec {

@@ -1,7 +1,9 @@
 import type { ITransport } from '@iappx/entity-repo'
 import { ApiError } from '@/domain/errors/ApiError'
+import { HelmTimeouts } from '@/domain/models/helm/HelmTimeouts'
 import { HelmInvocationBase } from '@/infrastructure/entityRepo/helm/transport/base/HelmInvocationBase'
 import type { THelmRequest } from '@/infrastructure/entityRepo/helm/transport/types/THelmRequest'
+import { ProcessCollector } from '@/infrastructure/process/ProcessCollector'
 import type { TProcessOutcome } from '@/infrastructure/process/types/TProcessOutcome'
 
 export class HelmTransport extends HelmInvocationBase implements ITransport<THelmRequest> {
@@ -16,13 +18,39 @@ export class HelmTransport extends HelmInvocationBase implements ITransport<THel
             command: this.environment.executable,
             args: this.argsOf(request.args),
             env: this.env(),
+            timeoutMs: HelmTimeouts.readMs,
         })
 
+        if (outcome.code === ProcessCollector.expiredCode) {
+            throw HelmTransport.expired(request.args)
+        }
         if (outcome.code !== 0) {
             throw HelmTransport.failure(outcome)
         }
 
         return (request.json === true ? HelmTransport.parse(outcome.stdout) : outcome.stdout) as TRes
+    }
+
+    public static expired(args: readonly string[]): ApiError {
+        return new ApiError(
+            `Helm did not answer within ${HelmTimeouts.seconds(HelmTimeouts.readMs)} seconds`,
+            `"helm ${HelmTransport.subcommand(args)}" was still running and has been stopped. `
+            + 'The cluster may be unreachable, or helm may be waiting for a credential helper on this machine.',
+            ProcessCollector.expiredCode,
+        )
+    }
+
+    // Only the leading words: anything past the first flag may be a value worth keeping out of a message.
+    protected static subcommand(args: readonly string[]): string {
+        const words: string[] = []
+        for (const arg of args) {
+            if (arg.startsWith('-')) {
+                break
+            }
+            words.push(arg)
+        }
+
+        return words.join(' ')
     }
 
     // Passed through verbatim on purpose: rewording helm hides the chart, field or hook that failed.

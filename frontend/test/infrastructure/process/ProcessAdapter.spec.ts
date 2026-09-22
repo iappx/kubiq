@@ -22,6 +22,7 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/process', () => ({
 
 import { ApiError } from '@/domain/errors/ApiError'
 import { ProcessAdapter } from '@/infrastructure/process/ProcessAdapter'
+import { ProcessCollector } from '@/infrastructure/process/ProcessCollector'
 import type { IProcessSink } from '@/infrastructure/process/types/IProcessSink'
 import { MemoryProcessHost } from '../../support/MemoryProcessHost'
 
@@ -111,6 +112,44 @@ describe('ProcessAdapter', () => {
 
         await expect(adapter.collect({ command: 'helm', args: ['list'] }))
             .rejects.toThrow(ApiError)
+    })
+
+    it('waits for ever on a process that never exits when no deadline was asked for', async () => {
+        vi.useFakeTimers()
+        host.script({ hold: true })
+
+        let settled = false
+        void adapter.collect({ command: 'helm', args: ['list'] }).then(() => (settled = true))
+        await vi.advanceTimersByTimeAsync(600_000)
+
+        expect(settled).toBe(false)
+        expect(host.killed).toEqual([])
+        vi.useRealTimers()
+    })
+
+    it('gives up on a process that outlives its deadline and kills it', async () => {
+        vi.useFakeTimers()
+        host.script({ hold: true })
+
+        const collected = adapter.collect({ command: 'helm', args: ['list'], timeoutMs: 30_000 })
+        await vi.advanceTimersByTimeAsync(30_000)
+        const outcome = await collected
+
+        expect(outcome.code).toBe(ProcessCollector.expiredCode)
+        expect(host.killed).toEqual(['process-1'])
+        vi.useRealTimers()
+    })
+
+    it('keeps the real exit code of a process that answered inside its deadline', async () => {
+        vi.useFakeTimers()
+        host.script({ stdout: 'listed\n', code: 0 })
+
+        const outcome = await adapter.collect({ command: 'helm', args: ['list'], timeoutMs: 30_000 })
+        await vi.advanceTimersByTimeAsync(60_000)
+
+        expect(outcome).toEqual({ code: 0, stdout: 'listed\n', stderr: '' })
+        expect(host.killed).toEqual([])
+        vi.useRealTimers()
     })
 
     it('answers with an unavailable code outside the desktop host instead of failing', async () => {
