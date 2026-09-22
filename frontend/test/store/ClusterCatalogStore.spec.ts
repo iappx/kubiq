@@ -6,7 +6,7 @@ import { container } from 'tsyringe'
 const fake = vi.hoisted(() => {
     const state = {
         pinned: [] as string[],
-        sources: [] as string[],
+        sources: [] as { path: string; origin: string }[],
         contexts: [] as any[],
         listFails: null as Error | null,
         addFails: null as Error | null,
@@ -28,15 +28,18 @@ const fake = vi.hoisted(() => {
             state.pinned = state.pinned.filter(name => name !== contextName)
         }),
         getSources: vi.fn(async () => [...state.sources]),
-        addSource: vi.fn(async (path: string) => {
+        addSource: vi.fn(async (path: string, origin: string) => {
             if (state.addFails) {
                 throw state.addFails
             }
-            state.sources = [...state.sources, path]
+            state.sources = [...state.sources, { path, origin }]
             return path
         }),
         removeSource: vi.fn(async (path: string) => {
-            state.sources = state.sources.filter(source => source !== path)
+            const removed = state.sources.find(source => source.path === path)
+            state.sources = state.sources.filter(source => source.path !== path)
+
+            return removed?.origin === 'paste'
         }),
     }
 })
@@ -64,6 +67,7 @@ vi.mock('@/application/services/cluster/ClusterConnectionService', () => ({
 }))
 
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
+import { ClusterRemovedEvent } from '@/domain/events/cluster/ClusterRemovedEvent'
 import { ApiError } from '@/domain/errors/ApiError'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
@@ -74,6 +78,11 @@ const eventBus = container.resolve(EventBus)
 const errors: AppErrorEvent[] = []
 eventBus.registerHandler(AppErrorEvent, (event) => {
     errors.push(event)
+})
+
+const removals: ClusterRemovedEvent[] = []
+eventBus.registerHandler(ClusterRemovedEvent, (event) => {
+    removals.push(event)
 })
 
 const context = (name: string): Record<string, unknown> => ({
@@ -91,6 +100,7 @@ const context = (name: string): Record<string, unknown> => ({
 describe('ClusterCatalogStore', () => {
     beforeEach(() => {
         errors.length = 0
+        removals.length = 0
         fake.state.pinned = []
         fake.state.sources = []
         fake.state.contexts = [context('prod'), context('lab')]
@@ -101,6 +111,7 @@ describe('ClusterCatalogStore', () => {
         store.clear()
         store.pinned = []
         store.sources = []
+        store.sourceOrigins = {}
         store.filter = ''
         store.loadError = ''
         store.loadErrorDetail = ''
@@ -109,7 +120,7 @@ describe('ClusterCatalogStore', () => {
     describe('loading', () => {
         it('reads contexts, pins and added files in one pass', async () => {
             fake.state.pinned = ['lab']
-            fake.state.sources = ['D:/work/extra.yaml']
+            fake.state.sources = [{ path: 'D:/work/extra.yaml', origin: 'file' }]
 
             await store.loadOnce()
 
@@ -119,8 +130,21 @@ describe('ClusterCatalogStore', () => {
             expect(store.storeLoaded).toBe(true)
         })
 
+        it('remembers how each file got in so a saved one can be deleted with the cluster', async () => {
+            fake.state.sources = [
+                { path: 'D:/work/extra.yaml', origin: 'file' },
+                { path: 'C:/kubiq/kubeconfigs/lab.yaml', origin: 'paste' },
+            ]
+
+            await store.loadOnce()
+
+            expect(store.originOf('C:/kubiq/kubeconfigs/lab.yaml')).toBe('paste')
+            expect(store.originOf('D:/work/extra.yaml')).toBe('file')
+            expect(store.originOf('C:/Users/tester/.kube/config')).toBe('discovered')
+        })
+
         it('hands the added files to the context list so their contexts show up', async () => {
-            fake.state.sources = ['D:/work/extra.yaml']
+            fake.state.sources = [{ path: 'D:/work/extra.yaml', origin: 'file' }]
 
             await store.loadOnce()
 
@@ -203,27 +227,62 @@ describe('ClusterCatalogStore', () => {
 
     describe('adding a kubeconfig', () => {
         it('says it worked and reloads the catalog', async () => {
-            await expect(store.addSource('D:/work/extra.yaml')).resolves.toBe(true)
+            await expect(store.addSource('D:/work/extra.yaml', 'file')).resolves.toBe(true)
 
-            expect(fake.addSource).toHaveBeenCalledWith('D:/work/extra.yaml', expect.any(Number))
+            expect(fake.addSource).toHaveBeenCalledWith('D:/work/extra.yaml', 'file', expect.any(Number))
             expect(store.sources).toEqual(['D:/work/extra.yaml'])
         })
 
         it('says it did not and raises the failure, leaving the catalog as it was', async () => {
             fake.state.addFails = new ApiError('That file holds no kubeconfig contexts')
 
-            await expect(store.addSource('D:/work/empty.yaml')).resolves.toBe(false)
+            await expect(store.addSource('D:/work/empty.yaml', 'file')).resolves.toBe(false)
 
             expect(errors).toHaveLength(1)
             expect(store.sources).toEqual([])
         })
+    })
 
-        it('removes a file and reloads', async () => {
-            await store.addSource('D:/work/extra.yaml')
+    describe('deleting a cluster', () => {
+        it('describes what goes with the kubeconfig before anything is removed', async () => {
+            fake.state.sources = [{ path: 'D:/work/prod.yaml', origin: 'paste' }]
+            await store.loadOnce()
 
-            await store.removeSource('D:/work/extra.yaml')
+            expect(store.deletionOf('D:/work/prod.yaml')).toEqual({
+                filePath: 'D:/work/prod.yaml',
+                origin: 'paste',
+                clusterNames: ['prod'],
+            })
+        })
 
+        it('hands the service the clusters that go with the file, so their pins go too', async () => {
+            fake.state.sources = [{ path: 'D:/work/prod.yaml', origin: 'file' }]
+            await store.loadOnce()
+
+            await store.removeSource('D:/work/prod.yaml')
+
+            expect(fake.removeSource).toHaveBeenCalledWith('D:/work/prod.yaml', ['prod'])
             expect(store.sources).toEqual([])
+        })
+
+        it('announces the removal so open sessions close and the operator is told', async () => {
+            fake.state.sources = [{ path: 'D:/work/prod.yaml', origin: 'paste' }]
+            await store.loadOnce()
+
+            await store.removeSource('D:/work/prod.yaml')
+
+            expect(removals).toHaveLength(1)
+            expect(removals[0].contextNames).toEqual(['prod'])
+            expect(removals[0].kubeconfigDeleted).toBe(true)
+        })
+
+        it('says the file stayed when it was one the operator named', async () => {
+            fake.state.sources = [{ path: 'D:/work/prod.yaml', origin: 'file' }]
+            await store.loadOnce()
+
+            await store.removeSource('D:/work/prod.yaml')
+
+            expect(removals[0].kubeconfigDeleted).toBe(false)
         })
     })
 

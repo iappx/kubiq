@@ -2,16 +2,22 @@ import { inject } from 'tsyringe'
 import { ClusterCatalogService } from '@/application/services/clusterCatalog/ClusterCatalogService'
 import { ClusterConnectionService } from '@/application/services/cluster/ClusterConnectionService'
 import type { TClusterContextInfo } from '@/application/services/cluster/types/TClusterContextInfo'
+import type { TClusterSourceOrigin } from '@/domain/entities/catalog/types/TClusterSourceOrigin'
+import type { TKubeconfigSourceMode } from '@/domain/entities/catalog/types/TKubeconfigSourceMode'
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
+import { ClusterRemovedEvent } from '@/domain/events/cluster/ClusterRemovedEvent'
 import { ApiError } from '@/domain/errors/ApiError'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { InjectableStore, LoadableItemStoreBase } from '@/lib/vue-store'
+import type { TKubeconfigDeletion } from '@/store/modules/clusterCatalog/types/TKubeconfigDeletion'
 
 @InjectableStore
 export class ClusterCatalogStore extends LoadableItemStoreBase<TClusterContextInfo, ClusterCatalogStore> {
     public pinned: string[] = []
 
     public sources: string[] = []
+
+    public sourceOrigins: Record<string, TKubeconfigSourceMode> = {}
 
     public filter = ''
 
@@ -29,6 +35,24 @@ export class ClusterCatalogStore extends LoadableItemStoreBase<TClusterContextIn
 
     public isPinned(contextName: string): boolean {
         return this.pinned.includes(contextName)
+    }
+
+    public originOf(filePath: string): TClusterSourceOrigin {
+        return this.sourceOrigins[filePath] ?? 'discovered'
+    }
+
+    public deletionOf(filePath: string): TKubeconfigDeletion {
+        return {
+            filePath,
+            origin: this.originOf(filePath),
+            clusterNames: this.clustersOf(filePath),
+        }
+    }
+
+    public clustersOf(filePath: string): string[] {
+        return this.items
+            .filter(context => context.filePath === filePath)
+            .map(context => context.name)
     }
 
     public refresh(): Promise<void> {
@@ -58,9 +82,9 @@ export class ClusterCatalogStore extends LoadableItemStoreBase<TClusterContextIn
         })
     }
 
-    public async addSource(path: string): Promise<boolean> {
+    public async addSource(path: string, origin: TKubeconfigSourceMode): Promise<boolean> {
         try {
-            await this.catalogService.addSource(path, Date.now())
+            await this.catalogService.addSource(path, origin, Date.now())
         } catch (err) {
             this.eventBus.emitEvent(new AppErrorEvent(err, 'ClusterCatalogStore.addSource'))
             return false
@@ -73,8 +97,11 @@ export class ClusterCatalogStore extends LoadableItemStoreBase<TClusterContextIn
 
     public removeSource(path: string): Promise<void> {
         return this.guard('ClusterCatalogStore.removeSource', async () => {
-            await this.catalogService.removeSource(path)
+            const contextNames = this.clustersOf(path)
+            const deleted = await this.catalogService.removeSource(path, contextNames)
+
             await this.load()
+            this.eventBus.emitEvent(new ClusterRemovedEvent(path, contextNames, deleted))
         })
     }
 
@@ -84,10 +111,11 @@ export class ClusterCatalogStore extends LoadableItemStoreBase<TClusterContextIn
             this.catalogService.getPinned(),
         ])
 
-        this.sources = sources
+        this.sources = sources.map(source => source.path)
+        this.sourceOrigins = Object.fromEntries(sources.map(source => [source.path, source.origin]))
         this.pinned = pinned
 
-        return this.connectionService.listContexts(sources)
+        return this.connectionService.listContexts(this.sources)
     }
 
     private async runLoad(action: () => Promise<void>): Promise<void> {

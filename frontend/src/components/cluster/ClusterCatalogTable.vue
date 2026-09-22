@@ -77,7 +77,7 @@ import type { TUiTone } from '@/components/common/status/types/TUiTone'
 
 @Component({
   components: { LoaderCircle, Pin, UiDataTable, UiStatusBadge },
-  emits: ['open', 'details', 'connect', 'disconnect', 'toggle-pin', 'update:sort', 'update:cursor'],
+  emits: ['open', 'details', 'connect', 'disconnect', 'toggle-pin', 'delete', 'update:sort', 'update:cursor'],
 })
 export default class ClusterCatalogTable extends VueBase {
   @Prop({ required: true })
@@ -137,6 +137,9 @@ export default class ClusterCatalogTable extends VueBase {
         return
       case ClusterCatalogActions.pinKey:
         this.$emit('toggle-pin', event.row.clusterId)
+        return
+      case ClusterCatalogActions.deleteKey:
+        this.$emit('delete', event.row)
     }
   }
 }

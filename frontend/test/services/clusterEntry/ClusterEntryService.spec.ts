@@ -55,7 +55,7 @@ const fake = vi.hoisted(() => {
             Object.entries(state.selections).map(([clusterId, namespaces]) => [clusterId, [...namespaces]]),
         )),
         setSelection: vi.fn(async (_: string, namespaces: string[]) => namespaces),
-        getSources: vi.fn(async () => state.sources),
+        getSources: vi.fn(async () => state.sources.map(path => ({ path, origin: 'file' }))),
         getPinned: vi.fn(async () => [] as string[]),
         pin: vi.fn(async () => undefined),
         unpin: vi.fn(async () => undefined),

@@ -18,6 +18,7 @@ const row = (name: string, status: TClusterStatus): TClusterRow => ({
     version: status === 'connected' ? 'v1.32.0' : '',
     source: `${name}.yaml`,
     filePath: `D:/work/${name}.yaml`,
+    sourceOrigin: 'file',
     isPinned: false,
     isCurrent: false,
     isActive: false,

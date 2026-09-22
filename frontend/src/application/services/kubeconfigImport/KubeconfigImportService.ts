@@ -29,4 +29,8 @@ export class KubeconfigImportService {
 
         return absolute
     }
+
+    public async discard(path: string): Promise<void> {
+        await this.files.send<null>({ path, operation: 'remove' })
+    }
 }

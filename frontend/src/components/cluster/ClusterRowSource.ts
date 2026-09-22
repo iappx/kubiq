@@ -14,6 +14,7 @@ export class ClusterRowSource {
             contexts: catalog.items,
             connections: connections.connections,
             pinned: catalog.pinned,
+            sourceOrigins: catalog.sourceOrigins,
             connectingIds: connections.connectingIds,
             failures: connections.failures,
             health: health.health,

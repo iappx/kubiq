@@ -23,6 +23,10 @@ export class FileSystemTransport implements ITransport<TFileRequest> {
             return await this.read(params) as TRes
         }
 
+        if (params.operation === 'remove') {
+            return await this.remove(params) as TRes
+        }
+
         return await this.write(params) as TRes
     }
 
@@ -47,6 +51,18 @@ export class FileSystemTransport implements ITransport<TFileRequest> {
             () => IoService.WriteFile(params.path, params.content ?? '', FileSystemTransport.TEXT_OPTIONS),
             message,
         )
+
+        if (!result.success) {
+            throw new ApiError(message, result.data)
+        }
+
+        return null
+    }
+
+    private async remove(params: TFileRequest): Promise<null> {
+        const message = 'Could not delete the file'
+
+        const result = await this.call(() => IoService.RemoveFile(params.path), message)
 
         if (!result.success) {
             throw new ApiError(message, result.data)

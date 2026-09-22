@@ -31,7 +31,7 @@
             </div>
             <div>
               <h3 :id="titleId" class="font-semibold text-foreground mb-1">{{ title }}</h3>
-              <p :id="descriptionId" class="text-sm text-muted-foreground">{{ description }}</p>
+              <p :id="descriptionId" class="text-sm text-muted-foreground break-words">{{ description }}</p>
             </div>
           </div>
           <div class="flex justify-end gap-2">

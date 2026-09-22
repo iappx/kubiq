@@ -59,7 +59,7 @@ export class LocalShellService {
     }
 
     private async kubeconfig(clusterId: string, namespace: string): Promise<string> {
-        const sources = await this.catalogService.getSources()
+        const sources = await this.catalogService.getSourcePaths()
         const files = await this.kubeconfigService.locate(sources)
         const separator = await this.environment.pathListSeparator()
         const overlay = await this.writeOverlay(clusterId, namespace, sources)

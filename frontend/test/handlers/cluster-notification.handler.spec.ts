@@ -3,6 +3,7 @@ import { container } from 'tsyringe'
 import { ClusterNotificationHandler } from '@/application/handlers/cluster/ClusterNotificationHandler'
 import { ClusterConnectedEvent } from '@/domain/events/cluster/ClusterConnectedEvent'
 import { ClusterDisconnectedEvent } from '@/domain/events/cluster/ClusterDisconnectedEvent'
+import { ClusterRemovedEvent } from '@/domain/events/cluster/ClusterRemovedEvent'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { ToastStore } from '@/store/modules/toast/ToastStore'
 
@@ -38,5 +39,25 @@ describe('ClusterNotificationHandler', () => {
 
         expect(toasts.items[0].description).toBe('One open stream was stopped')
         expect(toasts.items[1].description).toBe('4 open streams were stopped')
+    })
+
+    it('names the deleted cluster and says its saved kubeconfig went with it', () => {
+        eventBus.emitEvent(new ClusterRemovedEvent('C:/kubiq/kubeconfigs/prod.yaml', ['prod'], true))
+
+        expect(toasts.items[0].message).toBe('Deleted cluster prod')
+        expect(toasts.items[0].description).toBe('The kubeconfig Kubiq saved for it was deleted too')
+    })
+
+    it('counts the clusters a shared kubeconfig took with it, and says the file stayed', () => {
+        eventBus.emitEvent(new ClusterRemovedEvent('D:/work/all.yaml', ['prod', 'lab'], false))
+
+        expect(toasts.items[0].message).toBe('Deleted 2 clusters')
+        expect(toasts.items[0].description).toBe('D:/work/all.yaml was left on disk')
+    })
+
+    it('claims no cluster when the file had stopped yielding one', () => {
+        eventBus.emitEvent(new ClusterRemovedEvent('D:/work/gone.yaml', [], false))
+
+        expect(toasts.items[0].message).toBe('Removed kubeconfig')
     })
 })

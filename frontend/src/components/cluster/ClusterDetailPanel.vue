@@ -56,7 +56,7 @@
     </template>
 
     <template #footer>
-      <div v-if="row" class="flex items-center gap-2">
+      <div v-if="row" class="flex w-full items-center gap-2">
         <template v-if="row.status === 'connected'">
           <button class="btn-primary" type="button" @click="$emit('enter', row.clusterId)">
             <arrow-right :size="14" />
@@ -79,6 +79,17 @@
           <plug v-else :size="14" />
           {{ primaryLabel }}
         </button>
+
+        <button
+            v-if="canDelete"
+            :aria-label="`Delete ${row.name}`"
+            :title="`Delete ${row.name}`"
+            class="btn-icon ml-auto h-7 w-7 hover:text-destructive"
+            type="button"
+            @click="$emit('delete', row)"
+        >
+          <trash-2 :size="14" />
+        </button>
       </div>
     </template>
   </ui-side-panel>
@@ -86,7 +97,7 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
-import { ArrowRight, LoaderCircle, Pin, PinOff, Plug, Unplug } from '@lucide/vue'
+import { ArrowRight, LoaderCircle, Pin, PinOff, Plug, Trash2, Unplug } from '@lucide/vue'
 import ClusterFactRow from '@/components/cluster/ClusterFactRow.vue'
 import UiMultiSelect from '@/components/common/select/UiMultiSelect.vue'
 import UiSidePanel from '@/components/common/panel/UiSidePanel.vue'
@@ -104,12 +115,13 @@ import type { TUiTone } from '@/components/common/status/types/TUiTone'
     Pin,
     PinOff,
     Plug,
+    Trash2,
     UiMultiSelect,
     UiSidePanel,
     UiStatusBadge,
     Unplug,
   },
-  emits: ['close', 'update:width', 'enter', 'disconnect', 'toggle-pin', 'update:namespaces'],
+  emits: ['close', 'update:width', 'enter', 'disconnect', 'toggle-pin', 'delete', 'update:namespaces'],
 })
 export default class ClusterDetailPanel extends VueBase {
   @Prop({ required: false, default: null })
@@ -126,6 +138,10 @@ export default class ClusterDetailPanel extends VueBase {
 
   public get tone(): TUiTone {
     return this.row ? ClusterToneMap.of(this.row.status) : 'unknown'
+  }
+
+  public get canDelete(): boolean {
+    return !!this.row && this.row.sourceOrigin !== 'discovered'
   }
 
   public get primaryLabel(): string {

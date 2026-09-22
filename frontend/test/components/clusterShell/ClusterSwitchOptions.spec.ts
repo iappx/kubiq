@@ -16,6 +16,7 @@ const row = (name: string, status: TClusterStatus, overrides: Partial<TClusterRo
     version: '',
     source: `${name}.yaml`,
     filePath: `D:/work/${name}.yaml`,
+    sourceOrigin: 'file',
     isPinned: false,
     isCurrent: false,
     isActive: false,

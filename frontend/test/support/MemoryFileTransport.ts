@@ -6,9 +6,17 @@ export class MemoryFileTransport implements ITransport<TFileRequest> {
 
     public writes = 0
 
+    public readonly removed: string[] = []
+
     public async send<TRes>(params: TFileRequest): Promise<TRes> {
         if (params.operation === 'read') {
             return (this.files.get(params.path) ?? null) as TRes
+        }
+
+        if (params.operation === 'remove') {
+            this.removed.push(params.path)
+            this.files.delete(params.path)
+            return null as TRes
         }
 
         this.writes++

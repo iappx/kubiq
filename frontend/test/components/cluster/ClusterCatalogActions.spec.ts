@@ -15,6 +15,7 @@ const row = (status: TClusterStatus, overrides: Partial<TClusterRow> = {}): TClu
     version: 'v1.31.2',
     source: 'prod.yaml',
     filePath: 'D:/work/prod.yaml',
+    sourceOrigin: 'file',
     isPinned: false,
     isCurrent: false,
     isActive: false,
@@ -37,6 +38,7 @@ describe('ClusterCatalogActions', () => {
             ClusterCatalogActions.detailsKey,
             ClusterCatalogActions.disconnectKey,
             ClusterCatalogActions.pinKey,
+            ClusterCatalogActions.deleteKey,
         ])
     })
 
@@ -57,6 +59,7 @@ describe('ClusterCatalogActions', () => {
         expect(keys(row('connecting'))).toEqual([
             ClusterCatalogActions.detailsKey,
             ClusterCatalogActions.pinKey,
+            ClusterCatalogActions.deleteKey,
         ])
     })
 
@@ -64,7 +67,30 @@ describe('ClusterCatalogActions', () => {
         expect(keys(row('unsupported'))).toEqual([
             ClusterCatalogActions.detailsKey,
             ClusterCatalogActions.pinKey,
+            ClusterCatalogActions.deleteKey,
         ])
+    })
+
+    it('offers deleting a cluster whose kubeconfig kubiq was given', () => {
+        expect(keys(row('available', { sourceOrigin: 'paste' }))).toContain(ClusterCatalogActions.deleteKey)
+    })
+
+    it('never offers to delete a context found in a kubeconfig kubiq only reads', () => {
+        expect(keys(row('available', { sourceOrigin: 'discovered' })))
+            .not.toContain(ClusterCatalogActions.deleteKey)
+    })
+
+    it('marks deleting as the destructive verb', () => {
+        const item = ClusterCatalogActions
+            .of(row('available'))
+            .find(entry => entry.key === ClusterCatalogActions.deleteKey)
+
+        expect(item?.danger).toBe(true)
+        expect(item?.label).toBe('Delete')
+    })
+
+    it('puts deleting last, away from what the operator clicks every day', () => {
+        expect(keys(row('connected')).at(-1)).toBe(ClusterCatalogActions.deleteKey)
     })
 
     it('names the pin verb after what the row is now', () => {
@@ -82,6 +108,7 @@ describe('ClusterCatalogActions', () => {
         expect(items.filter(item => item.separatorBefore).map(item => item.key)).toEqual([
             ClusterCatalogActions.disconnectKey,
             ClusterCatalogActions.pinKey,
+            ClusterCatalogActions.deleteKey,
         ])
     })
 })

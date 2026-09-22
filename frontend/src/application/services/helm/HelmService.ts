@@ -52,7 +52,7 @@ export class HelmService {
 
     public async environmentOf(clusterId: string): Promise<THelmEnvironment> {
         const location = await this.locate()
-        const sources = await this.catalogService.getSources()
+        const sources = await this.catalogService.getSourcePaths()
         const files = await this.kubeconfigService.locate(sources)
         const separator = await this.environment.pathListSeparator()
 

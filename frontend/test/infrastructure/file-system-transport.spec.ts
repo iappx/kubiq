@@ -3,11 +3,13 @@ import { container } from 'tsyringe'
 
 const readFile = vi.fn()
 const writeFile = vi.fn()
+const removeFile = vi.fn()
 
 vi.mock('../../bindings/iappx_k8s_admin/core/services/io', () => ({
     IoService: {
         ReadFile: (...args: unknown[]) => readFile(...args),
         WriteFile: (...args: unknown[]) => writeFile(...args),
+        RemoveFile: (...args: unknown[]) => removeFile(...args),
     },
 }))
 
@@ -31,6 +33,7 @@ describe('FileSystemTransport', () => {
     beforeEach(() => {
         readFile.mockReset()
         writeFile.mockReset()
+        removeFile.mockReset()
         ;(window as any).chrome = { webview: { postMessage: () => undefined } }
     })
 
@@ -79,5 +82,33 @@ describe('FileSystemTransport', () => {
 
         expect(writeFile.mock.calls[0][0]).toBe('data/items.json')
         expect(writeFile.mock.calls[0][1]).toBe('[1]')
+    })
+
+    it('deletes the file the caller named', async () => {
+        removeFile.mockResolvedValue({ success: true, data: '' })
+
+        await expect(transport.send({ path: 'userdata:kubeconfigs/lab.yaml', operation: 'remove' }))
+            .resolves.toBeNull()
+
+        expect(removeFile.mock.calls[0][0]).toBe('userdata:kubeconfigs/lab.yaml')
+    })
+
+    it('raises an ApiError when the file will not go', async () => {
+        removeFile.mockResolvedValue({ success: false, data: 'file is in use' })
+
+        const error = await failure(
+            () => transport.send({ path: 'userdata:kubeconfigs/lab.yaml', operation: 'remove' }),
+        )
+
+        expect(error.message).toBe('Could not delete the file')
+        expect(error.details).toBe('file is in use')
+    })
+
+    it('deletes nothing when the Wails runtime is absent', async () => {
+        delete (window as any).chrome
+
+        await transport.send({ path: 'userdata:kubeconfigs/lab.yaml', operation: 'remove' })
+
+        expect(removeFile).not.toHaveBeenCalled()
     })
 })

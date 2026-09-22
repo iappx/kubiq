@@ -2,6 +2,7 @@ export { ClusterStatusCatalog } from '@/domain/entities/catalog/ClusterStatusCat
 export { KubeconfigSourceEntity } from '@/domain/entities/catalog/KubeconfigSourceEntity'
 export { NamespaceSelectionEntity } from '@/domain/entities/catalog/NamespaceSelectionEntity'
 export { PinnedClusterEntity } from '@/domain/entities/catalog/PinnedClusterEntity'
+export type { TClusterSourceOrigin } from '@/domain/entities/catalog/types/TClusterSourceOrigin'
 export type { TClusterStatus } from '@/domain/entities/catalog/types/TClusterStatus'
 export type { TKubeconfigSourceDraft } from '@/domain/entities/catalog/types/TKubeconfigSourceDraft'
 export type { TKubeconfigSourceMode } from '@/domain/entities/catalog/types/TKubeconfigSourceMode'

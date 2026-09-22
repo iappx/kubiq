@@ -28,7 +28,7 @@
       <settings-kubeconfig-section
           :sources="catalogStore.sources"
           @add="addOpen = true"
-          @remove="catalogStore.removeSource($event)"
+          @remove="askRemoveSource"
       />
 
       <settings-tools-section
@@ -59,6 +59,14 @@
     </div>
 
     <add-kubeconfig-modal :busy="addBusy" :open="addOpen" @close="addOpen = false" @submit="addSource" />
+
+    <delete-cluster-dialog
+        :busy="deleteBusy"
+        :open="!!pendingDelete"
+        :target="pendingDelete"
+        @cancel="pendingDelete = null"
+        @confirm="confirmDelete"
+    />
   </div>
 </template>
 
@@ -66,6 +74,7 @@
 import { Component, VueBase } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
 import AddKubeconfigModal from '@/components/cluster/AddKubeconfigModal.vue'
+import DeleteClusterDialog from '@/components/cluster/DeleteClusterDialog.vue'
 import SettingsAppearanceSection from '@/components/settings/SettingsAppearanceSection.vue'
 import SettingsKubeconfigSection from '@/components/settings/SettingsKubeconfigSection.vue'
 import SettingsNodeShellSection from '@/components/settings/SettingsNodeShellSection.vue'
@@ -74,7 +83,9 @@ import SettingsStorageSection from '@/components/settings/SettingsStorageSection
 import SettingsToolsSection from '@/components/settings/SettingsToolsSection.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
 import { AppTheme } from '@/domain/models/theme'
+import type { TKubeconfigSourceMode } from '@/domain/entities/catalog/types/TKubeconfigSourceMode'
 import type { TAppDensity } from '@/domain/models/ui'
+import type { TKubeconfigDeletion } from '@/store/modules/clusterCatalog/types/TKubeconfigDeletion'
 import { AppSettingsStore } from '@/store/modules/settings/AppSettingsStore'
 import { AppThemeStore } from '@/store/modules/appTheme/AppThemeStore'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
@@ -83,6 +94,7 @@ import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatal
 @Component({
   components: {
     AddKubeconfigModal,
+    DeleteClusterDialog,
     SettingsAppearanceSection,
     SettingsKubeconfigSection,
     SettingsNodeShellSection,
@@ -96,6 +108,10 @@ export default class SettingsPage extends VueBase {
   public addOpen = false
 
   public addBusy = false
+
+  public pendingDelete: TKubeconfigDeletion | null = null
+
+  public deleteBusy = false
 
   constructor(
       @inject(AppSettingsStore) public readonly settingsStore: AppSettingsStore,
@@ -126,14 +142,33 @@ export default class SettingsPage extends VueBase {
     this.uiStore.setDensity(next)
   }
 
-  public async addSource(path: string): Promise<void> {
+  public async addSource(path: string, origin: TKubeconfigSourceMode): Promise<void> {
     this.addBusy = true
     try {
-      if (await this.catalogStore.addSource(path)) {
+      if (await this.catalogStore.addSource(path, origin)) {
         this.addOpen = false
       }
     } finally {
       this.addBusy = false
+    }
+  }
+
+  public askRemoveSource(path: string): void {
+    this.pendingDelete = this.catalogStore.deletionOf(path)
+  }
+
+  public async confirmDelete(): Promise<void> {
+    const target = this.pendingDelete
+    if (!target || this.deleteBusy) {
+      return
+    }
+
+    this.deleteBusy = true
+    try {
+      await this.catalogStore.removeSource(target.filePath)
+    } finally {
+      this.deleteBusy = false
+      this.pendingDelete = null
     }
   }
 }

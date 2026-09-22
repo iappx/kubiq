@@ -11,7 +11,7 @@
       <cluster-source-bar
           v-if="catalogStore.sources.length > 0"
           :sources="catalogStore.sources"
-          @remove="catalogStore.removeSource($event)"
+          @remove="askRemoveSource"
       />
 
       <ui-table-toolbar
@@ -77,6 +77,7 @@
           :sort="sort"
           :total-count="allRows.length"
           @connect="connect"
+          @delete="askDelete"
           @details="select"
           @disconnect="connectionStore.disconnect($event)"
           @open="enter"
@@ -111,6 +112,7 @@
         :row="selectedRow"
         :width="panelWidth"
         @close="selectedId = ''"
+        @delete="askDelete"
         @disconnect="connectionStore.disconnect($event)"
         @enter="enterById"
         @toggle-pin="togglePin"
@@ -119,6 +121,14 @@
     />
 
     <add-kubeconfig-modal :busy="addBusy" :open="addOpen" @close="addOpen = false" @submit="addSource" />
+
+    <delete-cluster-dialog
+        :busy="deleteBusy"
+        :open="!!pendingDelete"
+        :target="pendingDelete"
+        @cancel="pendingDelete = null"
+        @confirm="confirmDelete"
+    />
   </div>
 </template>
 
@@ -132,6 +142,7 @@ import ClusterCatalogTable from '@/components/cluster/ClusterCatalogTable.vue'
 import ClusterDetailPanel from '@/components/cluster/ClusterDetailPanel.vue'
 import ClusterPinnedStrip from '@/components/cluster/ClusterPinnedStrip.vue'
 import ClusterSourceBar from '@/components/cluster/ClusterSourceBar.vue'
+import DeleteClusterDialog from '@/components/cluster/DeleteClusterDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
@@ -145,6 +156,8 @@ import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatal
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
+import type { TKubeconfigSourceMode } from '@/domain/entities/catalog/types/TKubeconfigSourceMode'
+import type { TKubeconfigDeletion } from '@/store/modules/clusterCatalog/types/TKubeconfigDeletion'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 import type { TUiSelectOption } from '@/components/common/select/types/TUiSelectOption'
 import type { TUiTableColumn } from '@/components/common/table/types/TUiTableColumn'
@@ -158,6 +171,7 @@ import type { TUiTableSort } from '@/components/common/table/types/TUiTableSort'
     ClusterDetailPanel,
     ClusterPinnedStrip,
     ClusterSourceBar,
+    DeleteClusterDialog,
     EmptyState,
     FilePlus,
     RefreshCw,
@@ -185,6 +199,10 @@ export default class ClustersPage extends VueBase {
   public addOpen = false
 
   public addBusy = false
+
+  public pendingDelete: TKubeconfigDeletion | null = null
+
+  public deleteBusy = false
 
   constructor(
       @inject(ClusterCatalogStore) public readonly catalogStore: ClusterCatalogStore,
@@ -306,14 +324,41 @@ export default class ClustersPage extends VueBase {
     this.addOpen = true
   }
 
-  public async addSource(path: string): Promise<void> {
+  public async addSource(path: string, origin: TKubeconfigSourceMode): Promise<void> {
     this.addBusy = true
     try {
-      if (await this.catalogStore.addSource(path)) {
+      if (await this.catalogStore.addSource(path, origin)) {
         this.addOpen = false
       }
     } finally {
       this.addBusy = false
+    }
+  }
+
+  public askDelete(row: TClusterRow): void {
+    this.pendingDelete = this.catalogStore.deletionOf(row.filePath)
+  }
+
+  public askRemoveSource(path: string): void {
+    this.pendingDelete = this.catalogStore.deletionOf(path)
+  }
+
+  public async confirmDelete(): Promise<void> {
+    const target = this.pendingDelete
+    if (!target || this.deleteBusy) {
+      return
+    }
+
+    this.deleteBusy = true
+    try {
+      await this.catalogStore.removeSource(target.filePath)
+
+      if (target.clusterNames.includes(this.selectedId)) {
+        this.selectedId = ''
+      }
+    } finally {
+      this.deleteBusy = false
+      this.pendingDelete = null
     }
   }
 }

@@ -35,6 +35,7 @@ const input = (overrides: Partial<TClusterRowInput> = {}): TClusterRowInput => (
     contexts: [],
     connections: [],
     pinned: [],
+    sourceOrigins: {},
     connectingIds: [],
     failures: {},
     activeClusterId: '',
@@ -217,6 +218,18 @@ describe('ClusterRowBuilder', () => {
             }))
 
             expect(rows.map(row => row.isPinned)).toEqual([false, true])
+        })
+
+        it('says where each kubeconfig came from, so a deletable one can be told apart', () => {
+            const rows = ClusterRowBuilder.build(input({
+                contexts: [context('prod'), context('lab'), context('home')],
+                sourceOrigins: {
+                    'D:/work/prod.yaml': 'file',
+                    'D:/work/lab.yaml': 'paste',
+                },
+            }))
+
+            expect(rows.map(row => row.sourceOrigin)).toEqual(['file', 'paste', 'discovered'])
         })
     })
 

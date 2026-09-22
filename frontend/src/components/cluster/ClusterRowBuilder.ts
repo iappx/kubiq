@@ -28,6 +28,7 @@ export class ClusterRowBuilder {
                 version: connection?.version ?? '',
                 source: ClusterRowBuilder.fileName(context.filePath),
                 filePath: context.filePath,
+                sourceOrigin: input.sourceOrigins[context.filePath] ?? 'discovered',
                 isPinned: input.pinned.includes(context.name),
                 isCurrent: context.isCurrent,
                 isActive: input.activeClusterId === context.name,

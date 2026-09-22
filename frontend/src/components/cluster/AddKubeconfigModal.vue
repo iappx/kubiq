@@ -181,7 +181,7 @@ export default class AddKubeconfigModal extends VueBase {
     }
 
     if (this.isFileMode) {
-      this.$emit('submit', this.draft.path.trim())
+      this.$emit('submit', this.draft.path.trim(), 'file')
       return
     }
 
@@ -192,7 +192,7 @@ export default class AddKubeconfigModal extends VueBase {
     this.saving = true
 
     try {
-      this.$emit('submit', await this.importService.save(this.draft.text))
+      this.$emit('submit', await this.importService.save(this.draft.text), 'paste')
     } catch (err) {
       this.eventBus.emitEvent(new AppErrorEvent(err, 'AddKubeconfigModal.submit'))
     } finally {

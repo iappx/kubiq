@@ -1,3 +1,4 @@
+import type { TClusterSourceOrigin } from '@/domain/entities/catalog/types/TClusterSourceOrigin'
 import type { TClusterStatus } from '@/domain/entities/catalog/types/TClusterStatus'
 
 export type TClusterRow = {
@@ -12,6 +13,7 @@ export type TClusterRow = {
     version: string
     source: string
     filePath: string
+    sourceOrigin: TClusterSourceOrigin
     isPinned: boolean
     isCurrent: boolean
     isActive: boolean

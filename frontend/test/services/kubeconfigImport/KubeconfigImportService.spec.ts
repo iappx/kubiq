@@ -80,4 +80,12 @@ describe('KubeconfigImportService', () => {
 
         expect(`${(failure as ApiError).message} ${(failure as ApiError).details}`).not.toContain('staging.example.invalid')
     })
+
+    it('deletes a config it saved, by the path the catalog remembers', async () => {
+        const path = await service().save(kubeconfig)
+
+        await service().discard(path)
+
+        expect(files.removed).toEqual([path])
+    })
 })
