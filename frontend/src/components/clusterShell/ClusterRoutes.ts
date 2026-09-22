@@ -27,6 +27,10 @@ export class ClusterRoutes {
         return `${ClusterRoutes.shell(clusterId)}/helm`
     }
 
+    public static argocd(clusterId: string): string {
+        return `${ClusterRoutes.shell(clusterId)}/argocd`
+    }
+
     public static forKind(clusterId: string, kind: KubeResourceKind): string {
         return ClusterRoutes.resource(clusterId, kind.section, kind.slug)
     }

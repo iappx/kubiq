@@ -2,6 +2,8 @@ import { inject, singleton } from 'tsyringe'
 import { KubeSchemaService } from '@/application/services/kubeSchema/KubeSchemaService'
 import { ClusterDisconnectedEvent } from '@/domain/events/cluster/ClusterDisconnectedEvent'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
+import { ArgoProjectStore } from '@/store/modules/argocd/ArgoProjectStore'
+import { ArgoStore } from '@/store/modules/argocd/ArgoStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
 import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
 import { ClusterMetricsStore } from '@/store/modules/clusterMetrics/ClusterMetricsStore'
@@ -31,6 +33,8 @@ export class ClusterSessionHandler {
         @inject(CustomResourceKindStore) private readonly customKindStore: CustomResourceKindStore,
         @inject(HelmStore) private readonly helmStore: HelmStore,
         @inject(HelmRepositoryStore) private readonly helmRepositoryStore: HelmRepositoryStore,
+        @inject(ArgoStore) private readonly argoStore: ArgoStore,
+        @inject(ArgoProjectStore) private readonly argoProjectStore: ArgoProjectStore,
         @inject(KubeSchemaService) private readonly schemaService: KubeSchemaService,
     ) {
         this.eventBus.registerHandler(ClusterDisconnectedEvent, e => this.forget(e.clusterId))
@@ -49,6 +53,8 @@ export class ClusterSessionHandler {
         this.customKindStore.forget(clusterId)
         this.helmStore.forget(clusterId)
         this.helmRepositoryStore.forget(clusterId)
+        this.argoStore.forget(clusterId)
+        this.argoProjectStore.forget(clusterId)
         this.schemaService.forget(clusterId)
     }
 }

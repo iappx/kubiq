@@ -1,6 +1,11 @@
 import { EntityContextBase, RepoEntitySet } from '@iappx/entity-repo'
 import { RestEntityQuery } from '@iappx/entity-repo-rest'
 import {
+    ArgoApplicationEntity,
+    ArgoApplicationSetEntity,
+    ArgoAppProjectEntity,
+} from '@/domain/entities/argocd'
+import {
     ClusterRoleBindingEntity,
     ClusterRoleEntity,
     RoleBindingEntity,
@@ -47,6 +52,7 @@ import {
     ReplicationControllerEntity,
     StatefulSetEntity,
 } from '@/domain/entities/workloads'
+import { ArgoResourceKinds } from '@/domain/models/argocd'
 import { KubeEntitySetOptions } from '@/infrastructure/entityRepo/kube/KubeEntitySetOptions'
 import { KubeTransport } from '@/infrastructure/entityRepo/kube/transport/KubeTransport'
 
@@ -157,4 +163,13 @@ export class KubeEntityContext extends EntityContextBase<KubeTransport> {
 
     @RepoEntitySet(() => CustomResourceDefinitionEntity, () => RestEntityQuery, KubeEntitySetOptions.forResource('apiextensions.k8s.io', 'customresourcedefinitions'))
     public customResourceDefinitions: RestEntityQuery<CustomResourceDefinitionEntity>
+
+    @RepoEntitySet(() => ArgoApplicationEntity, () => RestEntityQuery, KubeEntitySetOptions.forKind(ArgoResourceKinds.applications()))
+    public argoApplications: RestEntityQuery<ArgoApplicationEntity>
+
+    @RepoEntitySet(() => ArgoAppProjectEntity, () => RestEntityQuery, KubeEntitySetOptions.forKind(ArgoResourceKinds.appProjects()))
+    public argoAppProjects: RestEntityQuery<ArgoAppProjectEntity>
+
+    @RepoEntitySet(() => ArgoApplicationSetEntity, () => RestEntityQuery, KubeEntitySetOptions.forKind(ArgoResourceKinds.applicationSets()))
+    public argoApplicationSets: RestEntityQuery<ArgoApplicationSetEntity>
 }

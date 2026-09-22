@@ -13,6 +13,11 @@ describe('ClusterRoutes', () => {
         expect(ClusterRoutes.forKind('prod', kind!)).toBe('/cluster/prod/workloads/deployments.apps')
     })
 
+    it('addresses the tool screens that sit beside the discovered kinds', () => {
+        expect(ClusterRoutes.helm('prod')).toBe('/cluster/prod/helm')
+        expect(ClusterRoutes.argocd('prod')).toBe('/cluster/prod/argocd')
+    })
+
     it('encodes a context name that is an ARN', () => {
         const arn = 'arn:aws:eks:eu-west-1:123456789012:cluster/prod'
 
