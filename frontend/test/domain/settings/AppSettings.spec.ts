@@ -2,12 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { AppSettings } from '@/domain/models/settings'
 
 describe('AppSettings', () => {
-    it('answers empty tool paths and a quitting window by default', () => {
+    it('answers empty tool paths by default', () => {
         expect(AppSettings.defaults()).toEqual({
             kubectlPath: '',
             helmPath: '',
             nodeShellImage: '',
-            closeToTray: false,
         })
     })
 
@@ -16,14 +15,12 @@ describe('AppSettings', () => {
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: 'C:/tools/helm.exe',
             nodeShellImage: 'registry.internal/shell:1',
-            closeToTray: true,
         })
 
         expect(parsed).toEqual({
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: 'C:/tools/helm.exe',
             nodeShellImage: 'registry.internal/shell:1',
-            closeToTray: true,
         })
     })
 
@@ -42,11 +39,11 @@ describe('AppSettings', () => {
     })
 
     it('drops a field whose type is wrong instead of failing', () => {
-        const parsed = AppSettings.parse({ kubectlPath: 42, closeToTray: 'yes', helmPath: null })
+        const parsed = AppSettings.parse({ kubectlPath: 42, nodeShellImage: true, helmPath: null })
 
         expect(parsed.kubectlPath).toBe('')
         expect(parsed.helmPath).toBe('')
-        expect(parsed.closeToTray).toBe(false)
+        expect(parsed.nodeShellImage).toBe('')
     })
 
     it('keeps nothing but the known keys when serialising', () => {
@@ -55,7 +52,13 @@ describe('AppSettings', () => {
             kubectlPath: 'kubectl',
         })
 
-        expect(Object.keys(document).sort()).toEqual(['closeToTray', 'helmPath', 'kubectlPath', 'nodeShellImage'])
+        expect(Object.keys(document).sort()).toEqual(['helmPath', 'kubectlPath', 'nodeShellImage'])
+    })
+
+    it('leaves a setting it no longer knows behind when it reads and writes a document', () => {
+        const document = AppSettings.serialize(AppSettings.parse({ kubectlPath: 'kubectl', closeToTray: true }))
+
+        expect(document).not.toHaveProperty('closeToTray')
     })
 
     it('reads a version stamp, and treats anything unusable as version zero', () => {

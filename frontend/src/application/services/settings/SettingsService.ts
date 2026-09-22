@@ -46,10 +46,6 @@ export class SettingsService {
         return AppSettings.nodeShellImageOf(await this.read())
     }
 
-    public async closeToTray(): Promise<boolean> {
-        return (await this.read()).closeToTray
-    }
-
     public async listClusters(): Promise<TClusterSettingsDraft[]> {
         const stored = await this.repoProvider.settings.clusters.getAll()
 

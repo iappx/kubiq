@@ -51,11 +51,6 @@
           @save="settingsStore.saveCluster($event)"
       />
 
-      <settings-window-section
-          :close-to-tray="settingsStore.settings.closeToTray"
-          @update:close-to-tray="settingsStore.setCloseToTray($event)"
-      />
-
       <settings-storage-section
           :schema-version="settingsStore.schemaVersion"
           :storage="settingsStore.storage"
@@ -77,7 +72,6 @@ import SettingsNodeShellSection from '@/components/settings/SettingsNodeShellSec
 import SettingsPrometheusSection from '@/components/settings/SettingsPrometheusSection.vue'
 import SettingsStorageSection from '@/components/settings/SettingsStorageSection.vue'
 import SettingsToolsSection from '@/components/settings/SettingsToolsSection.vue'
-import SettingsWindowSection from '@/components/settings/SettingsWindowSection.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
 import { AppTheme } from '@/domain/models/theme'
 import type { TAppDensity } from '@/domain/models/ui'
@@ -95,7 +89,6 @@ import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatal
     SettingsPrometheusSection,
     SettingsStorageSection,
     SettingsToolsSection,
-    SettingsWindowSection,
     UiErrorState,
   },
 })

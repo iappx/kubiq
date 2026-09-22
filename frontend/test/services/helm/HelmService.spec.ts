@@ -122,7 +122,7 @@ const record = (name: string, namespace: string, updated: string) => ({
 })
 
 const settings = (helmPath: string): void => {
-    files['userdata:settings/app.json'] = JSON.stringify({ kubectlPath: '', helmPath, nodeShellImage: '', closeToTray: false })
+    files['userdata:settings/app.json'] = JSON.stringify({ kubectlPath: '', helmPath, nodeShellImage: '' })
 }
 
 describe('HelmService', () => {

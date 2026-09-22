@@ -59,7 +59,6 @@ describe('SettingsService', () => {
                 kubectlPath: 'C:/tools/kubectl.exe',
                 helmPath: 'C:/tools/helm.exe',
                 nodeShellImage: 'registry.internal/shell:1',
-                closeToTray: true,
             })
 
             const stored = await build().read()
@@ -67,7 +66,6 @@ describe('SettingsService', () => {
             expect(stored.kubectlPath).toBe('C:/tools/kubectl.exe')
             expect(stored.helmPath).toBe('C:/tools/helm.exe')
             expect(stored.nodeShellImage).toBe('registry.internal/shell:1')
-            expect(stored.closeToTray).toBe(true)
         })
 
         it('writes the settings to the user profile', async () => {
@@ -96,13 +94,6 @@ describe('SettingsService', () => {
             await expect(service.nodeShellImage()).resolves.toBe('registry.internal/shell:2')
         })
 
-        it('reports close-to-tray as off until it is switched on', async () => {
-            await expect(service.closeToTray()).resolves.toBe(false)
-
-            await service.save({ ...AppSettings.defaults(), closeToTray: true })
-
-            await expect(service.closeToTray()).resolves.toBe(true)
-        })
     })
 
     describe('per-cluster settings', () => {

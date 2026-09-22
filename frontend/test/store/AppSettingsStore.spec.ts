@@ -9,7 +9,6 @@ const fake = vi.hoisted(() => {
             kubectlPath: '',
             helmPath: '',
             nodeShellImage: '',
-            closeToTray: false,
         } as Record<string, unknown>,
         clusters: [] as any[],
         storage: { root: '', logs: '', version: 0 },
@@ -194,12 +193,10 @@ describe('AppSettingsStore', () => {
             expect(store.settings.helmPath).toBe('/usr/bin/helm')
         })
 
-        it('stores the node shell image and the window behaviour', async () => {
+        it('stores the node shell image', async () => {
             await store.setNodeShellImage('registry.internal/shell:1')
-            await store.setCloseToTray(true)
 
             expect(store.settings.nodeShellImage).toBe('registry.internal/shell:1')
-            expect(store.settings.closeToTray).toBe(true)
         })
 
         it('raises a failed write and leaves the flag down', async () => {

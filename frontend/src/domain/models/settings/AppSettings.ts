@@ -8,7 +8,6 @@ export class AppSettings {
             kubectlPath: '',
             helmPath: '',
             nodeShellImage: '',
-            closeToTray: false,
         }
     }
 
@@ -19,7 +18,6 @@ export class AppSettings {
             kubectlPath: AppSettings.text(source.kubectlPath),
             helmPath: AppSettings.text(source.helmPath),
             nodeShellImage: AppSettings.text(source.nodeShellImage),
-            closeToTray: source.closeToTray === true,
         }
     }
 

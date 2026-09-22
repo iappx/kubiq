@@ -167,7 +167,6 @@ declare module 'vue' {
     SettingsStorageSection: typeof import('./src/components/settings/SettingsStorageSection.vue')['default']
     SettingsTextField: typeof import('./src/components/settings/SettingsTextField.vue')['default']
     SettingsToolsSection: typeof import('./src/components/settings/SettingsToolsSection.vue')['default']
-    SettingsWindowSection: typeof import('./src/components/settings/SettingsWindowSection.vue')['default']
     SidebarArgoLink: typeof import('./src/components/clusterShell/SidebarArgoLink.vue')['default']
     SidebarHelmLink: typeof import('./src/components/clusterShell/SidebarHelmLink.vue')['default']
     SidebarLink: typeof import('./src/components/clusterShell/SidebarLink.vue')['default']

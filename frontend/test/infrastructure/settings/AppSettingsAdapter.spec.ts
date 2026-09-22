@@ -28,14 +28,12 @@ describe('AppSettingsAdapter', () => {
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: '',
             nodeShellImage: '',
-            closeToTray: true,
         }))
 
         await expect(adapter.read()).resolves.toEqual({
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: '',
             nodeShellImage: '',
-            closeToTray: true,
         })
     })
 

@@ -82,10 +82,6 @@ export class AppSettingsStore extends StoreBase<AppSettingsStore> {
         return this.write({ ...this.settings, nodeShellImage: image })
     }
 
-    public setCloseToTray(closeToTray: boolean): Promise<void> {
-        return this.write({ ...this.settings, closeToTray })
-    }
-
     public saveCluster(draft: TClusterSettingsDraft): Promise<void> {
         return this.guard('AppSettingsStore.saveCluster', async () => {
             const stored = await this.settingsService.saveClusterSettings(draft)
