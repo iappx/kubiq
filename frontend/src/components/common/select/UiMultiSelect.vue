@@ -1,47 +1,71 @@
 <template>
-  <select-root v-model="selected" multiple>
-    <select-trigger
-        :aria-label="label"
-        class="ui-input flex h-8 items-center justify-between gap-2 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+  <combobox-root
+      v-model="selected"
+      :reset-search-term-on-select="false"
+      multiple
+      open-on-click
+      open-on-focus
+  >
+    <combobox-anchor
+        class="ui-input flex h-8 items-center justify-between gap-2 text-xs"
     >
-      <span :class="['truncate', selected.length === 0 ? 'text-muted-foreground' : '']">{{ summary }}</span>
-      <chevron-down :size="14" aria-hidden="true" class="opacity-50 shrink-0" />
-    </select-trigger>
+      <combobox-input
+          :aria-label="label"
+          :class="selected.length === 0 ? 'placeholder:text-muted-foreground' : 'placeholder:text-foreground'"
+          :placeholder="summary"
+          class="min-w-0 flex-1 truncate bg-transparent outline-none"
+      />
+      <combobox-trigger
+          aria-label="Show options"
+          class="shrink-0"
+          tabindex="-1"
+          title="Show options"
+      >
+        <chevron-down :size="14" aria-hidden="true" class="opacity-50" />
+      </combobox-trigger>
+    </combobox-anchor>
 
-    <select-portal>
-      <select-content class="ui-menu max-h-96 overflow-hidden" position="popper">
-        <select-viewport class="p-1 w-full min-w-[var(--reka-select-trigger-width)]">
-          <select-item
+    <combobox-portal>
+      <combobox-content class="ui-menu max-h-96 overflow-hidden" position="popper">
+        <combobox-viewport class="p-1 w-full min-w-[var(--reka-combobox-trigger-width)]">
+          <combobox-empty class="px-2 py-1.5 text-xs text-muted-foreground">
+            Nothing matches what you typed
+          </combobox-empty>
+
+          <combobox-item
               v-for="option in items"
               :key="option.key"
+              :text-value="option.title"
               :value="option.key"
               class="ui-menu-item relative pl-7"
           >
             <span class="absolute left-2 inline-flex items-center justify-center">
-              <select-item-indicator>
+              <combobox-item-indicator>
                 <check :size="12" />
-              </select-item-indicator>
+              </combobox-item-indicator>
             </span>
-            <select-item-text>{{ option.title }}</select-item-text>
-          </select-item>
-        </select-viewport>
-      </select-content>
-    </select-portal>
-  </select-root>
+            {{ option.title }}
+          </combobox-item>
+        </combobox-viewport>
+      </combobox-content>
+    </combobox-portal>
+  </combobox-root>
 </template>
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import { Check, ChevronDown } from '@lucide/vue'
 import {
-  SelectContent,
-  SelectItem,
-  SelectItemIndicator,
-  SelectItemText,
-  SelectPortal,
-  SelectRoot,
-  SelectTrigger,
-  SelectViewport,
+  ComboboxAnchor,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxItemIndicator,
+  ComboboxPortal,
+  ComboboxRoot,
+  ComboboxTrigger,
+  ComboboxViewport,
 } from 'reka-ui'
 import { UiSelectOptions } from '@/components/common/select/UiSelectOptions'
 import type { TUiSelectOption } from '@/components/common/select/types/TUiSelectOption'
@@ -50,14 +74,16 @@ import type { TUiSelectOption } from '@/components/common/select/types/TUiSelect
   components: {
     Check,
     ChevronDown,
-    SelectContent,
-    SelectItem,
-    SelectItemIndicator,
-    SelectItemText,
-    SelectPortal,
-    SelectRoot,
-    SelectTrigger,
-    SelectViewport,
+    ComboboxAnchor,
+    ComboboxContent,
+    ComboboxEmpty,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxItemIndicator,
+    ComboboxPortal,
+    ComboboxRoot,
+    ComboboxTrigger,
+    ComboboxViewport,
   },
   emits: ['update:modelValue'],
 })
@@ -86,6 +112,7 @@ export default class UiMultiSelect extends VueBase {
     return UiSelectOptions.withSelected(this.options, this.selected)
   }
 
+  // The field holds what the user is typing, so what is chosen has to read from the placeholder.
   public get summary(): string {
     if (this.selected.length === 0) {
       return this.placeholder ?? ''
