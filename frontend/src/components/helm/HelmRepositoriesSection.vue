@@ -52,6 +52,7 @@
         name-key="name"
         row-key="name"
         @action="onAction"
+        @open="$emit('browse', $event.name)"
     >
       <template #empty>
         <empty-state
@@ -113,6 +114,7 @@ import { HelmRepositoryStore } from '@/store/modules/helm/HelmRepositoryStore'
     UiErrorState,
     UiSkeletons,
   },
+  emits: ['browse'],
 })
 export default class HelmRepositoriesSection extends VueBase {
   public static readonly removeAction: string = 'remove'
