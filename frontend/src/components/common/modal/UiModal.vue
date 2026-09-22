@@ -7,7 +7,7 @@
       >
         <div
             class="absolute inset-0 bg-foreground/20"
-            @click="$emit('close')"
+            @click="!loading && $emit('close')"
         />
         <div
             ref="panel"
