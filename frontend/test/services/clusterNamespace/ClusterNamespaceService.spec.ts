@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Mock } from 'vitest'
 
 const send = vi.fn()
 
@@ -16,6 +17,9 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/kube', () => ({
 
 import { ClusterConnectionService } from '@/application/services/cluster/ClusterConnectionService'
 import { ClusterNamespaceService } from '@/application/services/clusterNamespace/ClusterNamespaceService'
+import { ResourceWatchService } from '@/application/services/resourceWatch/ResourceWatchService'
+import type { TResourceWatchHandlers } from '@/application/services/resourceWatch/types/TResourceWatchHandlers'
+import { KubeClusterCatalog } from '@/domain/models/kube'
 import { EntityRepoProvider } from '@/infrastructure/entityRepo/EntityRepoProvider'
 import { KubeContextProvider } from '@/infrastructure/entityRepo/kube/KubeContextProvider'
 import { FileSystemTransport } from '@/infrastructure/entityRepo/transport/FileSystemTransport'
@@ -30,11 +34,19 @@ const runtime = { isAvailable: () => true } as WailsRuntimeService
 let transport: MemoryFileTransport
 let contexts: KubeContextProvider
 let connections: ClusterConnectionService
+let watchService: { start: Mock; stop: Mock }
 let service: ClusterNamespaceService
+
+const handlers: TResourceWatchHandlers = {
+    onChanges: () => {},
+    onResync: () => {},
+    onStale: () => {},
+}
 
 const namespaceList = (...names: string[]): string => JSON.stringify({
     kind: 'NamespaceList',
     apiVersion: 'v1',
+    metadata: { resourceVersion: '4242' },
     items: names.map(name => ({
         apiVersion: 'v1',
         kind: 'Namespace',
@@ -51,9 +63,11 @@ describe('ClusterNamespaceService', () => {
         connections = {
             context: (clusterId: string) => contexts.context(clusterId, `session-${clusterId}`),
         } as unknown as ClusterConnectionService
+        watchService = { start: vi.fn(), stop: vi.fn() }
         service = new ClusterNamespaceService(
             new EntityRepoProvider(transport as unknown as FileSystemTransport),
             connections,
+            watchService as unknown as ResourceWatchService,
         )
     })
 
@@ -117,8 +131,9 @@ describe('ClusterNamespaceService', () => {
                 error: '',
             })
 
-            await expect(service.listAvailable('prod')).resolves.toEqual(['default', 'kube-system', 'payments'])
+            const catalog = await service.list('prod')
 
+            expect(catalog.names).toEqual(['default', 'kube-system', 'payments'])
             expect(send.mock.calls[0][0].sessionId).toBe('session-prod')
             expect(send.mock.calls[0][0].path).toContain('/api/v1/namespaces')
         })
@@ -126,7 +141,7 @@ describe('ClusterNamespaceService', () => {
         it('asks the cluster for the active ones rather than filtering afterwards', async () => {
             send.mockResolvedValue({ success: true, status: 200, headers: {}, body: namespaceList('default'), error: '' })
 
-            await service.listAvailable('prod')
+            await service.list('prod')
 
             expect(decodeURIComponent(send.mock.calls[0][0].path)).toContain('status.phase=Active')
         })
@@ -134,7 +149,41 @@ describe('ClusterNamespaceService', () => {
         it('answers nothing when the cluster lists nothing', async () => {
             send.mockResolvedValue({ success: true, status: 200, headers: {}, body: namespaceList(), error: '' })
 
-            await expect(service.listAvailable('prod')).resolves.toEqual([])
+            await expect(service.list('prod')).resolves.toMatchObject({ names: [] })
+        })
+
+        it('reports the version the list was read at, so a watch can resume from it', async () => {
+            send.mockResolvedValue({ success: true, status: 200, headers: {}, body: namespaceList('default'), error: '' })
+
+            await expect(service.list('prod')).resolves.toMatchObject({ resourceVersion: '4242' })
+        })
+    })
+
+    describe('the live stream behind the picker', () => {
+        it('watches namespaces under a scope of its own, from the version it was given', async () => {
+            await service.watch('prod', '4242', handlers)
+
+            expect(watchService.start).toHaveBeenCalledTimes(1)
+            const request = watchService.start.mock.calls[0][0]
+            expect(request.clusterId).toBe('prod')
+            expect(request.kind.registryKey).toBe(KubeClusterCatalog.namespacesKey)
+            expect(request.cursors).toEqual([{ namespace: '', resourceVersion: '4242' }])
+            expect(request.scope).not.toBe('')
+        })
+
+        it('opens no stream without a version to resume from', async () => {
+            await service.watch('prod', '', handlers)
+
+            expect(watchService.start).not.toHaveBeenCalled()
+        })
+
+        it('closes the stream it opened, and only that scope', async () => {
+            await service.watch('prod', '4242', handlers)
+            await service.unwatch('prod')
+
+            expect(watchService.stop).toHaveBeenCalledTimes(1)
+            expect(watchService.stop.mock.calls[0][0]).toBe('prod')
+            expect(watchService.stop.mock.calls[0][2]).toBe(watchService.start.mock.calls[0][0].scope)
         })
     })
 })

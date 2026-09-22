@@ -45,7 +45,9 @@ const fake = vi.hoisted(() => {
         disconnectAll: vi.fn(async () => undefined),
         openStreams: vi.fn(() => 0),
         listKinds: vi.fn(async () => state.kinds),
-        listAvailable: vi.fn(async () => state.available),
+        list: vi.fn(async () => ({ names: state.available, resourceVersion: 'rv-1' })),
+        watch: vi.fn(async () => undefined),
+        unwatch: vi.fn(async () => undefined),
         // The real service builds a fresh array out of the stored entity on every read,
         // so a fake that hands back the same instance twice hides an identity change.
         getSelection: vi.fn(async (clusterId: string) => [...(state.selections[clusterId] ?? [])]),
@@ -96,7 +98,11 @@ vi.mock('@/application/services/clusterCatalog/ClusterCatalogService', () => ({
 
 vi.mock('@/application/services/clusterNamespace/ClusterNamespaceService', () => ({
     ClusterNamespaceService: class {
-        public listAvailable = fake.listAvailable
+        public list = fake.list
+
+        public watch = fake.watch
+
+        public unwatch = fake.unwatch
 
         public getSelection = fake.getSelection
 
