@@ -420,7 +420,8 @@ that mocks the thing it is checking proves nothing.
 | `go build ./core/... .` | Build the Go side |
 | `go vet ./core/...` · `go test ./core/...` | Analyse and test the Go side |
 | `npm test` · `npm run typecheck` · `npm run lint` | From `frontend/` |
-| `bash .github/scripts/version.sh set 1.4.0` | Write a new version into every file that carries one |
+| `wails3 task setup:hooks` | Point git at `.githooks` — once per clone |
+| `bash .github/scripts/version.sh set 1.4.0` | Write a version into every file that carries one, without a commit |
 
 > `go build ./...` also compiles `build/ios`, which needs an iOS toolchain — use
 > `go build ./core/... .`.
@@ -432,8 +433,11 @@ Application identity — name, company, description, identifier — lives in `bu
 
 **Releases.** The version is the `VERSION` file at the root, and nine build files repeat it —
 `build/config.yml`, the Windows resource, installer and MSIX manifests, the nfpm config and
-`package.json` with its lock. `.github/scripts/version.sh set <x.y.z>` writes all of them at once
-and `… check` fails the build when they disagree. Pushing a changed `VERSION` to `main` runs
+`package.json` with its lock. Edit `VERSION` and nothing else: the `.githooks/pre-commit` hook
+writes the number into all nine and adds them to the same commit, so the version can never be
+half-applied. Install it once per clone with `wails3 task setup:hooks`;
+`.github/scripts/version.sh set <x.y.z>` does the same by hand, and `… check` fails the build when
+the files disagree. Pushing a changed `VERSION` to `main` runs
 [the release workflow](.github/workflows/release.yml): it builds Windows and Linux on GitHub
 runners, attaches the artifacts to a draft release, and publishing that draft is what creates the
 `v<VERSION>` tag. Every other push and pull request runs
@@ -447,9 +451,9 @@ brief every screen follows is in [.ai/ui-ux.md](.ai/ui-ux.md).
 
 ## Status
 
-Early, and honest about it: the version is `0.0.1` and Wails 3 is itself in alpha. What is in the
-tour above is what works today, against real clusters — every screenshot on this page was taken
-from the running application.
+Early, and honest about it: the version numbers are still `0.x` and Wails 3 is itself in alpha.
+What is in the tour above is what works today, against real clusters — every screenshot on this
+page was taken from the running application.
 
 <div align="center">
 <sub>Built by <a href="https://github.com/iappx">IAPPX</a>.</sub>

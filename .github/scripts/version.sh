@@ -18,7 +18,7 @@ targets=(
 )
 
 usage() {
-    echo "usage: version.sh [check | set <major.minor.patch>]" >&2
+    echo "usage: version.sh [check | set <major.minor.patch> | stale [version]]" >&2
     exit 2
 }
 
@@ -63,6 +63,26 @@ check() {
     fi
 }
 
+stale() {
+    local expected="${1:-}" entry file extract replace want found line ok
+    local -a behind=()
+    [ -n "$expected" ] || expected="$(declared)"
+    for entry in "${targets[@]}"; do
+        IFS='|' read -r file extract replace want <<<"$entry"
+        want="${want//@V@/$expected}"
+        [ -f "$file" ] || continue
+        found="$(sed -n "$extract" "$file")"
+        ok=1
+        [ -n "$found" ] || ok=0
+        while IFS= read -r line; do
+            [ "$line" = "$want" ] || ok=0
+        done <<<"$found"
+        [ "$ok" = 1 ] || behind+=("$file")
+    done
+    [ "${#behind[@]}" -gt 0 ] || return 0
+    printf '%s\n' "${behind[@]}" | awk '!seen[$0]++'
+}
+
 apply() {
     local new="${1:-}" entry file extract replace want
     echo "$new" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || {
@@ -80,5 +100,6 @@ apply() {
 case "${1:-check}" in
     check) check ;;
     set) shift; apply "${1:-}" ;;
+    stale) shift; stale "${1:-}" ;;
     *) usage ;;
 esac

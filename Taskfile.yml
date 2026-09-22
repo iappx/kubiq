@@ -27,6 +27,13 @@ tasks:
     cmds:
       - wails3 generate bindings -d frontend/bindings -ts
 
+  setup:hooks:
+    summary: Points git at .githooks, whose pre-commit hook writes a VERSION bump into every build file
+    cmds:
+      - git config core.hooksPath .githooks
+      - cmd: chmod +x .githooks/pre-commit
+        ignore_error: true
+
   build:
     summary: Builds the application
     cmds:

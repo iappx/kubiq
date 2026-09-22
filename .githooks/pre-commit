@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+script=.github/scripts/version.sh
+[ -f "$script" ] || exit 0
+
+if git diff --cached --quiet -- VERSION; then
+    exit 0
+fi
+
+version="$(git show :VERSION 2>/dev/null | tr -d '[:space:]')" || exit 0
+[ -n "$version" ] || exit 0
+
+if ! git diff --quiet -- VERSION; then
+    echo "pre-commit: VERSION is not what you staged — stage it, then commit" >&2
+    exit 1
+fi
+
+mapfile -t behind < <(bash "$script" stale "$version")
+[ "${#behind[@]}" -gt 0 ] || exit 0
+
+unstaged="$(git diff --name-only -- "${behind[@]}")"
+if [ -n "$unstaged" ]; then
+    echo "pre-commit: $version has to be written into files you have edited but not staged:" >&2
+    echo "$unstaged" >&2
+    echo "stage or stash them, then commit again" >&2
+    exit 1
+fi
+
+bash "$script" set "$version" > /dev/null
+git add -- "${behind[@]}"
+printf 'pre-commit: wrote %s into %d file(s) and added them to this commit\n' "$version" "${#behind[@]}"
