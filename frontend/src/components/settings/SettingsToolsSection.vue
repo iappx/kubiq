@@ -6,7 +6,7 @@
     <div class="grid gap-4">
       <settings-text-field
           v-model="kubectlValue"
-          hint="Used for kubectl exec, port-forward and node shells."
+          hint="Used by the local shell. Exec, port forwards and node shells talk to the API server directly."
           label="kubectl"
           placeholder="kubectl (on PATH)"
       />
