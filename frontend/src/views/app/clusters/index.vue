@@ -8,12 +8,6 @@
           @unpin="togglePin"
       />
 
-      <cluster-source-bar
-          v-if="catalogStore.sources.length > 0"
-          :sources="catalogStore.sources"
-          @remove="askRemoveSource"
-      />
-
       <ui-table-toolbar
           :columns="columns"
           :count="rows.length"
@@ -141,7 +135,6 @@ import AddKubeconfigModal from '@/components/cluster/AddKubeconfigModal.vue'
 import ClusterCatalogTable from '@/components/cluster/ClusterCatalogTable.vue'
 import ClusterDetailPanel from '@/components/cluster/ClusterDetailPanel.vue'
 import ClusterPinnedStrip from '@/components/cluster/ClusterPinnedStrip.vue'
-import ClusterSourceBar from '@/components/cluster/ClusterSourceBar.vue'
 import DeleteClusterDialog from '@/components/cluster/DeleteClusterDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
@@ -170,7 +163,6 @@ import type { TUiTableSort } from '@/components/common/table/types/TUiTableSort'
     ClusterCatalogTable,
     ClusterDetailPanel,
     ClusterPinnedStrip,
-    ClusterSourceBar,
     DeleteClusterDialog,
     EmptyState,
     FilePlus,
@@ -337,10 +329,6 @@ export default class ClustersPage extends VueBase {
 
   public askDelete(row: TClusterRow): void {
     this.pendingDelete = this.catalogStore.deletionOf(row.filePath)
-  }
-
-  public askRemoveSource(path: string): void {
-    this.pendingDelete = this.catalogStore.deletionOf(path)
   }
 
   public async confirmDelete(): Promise<void> {

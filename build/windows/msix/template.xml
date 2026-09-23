@@ -17,7 +17,7 @@
         PackageDisplayName="kubiq"
         PublisherName="CN=IAPPX"
         PublisherDisplayName="IAPPX"
-        Version="0.2.0.0"
+        Version="0.3.0.0"
         PackageDescription="Kubernetes cluster management console">
         <Capabilities>
             <Capability Name="runFullTrust" />
