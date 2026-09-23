@@ -6,7 +6,7 @@ import { ThemeChangedEvent } from '@/domain/events/app/ThemeChangedEvent'
 
 @InjectableStore
 export class AppThemeStore extends StoreBase<AppThemeStore> {
-    public appTheme: AppTheme = AppTheme.Light
+    public appTheme: AppTheme = AppTheme.Dark
 
     constructor(
         @inject(EventBus) private readonly eventBus: EventBus,

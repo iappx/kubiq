@@ -7,7 +7,7 @@ import { afterAll } from 'vitest'
 // has to be active before a spec's own imports run.
 setActivePinia(createPinia())
 
-// jsdom ships no matchMedia; the theme store reads it during setup.
+// jsdom ships no matchMedia.
 Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: (query: string) => ({

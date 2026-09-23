@@ -10,6 +10,49 @@
     <meta content="kubiq" property="og:title" />
     <meta content="Kubernetes cluster management console" property="og:description" />
     <meta content="website" property="og:type" />
+
+    <!-- Mirrors ThemeAdapter (the `app-theme` key) so the first frame is already in the stored theme. -->
+    <script>
+        (function () {
+            var theme
+            try {
+                theme = localStorage.getItem('app-theme')
+            } catch (e) {
+                theme = null
+            }
+            if (theme !== 'light' && theme !== 'dark') {
+                theme = 'dark'
+            }
+            document.documentElement.classList.add(theme)
+        })()
+    </script>
+    <style>
+        html.light,
+        .light #splash {
+            background: hsl(0 0% 100%);
+        }
+
+        .light #splash span {
+            color: hsl(200 20% 13%);
+        }
+
+        .light #splash svg {
+            fill: hsl(189 90% 29%);
+        }
+
+        html.dark,
+        .dark #splash {
+            background: hsl(200 18% 10%);
+        }
+
+        .dark #splash span {
+            color: hsl(200 12% 92%);
+        }
+
+        .dark #splash svg {
+            fill: hsl(187 72% 58%);
+        }
+    </style>
 </head>
 
 <body>
@@ -20,30 +63,17 @@
 -->
 <div
         id="splash"
-        style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:hsl(0 0% 100%);transition:opacity 0.3s"
+        style="position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;transition:opacity 0.3s"
 >
     <div style="display:flex;flex-direction:column;align-items:center;gap:1.25rem">
-        <svg style="width:3rem;height:3rem" viewBox="39 26 178 196" fill="hsl(189 90% 29%)" xmlns="http://www.w3.org/2000/svg">
+        <svg style="width:3rem;height:3rem" viewBox="39 26 178 196" xmlns="http://www.w3.org/2000/svg">
             <path d="M124.5 27.26A7 7 0 0 1 131.5 27.26L198.49 65.94A7 7 0 0 1 198.49 78.06L131.5 116.74A7 7 0 0 1 124.5 116.74L57.51 78.06A7 7 0 0 1 57.51 65.94Z"/>
             <path d="M116.5 130.6A7 7 0 0 1 120 136.66L120 214.02A7 7 0 0 1 109.5 220.08L42.51 181.4A7 7 0 0 1 39.01 175.34L39.01 97.98A7 7 0 0 1 49.51 91.92Z"/>
             <path d="M136 136.66A7 7 0 0 1 139.5 130.6L209.3 90.3A5.13 5.13 0 0 1 216.99 94.74L216.99 101.6A7 7 0 0 1 215.91 105.34L190.62 145.3A7 7 0 0 0 193.8 155.48L212.74 163.54A7 7 0 0 1 216.99 169.98L216.99 175.34A7 7 0 0 1 213.49 181.4L170.28 206.35A7 7 0 0 1 163.28 206.35L139.5 192.62A7 7 0 0 1 136 186.56Z"/>
         </svg>
-        <span style="font-size:1.25rem;font-weight:600;letter-spacing:-0.025em;color:hsl(200 20% 13%);font-family:system-ui,sans-serif">kubiq</span>
+        <span style="font-size:1.25rem;font-weight:600;letter-spacing:-0.025em;font-family:system-ui,sans-serif">kubiq</span>
     </div>
 </div>
-<style>
-    .dark #splash {
-        background: hsl(200 18% 10%);
-    }
-
-    .dark #splash span:last-of-type {
-        color: hsl(200 12% 92%);
-    }
-
-    .dark #splash svg {
-        fill: hsl(187 72% 58%);
-    }
-</style>
 <div id="app"></div>
 <script src="/src/main.ts" type="module"></script>
 <script>

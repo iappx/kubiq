@@ -852,6 +852,7 @@ Subfolders are named by what they hold. Do not mix files of unrelated stores in 
 - **Shared primitives** (`.surface`, `.btn-primary`, `.btn-secondary`, `.btn-icon`, `.ui-input`, `.pill`, `.nav-link`) are defined once in `index.css`. Reuse them instead of re-deriving the same Tailwind chain.
 - **Focus ring and scrollbars** are set globally in `@layer base` from the same tokens. Do not override them locally.
 - The static splash in `frontend/index.html` duplicates `--background` / `--primary` by necessity (it renders before the bundle boots). Keep it in sync.
+- For the same reason `index.html` repeats the theme lookup of `ThemeAdapter` — the `app-theme` key in `localStorage`, falling back to dark (the default theme, never the OS preference) — so the first frame is already in the stored theme. A change to one is a change to both. The window itself starts hidden (`main.go`) and is shown once the page's runtime is ready, and `AppThemeHandler` repaints the native window background (`WindowBackgroundAdapter`) in the page's `--background` on every theme change — WebView2 shows that colour between unloading a page and painting the next one, so a reload would otherwise flash white.
 
 ---
 
