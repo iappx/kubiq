@@ -59,6 +59,8 @@ describe('SettingsService', () => {
                 kubectlPath: 'C:/tools/kubectl.exe',
                 helmPath: 'C:/tools/helm.exe',
                 nodeShellImage: 'registry.internal/shell:1',
+                checkForUpdates: false,
+                skippedVersion: '0.2.0',
             })
 
             const stored = await build().read()
@@ -66,6 +68,17 @@ describe('SettingsService', () => {
             expect(stored.kubectlPath).toBe('C:/tools/kubectl.exe')
             expect(stored.helmPath).toBe('C:/tools/helm.exe')
             expect(stored.nodeShellImage).toBe('registry.internal/shell:1')
+            expect(stored.checkForUpdates).toBe(false)
+            expect(stored.skippedVersion).toBe('0.2.0')
+        })
+
+        it('checks for updates when a settings file from before the option says nothing about it', async () => {
+            transport.files.set(SETTINGS_FILE, JSON.stringify({ kubectlPath: 'kubectl' }))
+
+            const stored = await service.read()
+
+            expect(stored.checkForUpdates).toBe(true)
+            expect(stored.skippedVersion).toBe('')
         })
 
         it('writes the settings to the user profile', async () => {

@@ -19,6 +19,12 @@ export function Kill(id: string): $CancellablePromise<$models.ProcessResult> {
     });
 }
 
+export function Launch(spec: $models.LaunchSpec): $CancellablePromise<$models.ProcessResult> {
+    return $Call.ByID(2098764916, spec).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 export function List(): $CancellablePromise<$models.ProcessListResult> {
     return $Call.ByID(1095699363).then(($result: any) => {
         return $$createType1($result);

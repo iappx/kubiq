@@ -4,8 +4,11 @@ import (
 	"embed"
 	_ "embed"
 	"log"
+	"sync"
+	"time"
 
 	"iappx_k8s_admin/core/services/channel"
+	"iappx_k8s_admin/core/services/download"
 	"iappx_k8s_admin/core/services/env"
 	"iappx_k8s_admin/core/services/io"
 	"iappx_k8s_admin/core/services/journal"
@@ -15,6 +18,7 @@ import (
 	"iappx_k8s_admin/core/tray"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed all:frontend/dist
@@ -24,12 +28,12 @@ var assets embed.FS
 var trayIcon []byte
 
 const (
-	appName         = "kubiq"
 	appDescription  = "Kubernetes cluster management console"
 	windowWidth     = 1280
 	windowHeight    = 800
 	minWindowWidth  = 960
 	minWindowHeight = 600
+	revealFallback  = 3 * time.Second
 )
 
 func main() {
@@ -51,6 +55,7 @@ func main() {
 			application.NewService(kube.NewKubeService(kubeSessions)),
 			application.NewService(channel.NewChannelService(kubeSessions)),
 			application.NewService(process.NewProcessService()),
+			application.NewService(download.NewDownloadService()),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
@@ -71,15 +76,31 @@ func main() {
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},
-		BackgroundColour: application.NewRGB(255, 255, 255),
+		BackgroundColour: application.NewRGB(21, 27, 30),
 		URL:              "/",
+		// The native background would flash before the page paints its splash in the stored theme.
+		Hidden: true,
 	})
+
+	revealWhenLoaded(app, window)
 
 	tray.New(app, window, appName, trayIcon).Setup()
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func revealWhenLoaded(app *application.App, window *application.WebviewWindow) {
+	var reveal sync.Once
+	show := func() { reveal.Do(func() { window.Show() }) }
+
+	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) { show() })
+
+	// A page that never loads must not leave the window invisible.
+	app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		time.AfterFunc(revealFallback, show)
+	})
 }
 
 func openUserData() *storage.Storage {

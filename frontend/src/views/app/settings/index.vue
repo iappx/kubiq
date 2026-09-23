@@ -56,6 +56,26 @@
           :storage="settingsStore.storage"
           @open-logs="settingsStore.openLogFolder()"
       />
+
+      <settings-updates-section
+          :check-error="updateStore.checkError"
+          :check-for-updates="settingsStore.settings.checkForUpdates"
+          :checked-at="updateStore.checkedAt"
+          :current-version="updateStore.currentVersion"
+          :offer="updateStore.offer"
+          :phase="updateStore.phase"
+          :received="updateStore.received"
+          :skipped-version="settingsStore.settings.skippedVersion"
+          :total="updateStore.total"
+          @cancel="updateStore.cancelDownload()"
+          @check="updateStore.check(false)"
+          @download="updateStore.download()"
+          @install="updateStore.install()"
+          @open-release="updateStore.openReleasePage()"
+          @skip="settingsStore.setSkippedVersion($event)"
+          @unskip="settingsStore.setSkippedVersion('')"
+          @update:check-for-updates="settingsStore.setCheckForUpdates($event)"
+      />
     </div>
 
     <add-kubeconfig-modal :busy="addBusy" :open="addOpen" @close="addOpen = false" @submit="addSource" />
@@ -81,6 +101,7 @@ import SettingsNodeShellSection from '@/components/settings/SettingsNodeShellSec
 import SettingsPrometheusSection from '@/components/settings/SettingsPrometheusSection.vue'
 import SettingsStorageSection from '@/components/settings/SettingsStorageSection.vue'
 import SettingsToolsSection from '@/components/settings/SettingsToolsSection.vue'
+import SettingsUpdatesSection from '@/components/settings/SettingsUpdatesSection.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
 import { AppTheme } from '@/domain/models/theme'
 import type { TKubeconfigSourceMode } from '@/domain/entities/catalog/types/TKubeconfigSourceMode'
@@ -90,6 +111,7 @@ import { AppSettingsStore } from '@/store/modules/settings/AppSettingsStore'
 import { AppThemeStore } from '@/store/modules/appTheme/AppThemeStore'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
+import { UpdateStore } from '@/store/modules/update/UpdateStore'
 
 @Component({
   components: {
@@ -101,6 +123,7 @@ import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatal
     SettingsPrometheusSection,
     SettingsStorageSection,
     SettingsToolsSection,
+    SettingsUpdatesSection,
     UiErrorState,
   },
 })
@@ -118,6 +141,7 @@ export default class SettingsPage extends VueBase {
       @inject(AppThemeStore) public readonly themeStore: AppThemeStore,
       @inject(AppUiStore) public readonly uiStore: AppUiStore,
       @inject(ClusterCatalogStore) public readonly catalogStore: ClusterCatalogStore,
+      @inject(UpdateStore) public readonly updateStore: UpdateStore,
   ) {
     super()
   }

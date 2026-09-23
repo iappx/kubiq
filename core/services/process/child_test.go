@@ -54,6 +54,8 @@ func TestMain(m *testing.M) {
 		runEnvironmentChild()
 	case "directory":
 		runDirectoryChild()
+	case "marker":
+		runMarkerChild()
 	default:
 		fmt.Fprintf(os.Stderr, "unknown child mode %q\n", os.Getenv(childModeEnv))
 		os.Exit(2)
@@ -153,4 +155,14 @@ func runDirectoryChild() {
 		os.Exit(2)
 	}
 	fmt.Fprint(os.Stdout, directory)
+}
+
+func runMarkerChild() {
+	directory, err := os.Getwd()
+	if err != nil {
+		os.Exit(2)
+	}
+	if err := os.WriteFile(os.Args[len(os.Args)-1], []byte(directory), 0o600); err != nil {
+		os.Exit(2)
+	}
 }

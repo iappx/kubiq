@@ -17,6 +17,12 @@ type StartSpec struct {
 	Rows int               `json:"rows"`
 }
 
+type LaunchSpec struct {
+	Path string   `json:"path"`
+	Args []string `json:"args"`
+	Dir  string   `json:"dir"`
+}
+
 type StartResult struct {
 	Success   bool   `json:"success"`
 	ProcessId string `json:"processId"`

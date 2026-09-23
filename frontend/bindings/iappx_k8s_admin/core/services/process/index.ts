@@ -7,6 +7,7 @@ export {
 };
 
 export {
+    LaunchSpec,
     ProcessInfo,
     ProcessListResult,
     ProcessResult,

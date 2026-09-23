@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { AppSettings } from '@/domain/models/settings'
 
 describe('AppSettings', () => {
-    it('answers empty tool paths by default', () => {
+    it('answers empty tool paths and an enabled update check by default', () => {
         expect(AppSettings.defaults()).toEqual({
             kubectlPath: '',
             helmPath: '',
             nodeShellImage: '',
+            checkForUpdates: true,
+            skippedVersion: '',
         })
     })
 
@@ -15,13 +17,22 @@ describe('AppSettings', () => {
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: 'C:/tools/helm.exe',
             nodeShellImage: 'registry.internal/shell:1',
+            checkForUpdates: false,
+            skippedVersion: '0.3.0',
         })
 
         expect(parsed).toEqual({
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: 'C:/tools/helm.exe',
             nodeShellImage: 'registry.internal/shell:1',
+            checkForUpdates: false,
+            skippedVersion: '0.3.0',
         })
+    })
+
+    it('keeps checking for updates when the stored flag is not a boolean', () => {
+        expect(AppSettings.parse({ checkForUpdates: 'no' }).checkForUpdates).toBe(true)
+        expect(AppSettings.parse({}).checkForUpdates).toBe(true)
     })
 
     it('trims the paths it was handed', () => {
@@ -52,7 +63,8 @@ describe('AppSettings', () => {
             kubectlPath: 'kubectl',
         })
 
-        expect(Object.keys(document).sort()).toEqual(['helmPath', 'kubectlPath', 'nodeShellImage'])
+        expect(Object.keys(document).sort())
+            .toEqual(['checkForUpdates', 'helmPath', 'kubectlPath', 'nodeShellImage', 'skippedVersion'])
     })
 
     it('leaves a setting it no longer knows behind when it reads and writes a document', () => {

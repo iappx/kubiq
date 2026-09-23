@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -133,6 +134,33 @@ func (s *ProcessService) List() ProcessListResult {
 	}
 
 	return ProcessListResult{Success: true, Processes: processes}
+}
+
+func (s *ProcessService) Launch(spec LaunchSpec) ProcessResult {
+	if spec.Path == "" {
+		return ProcessResult{Error: "path is empty"}
+	}
+
+	path, err := utils.ResolvePath(spec.Path)
+	if err != nil {
+		return ProcessResult{Error: err.Error()}
+	}
+
+	launched := exec.Command(path, spec.Args...)
+	launched.SysProcAttr = detachedProcAttr()
+	if spec.Dir != "" {
+		launched.Dir = utils.GetPath(spec.Dir)
+	}
+
+	log.Printf("Process launch: %s", path)
+
+	if err := launched.Start(); err != nil {
+		return ProcessResult{Error: err.Error()}
+	}
+
+	go launched.Wait()
+
+	return ProcessResult{Success: true}
 }
 
 func (s *ProcessService) CloseAll() {

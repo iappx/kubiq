@@ -82,6 +82,14 @@ export class AppSettingsStore extends StoreBase<AppSettingsStore> {
         return this.write({ ...this.settings, nodeShellImage: image })
     }
 
+    public setCheckForUpdates(enabled: boolean): Promise<void> {
+        return this.write({ ...this.settings, checkForUpdates: enabled })
+    }
+
+    public setSkippedVersion(version: string): Promise<void> {
+        return this.write({ ...this.settings, skippedVersion: version })
+    }
+
     public saveCluster(draft: TClusterSettingsDraft): Promise<void> {
         return this.guard('AppSettingsStore.saveCluster', async () => {
             const stored = await this.settingsService.saveClusterSettings(draft)

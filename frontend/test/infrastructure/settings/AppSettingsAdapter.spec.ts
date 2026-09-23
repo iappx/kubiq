@@ -28,12 +28,16 @@ describe('AppSettingsAdapter', () => {
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: '',
             nodeShellImage: '',
+            checkForUpdates: false,
+            skippedVersion: '0.2.0',
         }))
 
         await expect(adapter.read()).resolves.toEqual({
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: '',
             nodeShellImage: '',
+            checkForUpdates: false,
+            skippedVersion: '0.2.0',
         })
     })
 

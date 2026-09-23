@@ -65,3 +65,7 @@ func (g *processGroup) terminate() error {
 func (g *processGroup) close() {
 	windows.CloseHandle(g.job)
 }
+
+func detachedProcAttr() *syscall.SysProcAttr {
+	return &syscall.SysProcAttr{CreationFlags: windows.CREATE_NEW_PROCESS_GROUP | windows.DETACHED_PROCESS}
+}

@@ -183,7 +183,8 @@ last, and gets out of the way on `Esc`.
 ### Make it yours
 
 Theme, density, panel width, the paths to `kubectl` and `helm` if they are not on `PATH`, the
-image used for node shells, Prometheus per cluster, and where the settings and the journal live.
+image used for node shells, Prometheus per cluster, where the settings and the journal live, and
+whether kubiq looks for updates on its own.
 
 ![The settings screen in the light theme](docs/images/settings.png)
 
@@ -302,7 +303,26 @@ what the user sees. A blank screen with no explanation is the one outcome that i
 Nothing leaves your machine. Settings and the journal live in your user profile
 (`%AppData%\kubiq` on Windows, `$XDG_CONFIG_HOME/kubiq` on Linux), directories created `0700` and
 files `0600`. Kubeconfig files are read in place and never copied, rewritten or uploaded. The
-journal redacts before it writes.
+journal redacts before it writes. A development build — anything compiled without the `production`
+tag the release tasks pass — keeps its data in `kubiq-dev` instead, so it never touches the
+settings of an installed copy.
+
+### Updates wait for you
+
+kubiq asks GitHub Releases for the latest version on start and once a day — or never, if you turn
+that off under **Settings → Updates**, where **Check now** is always at hand. Finding a release
+changes nothing on disk. **Download** fetches the installer for your architecture into
+`%AppData%\kubiq\updates` with a progress bar you can cancel, and the file is kept only if its
+SHA-256 matches the digest GitHub publishes for that asset; a release without one is refused.
+**Install and restart** asks first, then starts the installer silently and closes kubiq; the
+installer waits for it to exit, replaces it in place and starts the new version. On the next start
+kubiq says whether the update took, and if it did not, the previous version is still the one
+running. A version you skip is not announced again.
+
+Under the hood the release is an entity read through `@iappx/entity-repo-rest`, like every other
+collection, while the Go side only streams a file to disk with its digest and starts a program.
+Installing in place needs a copy set up by the installer; a plain `.exe`, a Linux package or a
+development build gets a link to the release page instead.
 
 ---
 
@@ -323,7 +343,9 @@ journal redacts before it writes.
 ## Getting started
 
 Every release ships a Windows installer and a plain `.exe`, and for Linux an `amd64` binary with
-`.deb` and `.rpm` packages — on the [releases page](https://github.com/iappx/kubiq/releases).
+`.deb` and `.rpm` packages — on the [releases page](https://github.com/iappx/kubiq/releases). The
+installer sets kubiq up for the current user under `%LocalAppData%\Programs\kubiq` and asks for no
+administrator rights; only a copy installed this way can update itself.
 
 To build it from source you will need
 [Go 1.25+](https://go.dev/dl/), [Node 22+](https://nodejs.org/) and the
@@ -440,8 +462,9 @@ half-applied. Install it once per clone with `wails3 task setup:hooks`;
 the files disagree. Pushing a changed `VERSION` to `main` runs
 [the release workflow](.github/workflows/release.yml): it builds Windows and Linux on GitHub
 runners, attaches the artifacts to a draft release, and publishing that draft is what creates the
-`v<VERSION>` tag. Every other push and pull request runs
-[the checks](.github/workflows/ci.yml) — the Go suite on Windows and Linux, and the frontend's
+`v<VERSION>` tag. The in-app update finds its installer by the `-windows-<arch>-installer.exe` end
+of the asset name, so keep that suffix if the workflow ever renames its artifacts. Every other push
+and pull request runs [the checks](.github/workflows/ci.yml) — the Go suite on Windows and Linux, and the frontend's
 lint, types, tests and bundle.
 
 The rules every change in this repository follows are in [CLAUDE.md](CLAUDE.md); the interface

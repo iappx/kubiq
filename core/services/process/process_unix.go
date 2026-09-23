@@ -47,3 +47,7 @@ func (g *processGroup) close() {
 	}
 	syscall.Kill(-g.leader, syscall.SIGKILL)
 }
+
+func detachedProcAttr() *syscall.SysProcAttr {
+	return &syscall.SysProcAttr{Setsid: true}
+}

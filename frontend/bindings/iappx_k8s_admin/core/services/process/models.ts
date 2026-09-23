@@ -5,6 +5,39 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+export class LaunchSpec {
+    "path": string;
+    "args": string[];
+    "dir": string;
+
+    /** Creates a new LaunchSpec instance. */
+    constructor($$source: Partial<LaunchSpec> = {}) {
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("args" in $$source)) {
+            this["args"] = [];
+        }
+        if (!("dir" in $$source)) {
+            this["dir"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new LaunchSpec instance from a string or object.
+     */
+    static createFrom($$source: any = {}): LaunchSpec {
+        const $$createField1_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("args" in $$parsedSource) {
+            $$parsedSource["args"] = $$createField1_0($$parsedSource["args"]);
+        }
+        return new LaunchSpec($$parsedSource as Partial<LaunchSpec>);
+    }
+}
+
 export class ProcessInfo {
     "id": string;
     "command": string;
@@ -66,7 +99,7 @@ export class ProcessListResult {
      * Creates a new ProcessListResult instance from a string or object.
      */
     static createFrom($$source: any = {}): ProcessListResult {
-        const $$createField1_0 = $$createType1;
+        const $$createField1_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("processes" in $$parsedSource) {
             $$parsedSource["processes"] = $$createField1_0($$parsedSource["processes"]);
@@ -173,7 +206,7 @@ export class StartSpec {
      * Creates a new StartSpec instance from a string or object.
      */
     static createFrom($$source: any = {}): StartSpec {
-        const $$createField1_0 = $$createType2;
+        const $$createField1_0 = $$createType0;
         const $$createField2_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("args" in $$parsedSource) {
@@ -187,7 +220,7 @@ export class StartSpec {
 }
 
 // Private type creation functions
-const $$createType0 = ProcessInfo.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = $Create.Array($Create.Any);
+const $$createType0 = $Create.Array($Create.Any);
+const $$createType1 = ProcessInfo.createFrom;
+const $$createType2 = $Create.Array($$createType1);
 const $$createType3 = $Create.Map($Create.Any, $Create.Any);

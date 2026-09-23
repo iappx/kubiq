@@ -386,6 +386,47 @@ func TestMergeEnvironment(t *testing.T) {
 	}
 }
 
+func TestLaunchRunsTheFileDetachedWithItsArgumentsAndDirectory(t *testing.T) {
+	service := NewProcessService()
+	defer service.CloseAll()
+
+	t.Setenv(childModeEnv, "marker")
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "launched")
+
+	result := service.Launch(LaunchSpec{Path: os.Args[0], Args: []string{marker}, Dir: dir})
+	if !result.Success {
+		t.Fatalf("launch failed: %s", result.Error)
+	}
+
+	if processes := service.List().Processes; len(processes) != 0 {
+		t.Fatalf("a launched process is tracked: %v", processes)
+	}
+
+	deadline := time.Now().Add(eventTimeout)
+	for {
+		written, err := os.ReadFile(marker)
+		if err == nil && len(written) > 0 {
+			if filepath.Clean(string(written)) != filepath.Clean(dir) {
+				t.Fatalf("launched in %q, want %q", written, dir)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the launched process never wrote its marker")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func TestLaunchRejectsAnEmptyPath(t *testing.T) {
+	service := NewProcessService()
+
+	if result := service.Launch(LaunchSpec{}); result.Success {
+		t.Fatal("launch without a path succeeded")
+	}
+}
+
 func assertEnvironment(t *testing.T, environment []string, name string, value string) {
 	t.Helper()
 

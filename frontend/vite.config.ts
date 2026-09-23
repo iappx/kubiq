@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv } from 'vite'
+import { readFileSync } from 'fs'
 import * as path from 'path'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
@@ -21,8 +22,13 @@ const ensureReflectMetadataBeforeTsyringe = {
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), 'VITE_')
+    const { version } = JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'package.json'), 'utf8'))
 
     return {
+        define: {
+            // .github/scripts/version.sh writes VERSION into package.json, so this is the release number.
+            'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),
+        },
         plugins: [
             ensureReflectMetadataBeforeTsyringe,
             vue(),

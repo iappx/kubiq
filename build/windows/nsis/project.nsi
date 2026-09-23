@@ -30,6 +30,8 @@ Unicode true
 ####
 ## !define REQUEST_EXECUTION_LEVEL "admin"            # Default "admin"  see also https://nsis.sourceforge.io/Docs/Chapter4.html
 ####
+!define WAILS_INSTALL_SCOPE "user"
+####
 ## Include the wails tools
 ####
 !include "wails_tools.nsh"
@@ -72,11 +74,52 @@ ManifestDPIAware true
 
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
-InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}" # Default installing folder ($PROGRAMFILES is Program Files folder).
+!if "${WAILS_INSTALL_SCOPE}" == "user"
+    InstallDir "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
+!else
+    InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
+!endif
+InstallDirRegKey HKCU "${UNINST_KEY}" "InstallLocation"
 ShowInstDetails show # This will always show the installation details.
 
 Function .onInit
    !insertmacro wails.checkArchitecture
+   Call waitForRunningApp
+FunctionEnd
+
+Function .onInstSuccess
+    Call relaunchIfAsked
+FunctionEnd
+
+Function .onInstFailed
+    Call relaunchIfAsked
+FunctionEnd
+
+# The in-app update starts this installer and quits; a running kubiq.exe cannot be overwritten until it has exited.
+Function waitForRunningApp
+    IfSilent 0 done
+    IfFileExists "$INSTDIR\${PRODUCT_EXECUTABLE}" 0 done
+    StrCpy $R1 0
+    retry:
+        ClearErrors
+        FileOpen $R0 "$INSTDIR\${PRODUCT_EXECUTABLE}" a
+        IfErrors 0 released
+        IntOp $R1 $R1 + 1
+        IntCmp $R1 60 done 0 done
+        Sleep 500
+        Goto retry
+    released:
+        FileClose $R0
+    done:
+FunctionEnd
+
+Function relaunchIfAsked
+    ${GetParameters} $R0
+    ClearErrors
+    ${GetOptions} $R0 "/relaunch" $R1
+    IfErrors done
+    Exec '"$INSTDIR\${PRODUCT_EXECUTABLE}"'
+    done:
 FunctionEnd
 
 Section
@@ -95,6 +138,7 @@ Section
     !insertmacro wails.associateCustomProtocols
     
     !insertmacro wails.writeUninstaller
+    WriteRegStr HKCU "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
 SectionEnd
 
 Section "uninstall" 

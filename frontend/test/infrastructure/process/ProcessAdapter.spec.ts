@@ -3,11 +3,13 @@ import { container } from 'tsyringe'
 
 const start = vi.fn()
 const kill = vi.fn()
+const launch = vi.fn()
 
 vi.mock('../../../bindings/iappx_k8s_admin/core/services/process', () => ({
     ProcessService: {
         Start: (...args: unknown[]) => start(...args),
         Kill: (...args: unknown[]) => kill(...args),
+        Launch: (...args: unknown[]) => launch(...args),
         Write: () => Promise.resolve({ success: true, error: '' }),
         Resize: () => Promise.resolve({ success: true, error: '' }),
         List: () => Promise.resolve({ success: true, processes: [], error: '' }),
@@ -159,5 +161,39 @@ describe('ProcessAdapter', () => {
 
         expect(outcome.code).toBe(ProcessAdapter.unavailableCode)
         expect(host.started).toHaveLength(0)
+    })
+
+    describe('launch', () => {
+        beforeEach(() => {
+            launch.mockReset()
+        })
+
+        it('hands the file, its arguments and its directory to the Go side', async () => {
+            launch.mockResolvedValue({ success: true, error: '' })
+
+            await adapter.launch({ path: 'userdata:updates/setup.exe', args: ['/S', '/relaunch'] })
+
+            expect(launch.mock.calls[0][0]).toMatchObject({
+                path: 'userdata:updates/setup.exe',
+                args: ['/S', '/relaunch'],
+                dir: '',
+            })
+        })
+
+        it('raises an ApiError carrying the reason the Go side refused', async () => {
+            launch.mockResolvedValue({ success: false, error: 'file does not exist' })
+
+            const failure = await adapter.launch({ path: 'missing.exe', args: [] }).catch(err => err)
+
+            expect(failure).toBeInstanceOf(ApiError)
+            expect(failure.details).toBe('file does not exist')
+        })
+
+        it('refuses outside the desktop host without calling Go', async () => {
+            delete (window as any).chrome
+
+            await expect(adapter.launch({ path: 'setup.exe', args: [] })).rejects.toBeInstanceOf(ApiError)
+            expect(launch).not.toHaveBeenCalled()
+        })
     })
 })

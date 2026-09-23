@@ -1,10 +1,11 @@
 import { inject, singleton } from 'tsyringe'
 import { ProcessService } from '../../../bindings/iappx_k8s_admin/core/services/process'
-import { StartSpec } from '../../../bindings/iappx_k8s_admin/core/services/process/models'
+import { LaunchSpec, StartSpec } from '../../../bindings/iappx_k8s_admin/core/services/process/models'
 import { ApiError } from '@/domain/errors/ApiError'
 import { ProcessRun } from '@/infrastructure/process/ProcessRun'
 import { ProcessCollector } from '@/infrastructure/process/ProcessCollector'
 import type { IProcessSink } from '@/infrastructure/process/types/IProcessSink'
+import type { TLaunchSpec } from '@/infrastructure/process/types/TLaunchSpec'
 import type { TProcessOutcome } from '@/infrastructure/process/types/TProcessOutcome'
 import type { TProcessSpec } from '@/infrastructure/process/types/TProcessSpec'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
@@ -68,6 +69,25 @@ export class ProcessAdapter {
         }
 
         return outcome
+    }
+
+    public async launch(spec: TLaunchSpec): Promise<void> {
+        const message = 'Could not start the program'
+
+        if (!this.isAvailable()) {
+            throw new ApiError(message, 'The desktop runtime is not available')
+        }
+
+        let result
+        try {
+            result = await ProcessService.Launch(new LaunchSpec({ path: spec.path, args: [...spec.args], dir: spec.dir ?? '' }))
+        } catch (err) {
+            throw new ApiError(message, err instanceof Error ? err.message : String(err))
+        }
+
+        if (!result.success) {
+            throw new ApiError(message, result.error)
+        }
     }
 
     private static specOf(spec: TProcessSpec): StartSpec {
