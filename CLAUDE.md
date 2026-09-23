@@ -44,7 +44,7 @@ Everything else is written per project.
 - `main.go` — Wails entry point: window, tray, the list of bound Go services.
 - `core/` — Go backend (services bound into the frontend, tray, utils).
 - `build/` — packaging assets per OS. **Generated** from `build/config.yml` by `wails3 task common:update:build-assets` — edit `config.yml`, not the outputs.
-- `VERSION` — the version of the application, and the trigger of a release. See **Versioning and releases**.
+- `VERSION` — the version of the application, raised with every commit, and the trigger of a release. See **Versioning and releases**.
 - `.github/` — the CI and release workflows, and the script that writes the version everywhere.
 - `.githooks/` — git hooks kept in the repository; `wails3 task setup:hooks` points git at them.
 - `frontend/` — Vue frontend (TypeScript). All frontend rules below apply inside this folder.
@@ -73,7 +73,22 @@ If a change has UI consequences these checks cannot confirm, **say so plainly in
 - **Never edit a version by hand, in any of those files.** Change `VERSION` alone: `.githooks/pre-commit` writes the number into the other nine and adds them to the same commit, so the two can never be committed apart. `wails3 task setup:hooks` installs the hook, once per clone.
 - Outside a commit the same job is `bash .github/scripts/version.sh set <major.minor.patch>`, and `bash .github/scripts/version.sh check` verifies the files and fails CI when they disagree. A new file that carries the version is added to the `targets` list at the top of that script.
 - A version is three numbers. Suffixes (`-rc.1`) are rejected: the MSIX manifests cannot express them.
-- **Pushing a changed `VERSION` to `main` publishes a release.** `.github/workflows/release.yml` builds Windows and Linux, attaches the artifacts to a draft release, and publishing that draft creates the `v<VERSION>` tag. Bumping the version is therefore a release decision and belongs to the repository owner, like every commit — change `VERSION` only when asked to.
+- **Pushing a changed `VERSION` to `main` publishes a release.** `.github/workflows/release.yml` builds Windows and Linux, attaches the artifacts to a draft release, and publishing that draft creates the `v<VERSION>` tag.
+
+### Every commit bumps the version
+
+**Every commit raises `VERSION`, following semver.** Whoever prepares a change raises the number in the same working tree, so the change and its version are committed together — the owner commits, the bump is already there.
+
+| Part | When | Example |
+|---|---|---|
+| **patch** | fixes, refactoring, tests, documentation, build and CI changes — nothing a user can newly do | `0.2.0 → 0.2.1` |
+| **minor** | a new feature or a visible change in behaviour; patch resets to zero | `0.2.1 → 0.3.0` |
+| **major** | **only when the repository owner explicitly asks for it** in that request; minor and patch reset to zero | `0.3.0 → 1.0.0` |
+
+- **Never raise major on your own judgement.** A change that looks breaking still gets minor — raise the question in the summary instead.
+- **One bump per commit, counted from the version in `HEAD`.** A working tree that already carries a bump over `HEAD` is not bumped again; if the pending change has grown from a fix into a feature, turn the patch bump into a minor one.
+- Change `VERSION` alone, as above — the hook carries the number into the other nine files at commit time.
+- Because a changed `VERSION` on `main` publishes a release, every commit that reaches `main` becomes a release.
 
 ---
 
