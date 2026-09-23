@@ -14,7 +14,7 @@
     !define INFO_PRODUCTNAME "kubiq"
 !endif
 !ifndef INFO_PRODUCTVERSION
-    !define INFO_PRODUCTVERSION "0.3.0"
+    !define INFO_PRODUCTVERSION "0.3.1"
 !endif
 !ifndef INFO_COPYRIGHT
     !define INFO_COPYRIGHT "(c) 2026, IAPPX"

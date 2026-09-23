@@ -6,7 +6,6 @@ import (
 )
 
 const (
-	AppDirName     = "kubiq"
 	LogsDirName    = "logs"
 	UserDataScheme = "userdata:"
 
