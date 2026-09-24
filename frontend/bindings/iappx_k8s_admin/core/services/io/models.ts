@@ -5,6 +5,76 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+export class DirListResult {
+    "success": boolean;
+    "entries": FileEntry[];
+    "error": string;
+
+    /** Creates a new DirListResult instance. */
+    constructor($$source: Partial<DirListResult> = {}) {
+        if (!("success" in $$source)) {
+            this["success"] = false;
+        }
+        if (!("entries" in $$source)) {
+            this["entries"] = [];
+        }
+        if (!("error" in $$source)) {
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new DirListResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): DirListResult {
+        const $$createField1_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("entries" in $$parsedSource) {
+            $$parsedSource["entries"] = $$createField1_0($$parsedSource["entries"]);
+        }
+        return new DirListResult($$parsedSource as Partial<DirListResult>);
+    }
+}
+
+export class FileEntry {
+    "path": string;
+    "name": string;
+    "isDir": boolean;
+    "size": number;
+    "modifiedAt": number;
+
+    /** Creates a new FileEntry instance. */
+    constructor($$source: Partial<FileEntry> = {}) {
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("isDir" in $$source)) {
+            this["isDir"] = false;
+        }
+        if (!("size" in $$source)) {
+            this["size"] = 0;
+        }
+        if (!("modifiedAt" in $$source)) {
+            this["modifiedAt"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new FileEntry instance from a string or object.
+     */
+    static createFrom($$source: any = {}): FileEntry {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new FileEntry($$parsedSource as Partial<FileEntry>);
+    }
+}
+
 export class IOOptions {
     "Mode": string;
     "Range": string;
@@ -54,3 +124,44 @@ export class IOResult {
         return new IOResult($$parsedSource as Partial<IOResult>);
     }
 }
+
+export class StatResult {
+    "success": boolean;
+    "exists": boolean;
+    "entry": FileEntry;
+    "error": string;
+
+    /** Creates a new StatResult instance. */
+    constructor($$source: Partial<StatResult> = {}) {
+        if (!("success" in $$source)) {
+            this["success"] = false;
+        }
+        if (!("exists" in $$source)) {
+            this["exists"] = false;
+        }
+        if (!("entry" in $$source)) {
+            this["entry"] = (new FileEntry());
+        }
+        if (!("error" in $$source)) {
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new StatResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): StatResult {
+        const $$createField2_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("entry" in $$parsedSource) {
+            $$parsedSource["entry"] = $$createField2_0($$parsedSource["entry"]);
+        }
+        return new StatResult($$parsedSource as Partial<StatResult>);
+    }
+}
+
+// Private type creation functions
+const $$createType0 = FileEntry.createFrom;
+const $$createType1 = $Create.Array($$createType0);

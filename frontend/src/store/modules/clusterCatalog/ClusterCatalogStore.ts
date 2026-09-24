@@ -2,10 +2,12 @@ import { inject } from 'tsyringe'
 import { ClusterCatalogService } from '@/application/services/clusterCatalog/ClusterCatalogService'
 import { ClusterConnectionService } from '@/application/services/cluster/ClusterConnectionService'
 import type { TClusterContextInfo } from '@/application/services/cluster/types/TClusterContextInfo'
+import type { TKubeconfigProblem } from '@/application/services/kubeconfig/types/TKubeconfigProblem'
 import type { TClusterSourceOrigin } from '@/domain/entities/catalog/types/TClusterSourceOrigin'
 import type { TKubeconfigSourceMode } from '@/domain/entities/catalog/types/TKubeconfigSourceMode'
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { ClusterRemovedEvent } from '@/domain/events/cluster/ClusterRemovedEvent'
+import { KubeconfigSkippedEvent } from '@/domain/events/cluster/KubeconfigSkippedEvent'
 import { ApiError } from '@/domain/errors/ApiError'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { InjectableStore, LoadableItemStoreBase } from '@/lib/vue-store'
@@ -24,6 +26,8 @@ export class ClusterCatalogStore extends LoadableItemStoreBase<TClusterContextIn
     public loadError = ''
 
     public loadErrorDetail = ''
+
+    public skipped: TKubeconfigProblem[] = []
 
     constructor(
         @inject(ClusterCatalogService) private readonly catalogService: ClusterCatalogService,
@@ -115,7 +119,20 @@ export class ClusterCatalogStore extends LoadableItemStoreBase<TClusterContextIn
         this.sourceOrigins = Object.fromEntries(sources.map(source => [source.path, source.origin]))
         this.pinned = pinned
 
-        return this.connectionService.listContexts(this.sources)
+        const catalog = await this.connectionService.readCatalog(this.sources)
+        this.announceSkipped(catalog.problems)
+
+        return catalog.contexts
+    }
+
+    // Every reload rereads a broken file, and the user hears about it once, not on each pass.
+    private announceSkipped(problems: TKubeconfigProblem[]): void {
+        const known = new Set(this.skipped.map(problem => problem.path))
+        this.skipped = problems
+
+        for (const problem of problems.filter(candidate => !known.has(candidate.path))) {
+            this.eventBus.emitEvent(new KubeconfigSkippedEvent(problem.path, problem.message, problem.details))
+        }
     }
 
     private async runLoad(action: () => Promise<void>): Promise<void> {

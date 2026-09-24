@@ -8,6 +8,9 @@ import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 export class FileDialogAdapter {
     public static readonly unopenable: string = 'Could not open the file dialog'
 
+    // On Windows, Wails rejects a dismissed dialog with this error instead of resolving it empty.
+    private static readonly cancelled: string = 'cancelled by user'
+
     constructor(
         @inject(WailsRuntimeService) private readonly runtime: WailsRuntimeService,
     ) {}
@@ -16,7 +19,15 @@ export class FileDialogAdapter {
         return this.runtime.isAvailable()
     }
 
-    public async openFile(request: TOpenFileRequest): Promise<string> {
+    public openFile(request: TOpenFileRequest): Promise<string> {
+        return this.open(request, false)
+    }
+
+    public openFolder(request: TOpenFileRequest): Promise<string> {
+        return this.open(request, true)
+    }
+
+    private async open(request: TOpenFileRequest, folder: boolean): Promise<string> {
         if (!this.isAvailable) {
             return ''
         }
@@ -25,8 +36,8 @@ export class FileDialogAdapter {
             const selected = await Dialogs.OpenFile({
                 Title: request.title,
                 Filters: (request.filters ?? []).map(filter => ({ DisplayName: filter.title, Pattern: filter.pattern })),
-                CanChooseFiles: true,
-                CanChooseDirectories: false,
+                CanChooseFiles: !folder,
+                CanChooseDirectories: folder,
                 AllowsMultipleSelection: false,
                 ShowHiddenFiles: true,
                 ResolvesAliases: true,
@@ -34,7 +45,12 @@ export class FileDialogAdapter {
 
             return selected ?? ''
         } catch (err) {
-            throw new ApiError(FileDialogAdapter.unopenable, err instanceof Error ? err.message : String(err))
+            const message = err instanceof Error ? err.message : String(err)
+            if (message.includes(FileDialogAdapter.cancelled)) {
+                return ''
+            }
+
+            throw new ApiError(FileDialogAdapter.unopenable, message)
         }
     }
 }

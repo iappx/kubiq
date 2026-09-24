@@ -7,7 +7,7 @@
       @close="$emit('close')"
       @submit="submit"
   >
-    <ui-form-field v-if="isFileMode" v-slot="{ fieldId, describedBy }" :error="errors.path" label="Kubeconfig file">
+    <ui-form-field v-if="isFileMode" v-slot="{ fieldId, describedBy }" :error="errors.path" label="Kubeconfig file or folder">
       <div class="flex gap-2">
         <input
             :id="fieldId"
@@ -17,14 +17,18 @@
             :aria-invalid="errors.path ? 'true' : undefined"
             autocomplete="off"
             class="ui-input min-w-0 flex-1"
-            placeholder="D:/work/clusters/staging.yaml"
+            placeholder="~/configs/kube"
             spellcheck="false"
             type="text"
             @keydown.enter.prevent="submit"
         >
-        <button v-if="canBrowse" class="btn-secondary shrink-0" type="button" @click="browse">
+        <button v-if="canBrowse" class="btn-secondary shrink-0" type="button" @click="browse(false)">
+          <file-text :size="14" />
+          File
+        </button>
+        <button v-if="canBrowse" class="btn-secondary shrink-0" type="button" @click="browse(true)">
           <folder-open :size="14" />
-          Browse
+          Folder
         </button>
       </div>
     </ui-form-field>
@@ -47,8 +51,11 @@
     </button>
 
     <p v-if="isFileMode" class="text-xs text-muted-foreground mt-3">
-      Kubiq reads the file where it is and never copies it. Environment variables such as
-      <code class="text-foreground">$HOME</code> are expanded.
+      Kubiq reads the file where it is and never copies it. A folder brings in every kubeconfig
+      inside it, including files put there later, and edits are picked up without a restart.
+      <code class="text-foreground">~</code> and environment variables such as
+      <code class="text-foreground">$HOME</code> are expanded. Everything in
+      <code class="text-foreground">~/.kube</code> is read without adding it.
     </p>
     <p v-else class="text-xs text-muted-foreground mt-3">
       Kubiq saves what you paste as a file of its own under
@@ -62,7 +69,7 @@
 import { Component, Prop, VueBase, Watch } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
 import { nextTick } from 'vue'
-import { FolderOpen } from '@lucide/vue'
+import { FileText, FolderOpen } from '@lucide/vue'
 import UiFormField from '@/components/common/form/UiFormField.vue'
 import UiModal from '@/components/common/modal/UiModal.vue'
 import { KubeconfigImportService } from '@/application/services/kubeconfigImport/KubeconfigImportService'
@@ -75,7 +82,7 @@ import type { TKubeconfigSourceDraft } from '@/domain/entities/catalog/types/TKu
 import type { TFileDialogFilter } from '@/infrastructure/wails/types/TFileDialogFilter'
 
 @Component({
-  components: { FolderOpen, UiFormField, UiModal },
+  components: { FileText, FolderOpen, UiFormField, UiModal },
   emits: ['close', 'submit'],
 })
 export default class AddKubeconfigModal extends VueBase {
@@ -128,7 +135,7 @@ export default class AddKubeconfigModal extends VueBase {
   }
 
   public get switchLabel(): string {
-    return this.isFileMode ? 'Paste the contents instead' : 'Choose a file instead'
+    return this.isFileMode ? 'Paste the contents instead' : 'Choose a file or folder instead'
   }
 
   public get storageDirectory(): string {
@@ -152,12 +159,11 @@ export default class AddKubeconfigModal extends VueBase {
     this.focusField()
   }
 
-  public async browse(): Promise<void> {
+  public async browse(folder: boolean): Promise<void> {
     try {
-      const selected = await this.fileDialog.openFile({
-        title: 'Choose a kubeconfig file',
-        filters: AddKubeconfigModal.filters,
-      })
+      const selected = folder
+          ? await this.fileDialog.openFolder({ title: 'Choose a folder of kubeconfig files' })
+          : await this.fileDialog.openFile({ title: 'Choose a kubeconfig file', filters: AddKubeconfigModal.filters })
 
       if (selected !== '') {
         this.draft = { ...this.draft, path: selected }

@@ -28,7 +28,8 @@ import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 import { MemoryFileTransport } from '../../support/MemoryFileTransport'
 import { KubeconfigFixtures } from '../../support/fixtures/KubeconfigFixtures'
 
-const HOME_CONFIG = 'C:/Users/tester/.kube/config'
+const HOME_KUBE = 'C:/Users/tester/.kube'
+const HOME_CONFIG = `${HOME_KUBE}/config`
 const WORK_CONFIG = 'D:/work/kubeconfig.yaml'
 
 const environment = new EnvironmentAdapter({ isAvailable: () => true } as WailsRuntimeService)
@@ -61,7 +62,9 @@ describe('KubeconfigService', () => {
     })
 
     describe('locating the files', () => {
-        it('falls back to the kubeconfig in the home directory', async () => {
+        it('reads the kubeconfig in ~/.kube when nothing else is named', async () => {
+            transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
+
             await expect(service.locate()).resolves.toEqual([HOME_CONFIG])
         })
 
@@ -78,20 +81,72 @@ describe('KubeconfigService', () => {
             await expect(service.locate()).resolves.toEqual([WORK_CONFIG])
         })
 
-        it('leaves the home fallback out once KUBECONFIG names a file', async () => {
+        it('still reads ~/.kube when KUBECONFIG names files elsewhere, after them', async () => {
             variables.KUBECONFIG = WORK_CONFIG
+            transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
 
-            await expect(service.locate()).resolves.toEqual([WORK_CONFIG])
+            await expect(service.locate()).resolves.toEqual([WORK_CONFIG, HOME_CONFIG])
         })
 
         it('puts a file named from outside in front of the discovered ones', async () => {
+            transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
+
             await expect(service.locate([WORK_CONFIG])).resolves.toEqual([WORK_CONFIG, HOME_CONFIG])
         })
 
         it('keeps the order of several files named from outside', async () => {
             const extra = 'D:/work/extra.yaml'
+            transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
 
             await expect(service.locate([WORK_CONFIG, extra])).resolves.toEqual([WORK_CONFIG, extra, HOME_CONFIG])
+        })
+
+        it('reads every kubeconfig in ~/.kube, kubectl\'s own file first', async () => {
+            transport.files.set(`${HOME_KUBE}/b-lab`, KubeconfigFixtures.secondary())
+            transport.files.set(`${HOME_KUBE}/a-dev.yaml`, KubeconfigFixtures.secondary())
+            transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
+
+            await expect(service.locate()).resolves.toEqual([HOME_CONFIG, `${HOME_KUBE}/a-dev.yaml`, `${HOME_KUBE}/b-lab`])
+        })
+
+        it('passes over what in ~/.kube is not a kubeconfig, without a word', async () => {
+            transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
+            transport.files.set(`${HOME_KUBE}/kubectx`, 'prod\n')
+            transport.files.set(`${HOME_KUBE}/.DS_Store`, '\u0000\u0001binary')
+            transport.files.set(`${HOME_KUBE}/cache/discovery/servergroups.json`, '{}')
+            transport.files.set(`${HOME_KUBE}/empty`, '')
+
+            const read = await service.read()
+
+            expect(read.files).toEqual([HOME_CONFIG])
+            expect(read.problems).toEqual([])
+        })
+
+        it('reads a folder named from outside, whether added by hand or on KUBECONFIG', async () => {
+            variables.KUBECONFIG = 'D:/team'
+            transport.files.set('D:/team/staging', KubeconfigFixtures.secondary())
+            transport.files.set('D:/mine/lab.yaml', KubeconfigFixtures.withPlugins())
+
+            await expect(service.locate(['D:/mine'])).resolves.toEqual(['D:/mine/lab.yaml', 'D:/team/staging'])
+        })
+
+        it('names a file once when a folder and KUBECONFIG both reach it', async () => {
+            variables.KUBECONFIG = HOME_CONFIG
+            transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
+
+            await expect(service.locate()).resolves.toEqual([HOME_CONFIG])
+        })
+
+        it('reports a broken file in a folder and keeps reading the others', async () => {
+            transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
+            transport.files.set(`${HOME_KUBE}/staging`, KubeconfigFixtures.broken())
+
+            const read = await service.read()
+
+            expect(read.files).toEqual([HOME_CONFIG])
+            expect(read.contexts.map(context => context.name)).toEqual(['prod', 'staging', 'shared'])
+            expect(read.problems.map(problem => problem.path)).toEqual([`${HOME_KUBE}/staging`])
+            expect(read.problems[0].details).toContain('YAML syntax error')
         })
 
         it('expands the file named from outside', async () => {
@@ -180,12 +235,78 @@ describe('KubeconfigService', () => {
             expect(contexts.map(context => context.name)).toEqual(['prod', 'staging', 'shared'])
         })
 
-        it('gives up on a file that is not valid yaml', async () => {
+        it('skips a file that is not valid yaml, says which, and reads the rest', async () => {
             transport.files.set(WORK_CONFIG, KubeconfigFixtures.broken())
 
-            const error = await failure(() => service.getContexts())
+            const read = await service.read()
 
-            expect(error.details).toContain(WORK_CONFIG)
+            expect(read.contexts.map(context => context.name)).toEqual(['prod', 'staging', 'shared'])
+            expect(read.problems).toHaveLength(1)
+            expect(read.problems[0].path).toBe(WORK_CONFIG)
+            expect(read.problems[0].details).toContain(WORK_CONFIG)
+        })
+
+        it('skips a named file that is YAML but not a kubeconfig document', async () => {
+            transport.files.set(WORK_CONFIG, '- just\n- a list\n')
+
+            const read = await service.read()
+
+            expect(read.contexts.map(context => context.name)).toEqual(['prod', 'staging', 'shared'])
+            expect(read.problems.map(problem => problem.path)).toEqual([WORK_CONFIG])
+        })
+    })
+
+    describe('noticing changes', () => {
+        beforeEach(() => {
+            transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
+        })
+
+        it('gives the same answer while nothing changes', async () => {
+            await expect(service.fingerprint([WORK_CONFIG])).resolves.toBe(await service.fingerprint([WORK_CONFIG]))
+        })
+
+        it('changes when a kubeconfig in ~/.kube is edited', async () => {
+            const before = await service.fingerprint()
+            transport.touch(HOME_CONFIG, 1700000000000)
+
+            await expect(service.fingerprint()).resolves.not.toBe(before)
+        })
+
+        it('changes when a file is put into ~/.kube', async () => {
+            const before = await service.fingerprint()
+            transport.files.set(`${HOME_KUBE}/lab`, KubeconfigFixtures.secondary())
+
+            await expect(service.fingerprint()).resolves.not.toBe(before)
+        })
+
+        it('changes when a file named from outside appears or is edited', async () => {
+            transport.files.delete(WORK_CONFIG)
+            const missing = await service.fingerprint([WORK_CONFIG])
+
+            transport.files.set(WORK_CONFIG, KubeconfigFixtures.secondary())
+            const present = await service.fingerprint([WORK_CONFIG])
+
+            transport.touch(WORK_CONFIG, 1700000000000)
+            const edited = await service.fingerprint([WORK_CONFIG])
+
+            expect(new Set([missing, present, edited]).size).toBe(3)
+        })
+
+        it('changes when a file lands in a folder named from outside', async () => {
+            transport.files.set('D:/team/staging', KubeconfigFixtures.secondary())
+            const before = await service.fingerprint(['D:/team'])
+
+            transport.files.set('D:/team/lab', KubeconfigFixtures.secondary())
+
+            await expect(service.fingerprint(['D:/team'])).resolves.not.toBe(before)
+        })
+
+        it('does not stir for Finder metadata or editor swap files', async () => {
+            const before = await service.fingerprint()
+            transport.files.set(`${HOME_KUBE}/.DS_Store`, 'metadata')
+            transport.files.set(`${HOME_KUBE}/.config.swp`, 'swap')
+
+            await expect(service.fingerprint()).resolves.toBe(before)
         })
     })
 
@@ -292,6 +413,7 @@ describe('KubeconfigService', () => {
 
         it('still lists a context it cannot build a specification for', async () => {
             variables.KUBECONFIG = WORK_CONFIG
+            transport.files.delete(HOME_CONFIG)
             transport.files.set(WORK_CONFIG, KubeconfigFixtures.withPlugins())
 
             const contexts = await service.getContexts()

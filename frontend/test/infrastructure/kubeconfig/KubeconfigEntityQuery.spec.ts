@@ -180,4 +180,37 @@ describe('KubeconfigEntityQuery', () => {
 
         await expect(unbound.getAll()).rejects.toThrow('KubeconfigEntityQuery needs a file')
     })
+
+    describe('telling a kubeconfig from other files', () => {
+        it('recognises a kubeconfig by its sections or its kind', async () => {
+            transport.files.set(FILE, KubeconfigFixtures.primary())
+            await expect(query.isKubeconfig()).resolves.toBe(true)
+
+            transport.files.set(FILE, 'apiVersion: v1\nkind: Config\n')
+            await expect(query.isKubeconfig()).resolves.toBe(true)
+        })
+
+        it('says no to what kubectx and friends leave beside it', async () => {
+            transport.files.set(FILE, 'prod-cluster\n')
+            await expect(query.isKubeconfig()).resolves.toBe(false)
+
+            transport.files.set(FILE, 'theme: dark\n')
+            await expect(query.isKubeconfig()).resolves.toBe(false)
+        })
+
+        it('says no to an absent or empty file', async () => {
+            await expect(query.isKubeconfig()).resolves.toBe(false)
+
+            transport.files.set(FILE, '   \n')
+            await expect(query.isKubeconfig()).resolves.toBe(false)
+        })
+
+        it('raises an ApiError for a file that is not valid yaml, since it may be a kubeconfig gone wrong', async () => {
+            transport.files.set(FILE, KubeconfigFixtures.broken())
+
+            const error = await failure(() => query.isKubeconfig())
+
+            expect(error.details).toContain('YAML syntax error')
+        })
+    })
 })

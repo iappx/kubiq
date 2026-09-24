@@ -1,6 +1,6 @@
 <template>
   <ui-section
-      description="Kubiq always reads ~/.kube/config and every file named by KUBECONFIG. These are read in addition, where they are, and are never copied."
+      description="Kubiq always reads every kubeconfig in ~/.kube and every file named by KUBECONFIG, and picks up changes to them without a restart. The files and folders below are read in addition, where they are, and are never copied."
       title="Kubeconfig files"
   >
     <template #actions>
@@ -30,7 +30,7 @@
     </ul>
 
     <p v-else class="text-sm text-muted-foreground">
-      No extra kubeconfig files have been added.
+      No extra kubeconfig files or folders have been added.
     </p>
   </ui-section>
 </template>

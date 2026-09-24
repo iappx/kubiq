@@ -1,6 +1,7 @@
 export { KubeconfigAuthTypeCatalog } from '@/domain/entities/kubeconfig/KubeconfigAuthTypeCatalog'
 export { KubeconfigClusterEntity } from '@/domain/entities/kubeconfig/KubeconfigClusterEntity'
 export { KubeconfigContextEntity } from '@/domain/entities/kubeconfig/KubeconfigContextEntity'
+export { KubeconfigFileEntity } from '@/domain/entities/kubeconfig/KubeconfigFileEntity'
 export { KubeconfigUserEntity } from '@/domain/entities/kubeconfig/KubeconfigUserEntity'
 export type { TConnectionSpec } from '@/domain/entities/kubeconfig/types/TConnectionSpec'
 export type { TKubeconfigAuthType } from '@/domain/entities/kubeconfig/types/TKubeconfigAuthType'

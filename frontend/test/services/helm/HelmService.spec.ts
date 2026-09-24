@@ -53,6 +53,10 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/io', () => ({
         },
         AbsolutePath: (path: string) => Promise.resolve({ success: true, data: `C:/profile/${path}` }),
         FileExists: (path: string) => Promise.resolve({ success: true, data: path in files ? 'true' : 'false' }),
+        Stat: (path: string) => Promise.resolve(path in files
+            ? { success: true, exists: true, entry: { path, name: path, isDir: false, size: files[path].length, modifiedAt: 0 } }
+            : { success: true, exists: false }),
+        ListDir: () => Promise.resolve({ success: false, entries: [], error: 'no such folder' }),
         OpenURI: (...args: unknown[]) => {
             openUri(...args)
             return Promise.resolve({ success: true, data: 'Success' })

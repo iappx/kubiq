@@ -13,6 +13,10 @@ export class KubeconfigEntityQuery
 
     private static readonly ParseFailed = 'The kubeconfig file could not be read'
 
+    private static readonly Kind = 'Config'
+
+    private static readonly Sections: readonly string[] = ['clusters', 'contexts', 'users']
+
     private static readonly AbsolutePath = /^([a-zA-Z]:[\\/]|[\\/])/
 
     public forFile(path: string): KubeconfigEntityQuery {
@@ -70,24 +74,49 @@ export class KubeconfigEntityQuery
         return content
     }
 
+    public async isKubeconfig(): Promise<boolean> {
+        const content = await this.read()
+        if (!content?.trim()) {
+            return false
+        }
+
+        const parsed = this.parse(content)
+        if (!KubeconfigEntityQuery.isMapping(parsed)) {
+            return false
+        }
+
+        return parsed.kind === KubeconfigEntityQuery.Kind
+            || KubeconfigEntityQuery.Sections.some(section => section in parsed)
+    }
+
     private async document(): Promise<TKubeconfigDocument | null> {
-        const content = await this.transport.send<string | null>({ path: this.file, operation: 'read' })
+        const content = await this.read()
         if (!content?.trim()) {
             return null
         }
 
-        let parsed: unknown
-        try {
-            parsed = parse(content)
-        } catch (err) {
-            throw new ApiError(KubeconfigEntityQuery.ParseFailed, this.position(err))
-        }
-
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        const parsed = this.parse(content)
+        if (!KubeconfigEntityQuery.isMapping(parsed)) {
             throw new ApiError(KubeconfigEntityQuery.ParseFailed, `${this.file} — a kubeconfig document was expected`)
         }
 
         return parsed as TKubeconfigDocument
+    }
+
+    private read(): Promise<string | null> {
+        return this.transport.send<string | null>({ path: this.file, operation: 'read' })
+    }
+
+    private parse(content: string): unknown {
+        try {
+            return parse(content)
+        } catch (err) {
+            throw new ApiError(KubeconfigEntityQuery.ParseFailed, this.position(err))
+        }
+    }
+
+    private static isMapping(value: unknown): value is Record<string, unknown> {
+        return !!value && typeof value === 'object' && !Array.isArray(value)
     }
 
     // The parser quotes the offending source line, and in a kubeconfig that line

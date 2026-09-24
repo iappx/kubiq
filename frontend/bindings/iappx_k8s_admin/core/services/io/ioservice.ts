@@ -27,6 +27,12 @@ export function FileExists(path: string): $CancellablePromise<$models.IOResult> 
     });
 }
 
+export function ListDir(path: string): $CancellablePromise<$models.DirListResult> {
+    return $Call.ByID(2355302682, path).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 export function MakeDir(path: string): $CancellablePromise<$models.IOResult> {
     return $Call.ByID(3307724720, path).then(($result: any) => {
         return $$createType0($result);
@@ -69,6 +75,12 @@ export function RemoveFile(path: string): $CancellablePromise<$models.IOResult> 
     });
 }
 
+export function Stat(path: string): $CancellablePromise<$models.StatResult> {
+    return $Call.ByID(386977161, path).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
 export function UnzipGZFile(path: string, output: string): $CancellablePromise<$models.IOResult> {
     return $Call.ByID(2519522780, path, output).then(($result: any) => {
         return $$createType0($result);
@@ -95,3 +107,5 @@ export function WriteFile(path: string, content: string, options: $models.IOOpti
 
 // Private type creation functions
 const $$createType0 = $models.IOResult.createFrom;
+const $$createType1 = $models.DirListResult.createFrom;
+const $$createType2 = $models.StatResult.createFrom;

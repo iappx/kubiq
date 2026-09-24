@@ -1,8 +1,9 @@
 import { inject, singleton } from 'tsyringe'
 import { ITransport } from '@iappx/entity-repo'
 import { IoService } from '../../../../bindings/iappx_k8s_admin/core/services/io'
-import { IOOptions } from '../../../../bindings/iappx_k8s_admin/core/services/io/models'
+import { FileEntry, IOOptions } from '../../../../bindings/iappx_k8s_admin/core/services/io/models'
 import { ApiError } from '@/domain/errors/ApiError'
+import type { TFileEntry } from '@/infrastructure/entityRepo/transport/types/TFileEntry'
 import { TFileRequest } from '@/infrastructure/entityRepo/transport/types/TFileRequest'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 
@@ -27,7 +28,28 @@ export class FileSystemTransport implements ITransport<TFileRequest> {
             return await this.remove(params) as TRes
         }
 
+        if (params.operation === 'list') {
+            return await this.list(params) as TRes
+        }
+
+        if (params.operation === 'stat') {
+            return await this.stat(params) as TRes
+        }
+
         return await this.write(params) as TRes
+    }
+
+    // A folder or file that is missing or unreadable is simply not there to read.
+    private async list(params: TFileRequest): Promise<TFileEntry[] | null> {
+        const result = await this.call(() => IoService.ListDir(params.path), 'Could not read the folder')
+
+        return result.success ? result.entries.map(entry => FileSystemTransport.entryOf(entry)) : null
+    }
+
+    private async stat(params: TFileRequest): Promise<TFileEntry | null> {
+        const result = await this.call(() => IoService.Stat(params.path), 'Could not read the file')
+
+        return result.success && result.exists ? FileSystemTransport.entryOf(result.entry) : null
     }
 
     private async read(params: TFileRequest): Promise<string | null> {
@@ -69,6 +91,16 @@ export class FileSystemTransport implements ITransport<TFileRequest> {
         }
 
         return null
+    }
+
+    private static entryOf(entry: FileEntry): TFileEntry {
+        return {
+            path: entry.path,
+            name: entry.name,
+            isDir: entry.isDir,
+            size: entry.size,
+            modifiedAt: entry.modifiedAt,
+        }
     }
 
     private async call<T>(action: () => Promise<T>, message: string): Promise<T> {

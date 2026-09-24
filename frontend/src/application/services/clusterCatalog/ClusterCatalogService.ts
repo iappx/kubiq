@@ -53,10 +53,10 @@ export class ClusterCatalogService {
     public async addSource(path: string, origin: TKubeconfigSourceMode, at: number): Promise<string> {
         const trimmed = path.trim()
         if (!trimmed) {
-            throw new ApiError('Enter the path to a kubeconfig file')
+            throw new ApiError('Enter the path to a kubeconfig file or folder')
         }
 
-        const [resolved] = await this.kubeconfigService.locate([trimmed])
+        const resolved = await this.kubeconfigService.resolve(trimmed)
         if (!resolved) {
             throw new ApiError(
                 'That path could not be resolved',
@@ -68,10 +68,17 @@ export class ClusterCatalogService {
             throw new ApiError(`"${resolved}" is already in the catalog`)
         }
 
-        const contexts = await this.kubeconfigService.getContexts([resolved])
-        if (!contexts.some(context => context.filePath === resolved)) {
+        const read = await this.kubeconfigService.read([resolved])
+        const within = (file: string): boolean => file === resolved || file.startsWith(`${resolved}/`)
+
+        if (!read.contexts.some(context => within(context.filePath))) {
+            const problem = read.problems.find(candidate => within(candidate.path))
+            if (problem) {
+                throw new ApiError(problem.message, problem.details)
+            }
+
             throw new ApiError(
-                'That file holds no kubeconfig contexts',
+                'No kubeconfig contexts were found there',
                 `Read: ${resolved} — check the path, or open the file and confirm it lists contexts`,
             )
         }

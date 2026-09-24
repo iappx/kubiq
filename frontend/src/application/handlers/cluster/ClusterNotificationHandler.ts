@@ -2,6 +2,7 @@ import { inject, singleton } from 'tsyringe'
 import { ToastService } from '@/application/services/toast/ToastService'
 import { ClusterDisconnectedEvent } from '@/domain/events/cluster/ClusterDisconnectedEvent'
 import { ClusterRemovedEvent } from '@/domain/events/cluster/ClusterRemovedEvent'
+import { KubeconfigSkippedEvent } from '@/domain/events/cluster/KubeconfigSkippedEvent'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 
 @singleton()
@@ -19,6 +20,12 @@ export class ClusterNotificationHandler {
             ClusterNotificationHandler.removalSummary(e.contextNames),
             ClusterNotificationHandler.kubeconfigFate(e.filePath, e.kubeconfigDeleted),
         ))
+
+        this.eventBus.registerHandler(KubeconfigSkippedEvent, e => this.toastService.show({
+            type: 'warning',
+            message: `${e.reason} — Kubiq skipped it`,
+            description: e.details || e.filePath,
+        }))
     }
 
     private static streamSummary(stopped: number): string | undefined {

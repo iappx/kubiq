@@ -1,7 +1,7 @@
 import { inject, singleton } from 'tsyringe'
 import { KubeconfigService } from '@/application/services/kubeconfig/KubeconfigService'
+import type { TClusterCatalogRead } from '@/application/services/cluster/types/TClusterCatalogRead'
 import type { TClusterConnection } from '@/application/services/cluster/types/TClusterConnection'
-import type { TClusterContextInfo } from '@/application/services/cluster/types/TClusterContextInfo'
 import { ApiError } from '@/domain/errors/ApiError'
 import { KubeChannelSupport } from '@/domain/models/kube/discovery/KubeChannelSupport'
 import type { KubeServerVersion } from '@/domain/models/kube/discovery/KubeServerVersion'
@@ -28,23 +28,23 @@ export class ClusterConnectionService {
         @inject(KubeVersionAdapter) private readonly versions: KubeVersionAdapter,
     ) {}
 
-    public async listContexts(extraPaths: readonly string[] = []): Promise<TClusterContextInfo[]> {
-        const [contexts, currentName] = await Promise.all([
-            this.kubeconfigService.getContexts(extraPaths),
-            this.kubeconfigService.getCurrentContextName(extraPaths),
-        ])
+    public async readCatalog(extraPaths: readonly string[] = []): Promise<TClusterCatalogRead> {
+        const read = await this.kubeconfigService.read(extraPaths)
 
-        return contexts.map(context => ({
-            name: context.name,
-            filePath: context.filePath,
-            clusterName: context.clusterName,
-            server: context.server,
-            namespace: context.effectiveNamespace,
-            authType: context.authType,
-            isCurrent: context.name === currentName,
-            isSupported: context.isSupported,
-            unsupportedReason: context.unsupportedReason,
-        }))
+        return {
+            contexts: read.contexts.map(context => ({
+                name: context.name,
+                filePath: context.filePath,
+                clusterName: context.clusterName,
+                server: context.server,
+                namespace: context.effectiveNamespace,
+                authType: context.authType,
+                isCurrent: context.name === read.currentContextName,
+                isSupported: context.isSupported,
+                unsupportedReason: context.unsupportedReason,
+            })),
+            problems: read.problems,
+        }
     }
 
     public async connect(contextName: string, extraPaths: readonly string[] = []): Promise<TClusterConnection> {

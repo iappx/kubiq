@@ -28,11 +28,11 @@ const fake = vi.hoisted(() => {
     return {
         state,
         connection,
-        listContexts: vi.fn(async () => {
+        readCatalog: vi.fn(async () => {
             if (state.catalogFails) {
                 throw state.catalogFails
             }
-            return state.contexts
+            return { contexts: state.contexts, problems: [] }
         }),
         adopt: vi.fn(async () => state.reclaimed),
         connect: vi.fn(async (contextName: string) => {
@@ -66,7 +66,7 @@ const fake = vi.hoisted(() => {
 
 vi.mock('@/application/services/cluster/ClusterConnectionService', () => ({
     ClusterConnectionService: class {
-        public listContexts = fake.listContexts
+        public readCatalog = fake.readCatalog
 
         public adopt = fake.adopt
 
@@ -187,7 +187,7 @@ describe('ClusterEntryService', () => {
         it('reads the catalog, connects and loads what the shell needs, in that order', async () => {
             await expect(service.enter('staging')).resolves.toBe('ready')
 
-            expect(fake.listContexts).toHaveBeenCalledTimes(1)
+            expect(fake.readCatalog).toHaveBeenCalledTimes(1)
             expect(fake.connect).toHaveBeenCalledWith('staging', [])
             expect(connectionStore.isConnected('staging')).toBe(true)
             expect(connectionStore.activeClusterId).toBe('staging')
@@ -312,7 +312,7 @@ describe('ClusterEntryService', () => {
         it('treats an empty cluster id the same way', async () => {
             await expect(service.enter('')).resolves.toBe('unknown')
 
-            expect(fake.listContexts).not.toHaveBeenCalled()
+            expect(fake.readCatalog).not.toHaveBeenCalled()
         })
     })
 

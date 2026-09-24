@@ -1,12 +1,17 @@
 import { inject, injectable } from 'tsyringe'
+import type { TKubeconfigProblem } from '@/application/services/kubeconfig/types/TKubeconfigProblem'
+import type { TKubeconfigRead } from '@/application/services/kubeconfig/types/TKubeconfigRead'
+import type { TKubeconfigScan } from '@/application/services/kubeconfig/types/TKubeconfigScan'
 import { ApiError } from '@/domain/errors/ApiError'
 import { KubeconfigAuthTypeCatalog } from '@/domain/entities/kubeconfig/KubeconfigAuthTypeCatalog'
 import { KubeconfigClusterEntity } from '@/domain/entities/kubeconfig/KubeconfigClusterEntity'
 import { KubeconfigContextEntity } from '@/domain/entities/kubeconfig/KubeconfigContextEntity'
+import { KubeconfigFileEntity } from '@/domain/entities/kubeconfig/KubeconfigFileEntity'
 import { KubeconfigUserEntity } from '@/domain/entities/kubeconfig/KubeconfigUserEntity'
 import type { TConnectionSpec } from '@/domain/entities/kubeconfig/types/TConnectionSpec'
 import { EntityRepoProvider } from '@/infrastructure/entityRepo/EntityRepoProvider'
 import { KubeconfigEntityQuery } from '@/infrastructure/entityRepo/kubeconfig/KubeconfigEntityQuery'
+import { KubeconfigFileQuery } from '@/infrastructure/entityRepo/kubeconfig/KubeconfigFileQuery'
 import { EnvironmentAdapter } from '@/infrastructure/env/EnvironmentAdapter'
 import { Base64 } from '@/lib/encoding/Base64'
 
@@ -14,64 +19,94 @@ import { Base64 } from '@/lib/encoding/Base64'
 export class KubeconfigService {
     private static readonly PathVariable = 'KUBECONFIG'
 
-    private static readonly DefaultFile = '.kube/config'
+    private static readonly DefaultFolder = '.kube'
 
     constructor(
         @inject(EnvironmentAdapter) private readonly environment: EnvironmentAdapter,
         @inject(EntityRepoProvider) private readonly repoProvider: EntityRepoProvider,
     ) {}
 
-    public async locate(extraPaths: readonly string[] = []): Promise<string[]> {
-        const extra: string[] = []
-        for (const path of extraPaths) {
-            const expanded = await this.expand(path)
-            if (expanded) {
-                extra.push(expanded)
-            }
-        }
-
-        return [...new Set([...extra, ...await this.discover()])]
+    public resolve(path: string): Promise<string> {
+        return this.expand(path)
     }
 
-    public async getContexts(extraPaths: readonly string[] = []): Promise<KubeconfigContextEntity[]> {
-        const files = await this.locate(extraPaths)
+    public async locate(extraPaths: readonly string[] = []): Promise<string[]> {
+        return (await this.scan(extraPaths)).files
+    }
+
+    public async read(extraPaths: readonly string[] = []): Promise<TKubeconfigRead> {
+        const scan = await this.scan(extraPaths)
+        const problems = [...scan.problems]
         const clusters = new Map<string, KubeconfigClusterEntity>()
         const users = new Map<string, KubeconfigUserEntity>()
         const contexts = new Map<string, KubeconfigContextEntity>()
+        let currentContextName = ''
 
         // kubectl merges each section on its own and keeps the first entry of a
         // name, so a context may well name a cluster declared in a later file.
-        for (const file of files) {
+        for (const file of scan.files) {
             const query = this.query(file)
-            this.keepFirst(clusters, await query.getClusters())
-            this.keepFirst(users, await query.getUsers())
-            this.keepFirst(contexts, await query.getAll())
-        }
 
-        return [...contexts.values()].map(context => this.bind(context, clusters, users))
-    }
+            try {
+                const fileClusters = await query.getClusters()
+                const fileUsers = await query.getUsers()
+                const fileContexts = await query.getAll()
+                const current = await query.getCurrentContextName()
 
-    public async getCurrentContextName(extraPaths: readonly string[] = []): Promise<string> {
-        const files = await this.locate(extraPaths)
-
-        for (const file of files) {
-            const name = await this.query(file).getCurrentContextName()
-            if (name) {
-                return name
+                this.keepFirst(clusters, fileClusters)
+                this.keepFirst(users, fileUsers)
+                this.keepFirst(contexts, fileContexts)
+                currentContextName ||= current
+            } catch (err) {
+                problems.push(this.problemOf(file, err))
             }
         }
 
-        return ''
+        return {
+            files: scan.files,
+            contexts: [...contexts.values()].map(context => this.bind(context, clusters, users)),
+            currentContextName,
+            problems,
+        }
+    }
+
+    public async getContexts(extraPaths: readonly string[] = []): Promise<KubeconfigContextEntity[]> {
+        return (await this.read(extraPaths)).contexts
+    }
+
+    public async getCurrentContextName(extraPaths: readonly string[] = []): Promise<string> {
+        return (await this.read(extraPaths)).currentContextName
+    }
+
+    public async fingerprint(extraPaths: readonly string[] = []): Promise<string> {
+        const stamps: string[] = []
+
+        for (const path of await this.named(extraPaths)) {
+            const entry = await this.files.getById(path)
+
+            if (entry?.isDirectory) {
+                stamps.push(...(await this.candidatesIn(path)).map(candidate => candidate.stamp))
+            } else {
+                stamps.push(entry?.stamp ?? `${path}|absent`)
+            }
+        }
+
+        const home = await this.homeFolder()
+        if (home) {
+            stamps.push(...(await this.candidatesIn(home)).map(candidate => candidate.stamp))
+        }
+
+        return stamps.join('\n')
     }
 
     public async buildConnectionSpec(contextName: string, extraPaths: readonly string[] = []): Promise<TConnectionSpec> {
-        const contexts = await this.getContexts(extraPaths)
-        const context = contexts.find(candidate => candidate.name === contextName)
+        const read = await this.read(extraPaths)
+        const context = read.contexts.find(candidate => candidate.name === contextName)
 
         if (!context) {
             throw new ApiError(
                 `Kubeconfig context "${contextName}" was not found`,
-                `Files read: ${(await this.locate(extraPaths)).join(', ') || 'none'}`,
+                `Files read: ${read.files.join(', ') || 'none'}`,
             )
         }
 
@@ -168,19 +203,89 @@ export class KubeconfigService {
         }
     }
 
-    private async discover(): Promise<string[]> {
+    private async scan(extraPaths: readonly string[]): Promise<TKubeconfigScan> {
+        const files: string[] = []
+        const folders: string[] = []
+        const problems: TKubeconfigProblem[] = []
+
+        for (const path of await this.named(extraPaths)) {
+            const entry = await this.files.getById(path)
+            if (entry?.isDirectory) {
+                folders.push(path)
+            } else {
+                files.push(path)
+            }
+        }
+
+        const home = await this.homeFolder()
+        if (home) {
+            folders.push(home)
+        }
+
+        for (const folder of new Set(folders)) {
+            for (const candidate of await this.candidatesIn(folder)) {
+                if (files.includes(candidate.path)) {
+                    continue
+                }
+
+                try {
+                    if (await this.query(candidate.path).isKubeconfig()) {
+                        files.push(candidate.path)
+                    }
+                } catch (err) {
+                    problems.push(this.problemOf(candidate.path, err))
+                }
+            }
+        }
+
+        return { files, problems }
+    }
+
+    private async named(extraPaths: readonly string[]): Promise<string[]> {
         const variable = (await this.environment.get(KubeconfigService.PathVariable)).trim()
+        const paths = await this.expandAll(extraPaths)
 
         if (variable) {
-            return this.split(variable)
+            paths.push(...await this.split(variable))
         }
 
+        return [...new Set(paths)]
+    }
+
+    private async homeFolder(): Promise<string> {
         const home = await this.environment.homeDir()
-        if (!home) {
-            return []
+
+        return home ? `${home.replace(/[\\/]+$/, '')}/${KubeconfigService.DefaultFolder}` : ''
+    }
+
+    private async candidatesIn(folder: string): Promise<KubeconfigFileEntity[]> {
+        const entries = await this.repoProvider.kubeconfig.inFolder(folder).getAll()
+
+        // kubectl's own file goes first, so its entries win a name clash.
+        return entries
+            .filter(entry => entry.isCandidate)
+            .sort((left, right) => Number(right.isDefault) - Number(left.isDefault) || left.name.localeCompare(right.name))
+    }
+
+    private problemOf(file: string, err: unknown): TKubeconfigProblem {
+        if (!(err instanceof ApiError)) {
+            throw err
         }
 
-        return [`${home.replace(/[\\/]+$/, '')}/${KubeconfigService.DefaultFile}`]
+        return { path: file, message: err.message, details: err.details ?? '' }
+    }
+
+    private async expandAll(paths: readonly string[]): Promise<string[]> {
+        const expanded: string[] = []
+
+        for (const path of paths) {
+            const value = await this.expand(path)
+            if (value) {
+                expanded.push(value)
+            }
+        }
+
+        return expanded
     }
 
     private async split(variable: string): Promise<string[]> {
@@ -235,5 +340,9 @@ export class KubeconfigService {
 
     private query(file: string): KubeconfigEntityQuery {
         return this.repoProvider.kubeconfig.forFile(file)
+    }
+
+    private get files(): KubeconfigFileQuery {
+        return this.repoProvider.kubeconfig.files
     }
 }

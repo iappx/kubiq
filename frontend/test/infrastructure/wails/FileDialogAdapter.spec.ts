@@ -53,6 +53,19 @@ describe('FileDialogAdapter', () => {
             }))
         })
 
+        it('asks for one folder, with hidden ones shown, when a folder is wanted', async () => {
+            openFile.mockResolvedValue('/Users/tester/Configs/.kube')
+
+            await expect(new FileDialogAdapter(runtime(true)).openFolder({ title: 'Choose a kubeconfig folder' }))
+                .resolves.toBe('/Users/tester/Configs/.kube')
+
+            expect(openFile).toHaveBeenCalledWith(expect.objectContaining({
+                CanChooseFiles: false,
+                CanChooseDirectories: true,
+                ShowHiddenFiles: true,
+            }))
+        })
+
         it('passes no filters when the caller named none', async () => {
             openFile.mockResolvedValue('')
 
@@ -71,6 +84,15 @@ describe('FileDialogAdapter', () => {
             openFile.mockResolvedValue(undefined)
 
             await expect(new FileDialogAdapter(runtime(true)).openFile(request)).resolves.toBe('')
+        })
+
+        it('treats a dialog closed by hand as no choice, although Windows reports it as a failure', async () => {
+            openFile.mockRejectedValue(
+                new Error('Invalid dialog call: Dialog.OpenFile failed, error getting selection: cancelled by user'),
+            )
+
+            await expect(new FileDialogAdapter(runtime(true)).openFile(request)).resolves.toBe('')
+            await expect(new FileDialogAdapter(runtime(true)).openFolder({ title: 'Choose a folder' })).resolves.toBe('')
         })
 
         it('raises an ApiError the user can read when the dialog will not open', async () => {

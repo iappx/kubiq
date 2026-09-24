@@ -46,17 +46,17 @@ describe('KubeconfigSourceValidator', () => {
         it('asks for a path when the field is empty', () => {
             expect(validator.validate(file('   '))).toEqual({
                 valid: false,
-                errors: { path: 'Enter the path to a kubeconfig file' },
+                errors: { path: 'Enter the path to a kubeconfig file or folder' },
             })
         })
 
-        it('says a folder is not a file', () => {
-            expect(validator.validate(file('D:/work/clusters/')).errors.path).toContain('folder')
-            expect(validator.validate(file('D:\\work\\clusters\\')).errors.path).toContain('folder')
+        it('accepts a folder, since every kubeconfig inside it is read', () => {
+            expect(validator.validate(file('~/Configs/.kube/')).valid).toBe(true)
+            expect(validator.validate(file('D:\\work\\clusters\\')).valid).toBe(true)
         })
 
-        it('rejects an extension a kubeconfig never has', () => {
-            expect(validator.validate(file('D:/work/cluster.json')).errors.path).toContain('YAML file')
+        it('leaves the content to the catalog, which reads the file, rather than guessing from the name', () => {
+            expect(validator.validate(file('~/configs/prod.kubeconfig')).valid).toBe(true)
         })
 
         it('does not mistake a dotted folder for an extension', () => {

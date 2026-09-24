@@ -93,7 +93,7 @@
               :icon="serverIcon"
               :on-action="openAdd"
               action-label="Add kubeconfig"
-              description="Kubiq reads ~/.kube/config and every file named by KUBECONFIG. Point it at a kubeconfig to get started."
+              description="Kubiq reads every kubeconfig in ~/.kube and every file named by KUBECONFIG. Put one there, or point Kubiq at a file or folder."
               title="No Kubernetes contexts found"
           />
         </template>

@@ -8,17 +8,18 @@ const fake = vi.hoisted(() => {
         pinned: [] as string[],
         sources: [] as { path: string; origin: string }[],
         contexts: [] as any[],
+        problems: [] as { path: string; message: string; details: string }[],
         listFails: null as Error | null,
         addFails: null as Error | null,
     }
 
     return {
         state,
-        listContexts: vi.fn(async () => {
+        readCatalog: vi.fn(async () => {
             if (state.listFails) {
                 throw state.listFails
             }
-            return state.contexts
+            return { contexts: state.contexts, problems: [...state.problems] }
         }),
         getPinned: vi.fn(async () => [...state.pinned]),
         pin: vi.fn(async (contextName: string) => {
@@ -62,12 +63,13 @@ vi.mock('@/application/services/clusterCatalog/ClusterCatalogService', () => ({
 
 vi.mock('@/application/services/cluster/ClusterConnectionService', () => ({
     ClusterConnectionService: class {
-        public listContexts = fake.listContexts
+        public readCatalog = fake.readCatalog
     },
 }))
 
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { ClusterRemovedEvent } from '@/domain/events/cluster/ClusterRemovedEvent'
+import { KubeconfigSkippedEvent } from '@/domain/events/cluster/KubeconfigSkippedEvent'
 import { ApiError } from '@/domain/errors/ApiError'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
@@ -83,6 +85,11 @@ eventBus.registerHandler(AppErrorEvent, (event) => {
 const removals: ClusterRemovedEvent[] = []
 eventBus.registerHandler(ClusterRemovedEvent, (event) => {
     removals.push(event)
+})
+
+const skips: KubeconfigSkippedEvent[] = []
+eventBus.registerHandler(KubeconfigSkippedEvent, (event) => {
+    skips.push(event)
 })
 
 const context = (name: string): Record<string, unknown> => ({
@@ -101,6 +108,8 @@ describe('ClusterCatalogStore', () => {
     beforeEach(() => {
         errors.length = 0
         removals.length = 0
+        skips.length = 0
+        fake.state.problems = []
         fake.state.pinned = []
         fake.state.sources = []
         fake.state.contexts = [context('prod'), context('lab')]
@@ -115,6 +124,7 @@ describe('ClusterCatalogStore', () => {
         store.filter = ''
         store.loadError = ''
         store.loadErrorDetail = ''
+        store.skipped = []
     })
 
     describe('loading', () => {
@@ -148,21 +158,50 @@ describe('ClusterCatalogStore', () => {
 
             await store.loadOnce()
 
-            expect(fake.listContexts).toHaveBeenCalledWith(['D:/work/extra.yaml'])
+            expect(fake.readCatalog).toHaveBeenCalledWith(['D:/work/extra.yaml'])
         })
 
         it('reads once and not again', async () => {
             await store.loadOnce()
             await store.loadOnce()
 
-            expect(fake.listContexts).toHaveBeenCalledTimes(1)
+            expect(fake.readCatalog).toHaveBeenCalledTimes(1)
         })
 
         it('reads again when asked to refresh', async () => {
             await store.loadOnce()
             await store.refresh()
 
-            expect(fake.listContexts).toHaveBeenCalledTimes(2)
+            expect(fake.readCatalog).toHaveBeenCalledTimes(2)
+        })
+    })
+
+    describe('files it had to skip', () => {
+        const broken = { path: 'C:/Users/tester/.kube/staging', message: 'The kubeconfig file could not be read', details: 'line 3' }
+
+        it('announces a skipped file and still shows the clusters it could read', async () => {
+            fake.state.problems = [broken]
+
+            await store.loadOnce()
+
+            expect(store.items.map(item => item.name)).toEqual(['prod', 'lab'])
+            expect(store.loadError).toBe('')
+            expect(skips.map(skip => [skip.filePath, skip.reason, skip.details]))
+                .toEqual([[broken.path, broken.message, broken.details]])
+        })
+
+        it('announces a file once while it stays broken, and again if it breaks anew', async () => {
+            fake.state.problems = [broken]
+            await store.loadOnce()
+            await store.refresh()
+
+            fake.state.problems = []
+            await store.refresh()
+
+            fake.state.problems = [broken]
+            await store.refresh()
+
+            expect(skips).toHaveLength(2)
         })
     })
 

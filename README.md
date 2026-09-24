@@ -66,7 +66,7 @@ reachable from the keyboard.
 
 |  | |
 |---|---|
-| **Many clusters, at once** | Every context from `~/.kube/config` and anything on `KUBECONFIG`, plus files you add yourself. Connections are simultaneous; switching is instant because nothing is torn down. |
+| **Many clusters, at once** | Every context from the kubeconfigs in `~/.kube` and anything on `KUBECONFIG`, plus files and folders you add yourself. Connections are simultaneous; switching is instant because nothing is torn down. |
 | **A sidebar the cluster wrote** | Built from `/api`, `/apis` and the CRDs the server actually serves, at each group's preferred version. Custom resources are grouped by API group. A kind the cluster does not serve is not in the menu at all; a kind your role cannot read says which right would open it. |
 | **Live lists** | Backed by `watch`. Changes are batched and flushed every 100 ms; reconnects back off from 500 ms to 15 s and survive a laptop going to sleep. A dropped watch is shown, not swallowed. |
 | **A detail panel that does not block the list** | Overview, Environment, Details, Metadata, Events and YAML, side by side with the table. Resizable, and the width is remembered. |
@@ -92,8 +92,12 @@ with. Pin the ones you use. Click a row and you are inside.
 
 ![The cluster catalog](docs/images/catalog.png)
 
-Kubeconfig files are read **where they are** and never copied. Add extra ones from Settings, by
-picking a file or by pasting the contents.
+Kubeconfig files are read **where they are** and never copied. kubiq reads every kubeconfig in
+`~/.kube` and every file named by `KUBECONFIG`. On macOS and Linux the `KUBECONFIG` from your
+shell profile counts too, even when kubiq starts from the Dock or a desktop launcher. Add more
+from Settings: a file, a whole folder, or pasted contents. A folder brings in everything inside
+it, including files you drop there later. A file that cannot be parsed is skipped with a warning
+and does not hide the others. Changes on disk show up within a few seconds, without a restart.
 
 ### See the whole cluster before you go looking
 
@@ -203,7 +207,7 @@ Kubernetes noun.
 | `kube.KubeService` | `Send(method, path, headers, body)`, plus chunked streams for `watch` and logs | Any API path, any resource, any payload |
 | `channel.ChannelService` | WebSocket channels for `exec`/`attach`, and port forwarding | That one carries a shell and the other a database |
 | `process.ProcessService` | Runs a child process, with a PTY where the platform has one | `helm`, `kubectl`, or what their output means |
-| `io.IoService` | Reads and writes files, with byte ranges | What a kubeconfig is |
+| `io.IoService` | Reads and writes files, with byte ranges; lists folders and reports file size and modification time | What a kubeconfig is |
 | `env.EnvService` | Environment variables, home directory, path expansion | — |
 | `storage.StorageService` | A JSON document in the user profile, with migrations | What the document contains |
 | `journal.JournalService` | An append-only journal with a whitelist-based redactor | — |

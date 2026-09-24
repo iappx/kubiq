@@ -112,8 +112,32 @@ describe('ClusterCatalogService', () => {
             const failure = await service.addSource('D:/work/empty.yaml', 'file', 5).catch(err => err)
 
             expect(failure).toBeInstanceOf(ApiError)
-            expect((failure as ApiError).message).toContain('no kubeconfig contexts')
+            expect((failure as ApiError).message).toContain('No kubeconfig contexts')
             await expect(service.getSourcePaths()).resolves.toEqual([])
+        })
+
+        it('says what is wrong with a file it cannot read, instead of only that it found nothing', async () => {
+            transport.files.set('D:/work/broken.yaml', KubeconfigFixtures.broken())
+
+            const failure = await service.addSource('D:/work/broken.yaml', 'file', 5).catch(err => err)
+
+            expect((failure as ApiError).message).toBe('The kubeconfig file could not be read')
+            expect((failure as ApiError).details).toContain('D:/work/broken.yaml')
+        })
+
+        it('takes a folder of kubeconfig files and remembers the folder', async () => {
+            transport.files.set('D:/configs/lab.yaml', KubeconfigFixtures.secondary())
+
+            await expect(service.addSource('D:/configs', 'file', 5)).resolves.toBe('D:/configs')
+            await expect(service.getSourcePaths()).resolves.toEqual(['D:/configs'])
+        })
+
+        it('refuses a folder with no kubeconfig in it', async () => {
+            transport.files.set('D:/notes/todo.txt', 'buy milk')
+
+            const failure = await service.addSource('D:/notes', 'file', 5).catch(err => err)
+
+            expect((failure as ApiError).message).toContain('No kubeconfig contexts')
         })
 
         it('refuses a file that is not there', async () => {

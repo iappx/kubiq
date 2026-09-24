@@ -38,7 +38,7 @@ const (
 )
 
 func main() {
-	utils.InheritLoginShellPath()
+	utils.InheritLoginShellEnv()
 
 	kubeSessions := kube.NewSessionRegistry()
 	userData := openUserData()

@@ -233,6 +233,61 @@ func (a *IoService) ReadDir(path string) IOResult {
 	return IOResult{true, strings.Join(result, "|")}
 }
 
+func (a *IoService) ListDir(path string) DirListResult {
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return DirListResult{Error: err.Error()}
+	}
+
+	names, err := os.ReadDir(fullPath)
+	if err != nil {
+		return DirListResult{Error: err.Error()}
+	}
+
+	entries := []FileEntry{}
+
+	for _, name := range names {
+		entryPath := filepath.ToSlash(filepath.Join(fullPath, name.Name()))
+
+		// Stat rather than the directory entry, so a symlink reports what it points at.
+		info, err := os.Stat(entryPath)
+		if err != nil {
+			continue
+		}
+
+		entries = append(entries, fileEntryOf(entryPath, info))
+	}
+
+	return DirListResult{Success: true, Entries: entries}
+}
+
+func (a *IoService) Stat(path string) StatResult {
+	fullPath, err := utils.ResolvePath(path)
+	if err != nil {
+		return StatResult{Error: err.Error()}
+	}
+
+	info, err := os.Stat(fullPath)
+	if os.IsNotExist(err) {
+		return StatResult{Success: true}
+	}
+	if err != nil {
+		return StatResult{Error: err.Error()}
+	}
+
+	return StatResult{Success: true, Exists: true, Entry: fileEntryOf(fullPath, info)}
+}
+
+func fileEntryOf(path string, info os.FileInfo) FileEntry {
+	return FileEntry{
+		Path:       path,
+		Name:       info.Name(),
+		IsDir:      info.IsDir(),
+		Size:       info.Size(),
+		ModifiedAt: info.ModTime().UnixMilli(),
+	}
+}
+
 func (a *IoService) OpenDir(path string) IOResult {
 	fullPath, err := utils.ResolvePath(path)
 	if err != nil {

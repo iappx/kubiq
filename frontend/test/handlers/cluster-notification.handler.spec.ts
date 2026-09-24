@@ -4,6 +4,7 @@ import { ClusterNotificationHandler } from '@/application/handlers/cluster/Clust
 import { ClusterConnectedEvent } from '@/domain/events/cluster/ClusterConnectedEvent'
 import { ClusterDisconnectedEvent } from '@/domain/events/cluster/ClusterDisconnectedEvent'
 import { ClusterRemovedEvent } from '@/domain/events/cluster/ClusterRemovedEvent'
+import { KubeconfigSkippedEvent } from '@/domain/events/cluster/KubeconfigSkippedEvent'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { ToastStore } from '@/store/modules/toast/ToastStore'
 
@@ -59,5 +60,23 @@ describe('ClusterNotificationHandler', () => {
         eventBus.emitEvent(new ClusterRemovedEvent('D:/work/gone.yaml', [], false))
 
         expect(toasts.items[0].message).toBe('Removed kubeconfig')
+    })
+
+    it('warns about a skipped kubeconfig and points at the spot', () => {
+        eventBus.emitEvent(new KubeconfigSkippedEvent(
+            '/home/tester/.kube/staging',
+            'The kubeconfig file could not be read',
+            '/home/tester/.kube/staging — YAML syntax error at line 3, column 1',
+        ))
+
+        expect(toasts.items[0].type).toBe('warning')
+        expect(toasts.items[0].message).toBe('The kubeconfig file could not be read — Kubiq skipped it')
+        expect(toasts.items[0].description).toBe('/home/tester/.kube/staging — YAML syntax error at line 3, column 1')
+    })
+
+    it('names the skipped file when the reason came without details', () => {
+        eventBus.emitEvent(new KubeconfigSkippedEvent('/home/tester/.kube/staging', 'Could not load the data', ''))
+
+        expect(toasts.items[0].description).toBe('/home/tester/.kube/staging')
     })
 })

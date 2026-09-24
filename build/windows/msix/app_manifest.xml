@@ -10,7 +10,7 @@
   <Identity
     Name="com.iappx.kubiq"
     Publisher="CN=IAPPX"
-    Version="0.5.0.0"
+    Version="0.6.0.0"
     ProcessorArchitecture="x64" />
 
   <Properties>

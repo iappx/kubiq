@@ -7,6 +7,9 @@ export {
 };
 
 export {
+    DirListResult,
+    FileEntry,
     IOOptions,
-    IOResult
+    IOResult,
+    StatResult
 } from "./models.js";

@@ -125,7 +125,7 @@ describe('ClusterConnectionService', () => {
         it('describes every context the user can choose from', async () => {
             variables.KUBECONFIG = `${HOME_CONFIG};${WORK_CONFIG}`
 
-            const list = await service.listContexts()
+            const { contexts: list } = await service.readCatalog()
 
             expect(list.map(context => context.name)).toEqual(['prod', 'staging', 'shared', 'lab'])
             expect(list[0]).toEqual({
@@ -144,7 +144,7 @@ describe('ClusterConnectionService', () => {
         it('marks the context of a file that names none as not current', async () => {
             variables.KUBECONFIG = `${HOME_CONFIG};${WORK_CONFIG}`
 
-            const list = await service.listContexts()
+            const { contexts: list } = await service.readCatalog()
 
             expect(list.filter(context => context.isCurrent).map(context => context.name)).toEqual(['prod'])
         })
@@ -152,16 +152,17 @@ describe('ClusterConnectionService', () => {
         it('falls back to the default namespace in the list', async () => {
             variables.KUBECONFIG = HOME_CONFIG
 
-            const list = await service.listContexts()
+            const { contexts: list } = await service.readCatalog()
 
             expect(list.find(context => context.name === 'staging')?.namespace).toBe('default')
         })
 
         it('says which contexts it cannot use and why', async () => {
             variables.KUBECONFIG = WORK_CONFIG
+            transport.files.delete(HOME_CONFIG)
             transport.files.set(WORK_CONFIG, KubeconfigFixtures.withPlugins())
 
-            const list = await service.listContexts()
+            const { contexts: list } = await service.readCatalog()
 
             expect(list.map(context => context.isSupported)).toEqual([false, false])
             expect(list[0].unsupportedReason).toContain('later version')
@@ -169,9 +170,19 @@ describe('ClusterConnectionService', () => {
         })
 
         it('reads the extra kubeconfig files it is handed', async () => {
-            const list = await service.listContexts([WORK_CONFIG])
+            const { contexts: list } = await service.readCatalog([WORK_CONFIG])
 
             expect(list.map(context => context.name)).toContain('lab')
+        })
+
+        it('hands back the files it had to skip along with the contexts', async () => {
+            variables.KUBECONFIG = `${HOME_CONFIG};${WORK_CONFIG}`
+            transport.files.set(WORK_CONFIG, KubeconfigFixtures.broken())
+
+            const catalog = await service.readCatalog()
+
+            expect(catalog.contexts.map(context => context.name)).toEqual(['prod', 'staging', 'shared'])
+            expect(catalog.problems.map(problem => problem.path)).toEqual([WORK_CONFIG])
         })
     })
 
