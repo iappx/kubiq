@@ -177,9 +177,52 @@ jobs:
           TAG: ${{ needs.prepare.outputs.tag }}
         run: gh release upload "$TAG" dist/* --clobber
 
+  macos:
+    name: macOS
+    needs: prepare
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install the Wails CLI pinned by go.mod
+        run: |
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Configure the frontend environment
+        run: cp frontend/.env.example frontend/.env
+
+      - name: Build the universal app bundle
+        run: wails3 task darwin:package:universal
+
+      - name: Run the Go suite
+        run: go test ./core/...
+
+      - name: Name the artifacts after the release
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          mkdir -p dist
+          cp bin/release/kubiq.zip "dist/kubiq-$VERSION-darwin-universal.zip"
+
+      - name: Attach them to the draft release
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload "$TAG" dist/* --clobber
+
   publish:
     name: Publish
-    needs: [prepare, windows, linux]
+    needs: [prepare, windows, linux, macos]
     runs-on: ubuntu-24.04
     steps:
       - name: Publish the release and create its tag
@@ -189,8 +232,8 @@ jobs:
 
   discard:
     name: Discard the draft
-    needs: [prepare, windows, linux]
-    if: always() && needs.prepare.result == 'success' && (needs.windows.result != 'success' || needs.linux.result != 'success')
+    needs: [prepare, windows, linux, macos]
+    if: always() && needs.prepare.result == 'success' && (needs.windows.result != 'success' || needs.linux.result != 'success' || needs.macos.result != 'success')
     runs-on: ubuntu-24.04
     steps:
       - name: Delete the draft left by the failed run

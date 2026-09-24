@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-latest]
+        os: [ubuntu-24.04, windows-latest, macos-26]
     steps:
       - uses: actions/checkout@v7
 
@@ -52,6 +52,61 @@ jobs:
       - run: go vet ./core/... .
       - run: go test ./core/...
       - run: go build ./core/... .
+
+  macos-app:
+    name: macOS app (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-26-intel]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install the Wails CLI pinned by go.mod
+        run: |
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Configure the frontend environment
+        run: cp frontend/.env.example frontend/.env
+
+      - name: Build the app bundle
+        run: |
+          wails3 task darwin:package
+          wails3 task darwin:create:zip
+
+      - name: Start the app and check that it keeps running
+        run: |
+          open -n bin/release/kubiq.app
+          sleep 20
+          screencapture -x smoke.png || echo "::warning::screencapture failed"
+          if ! pgrep -x kubiq >/dev/null; then
+            echo "::error::kubiq exited within 20 seconds of starting"
+            log show --last 2m --style compact --predicate 'process == "kubiq"' || true
+            exit 1
+          fi
+          pkill -x kubiq
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: kubiq-${{ matrix.os }}
+          path: |
+            bin/release/kubiq.zip
+            smoke.png
+          if-no-files-found: ignore
+          retention-days: 7
 
   frontend:
     name: Frontend

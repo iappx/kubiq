@@ -64,16 +64,16 @@ Verify work the way this repository already supports:
 
 If a change has UI consequences these checks cannot confirm, **say so plainly in the summary** ("built and typechecked, not looked at") and offer to run the app — do not run it on your own initiative. Permission is per request: "run it" today is not "run it whenever".
 
-`.github/workflows/ci.yml` runs the same checks on every push and pull request: the Go suite on Windows and Linux, and the frontend's lint, types, tests and bundle. It is the floor, not a substitute — run the checks yourself before reporting work finished.
+`.github/workflows/ci.yml` runs the same checks on every push and pull request: the Go suite on Windows, Linux and macOS, the frontend's lint, types, tests and bundle, and a macOS smoke run that builds the `.app` on Apple Silicon and Intel, starts it and checks it is still running. It is the floor, not a substitute — run the checks yourself before reporting work finished.
 
 ## Versioning and releases
 
-**The `VERSION` file at the root is the version.** Nine build files repeat it — `build/config.yml`, `build/windows/info.json`, `build/windows/nsis/wails_tools.nsh`, `build/windows/wails.exe.manifest`, both MSIX manifests, `build/linux/nfpm/nfpm.yaml`, `frontend/package.json` and its lock file.
+**The `VERSION` file at the root is the version.** Eleven build files repeat it — `build/config.yml`, `build/windows/info.json`, `build/windows/nsis/wails_tools.nsh`, `build/windows/wails.exe.manifest`, both MSIX manifests, `build/darwin/Info.plist` and `build/darwin/Info.dev.plist`, `build/linux/nfpm/nfpm.yaml`, `frontend/package.json` and its lock file.
 
-- **Never edit a version by hand, in any of those files.** Change `VERSION` alone: `.githooks/pre-commit` writes the number into the other nine and adds them to the same commit, so the two can never be committed apart. `wails3 task setup:hooks` installs the hook, once per clone.
+- **Never edit a version by hand, in any of those files.** Change `VERSION` alone: `.githooks/pre-commit` writes the number into the other eleven and adds them to the same commit, so the two can never be committed apart. `wails3 task setup:hooks` installs the hook, once per clone.
 - Outside a commit the same job is `bash .github/scripts/version.sh set <major.minor.patch>`, and `bash .github/scripts/version.sh check` verifies the files and fails CI when they disagree. A new file that carries the version is added to the `targets` list at the top of that script.
 - A version is three numbers. Suffixes (`-rc.1`) are rejected: the MSIX manifests cannot express them.
-- **Pushing a changed `VERSION` to `main` publishes a release.** `.github/workflows/release.yml` builds Windows and Linux, attaches the artifacts to a draft release, and publishing that draft creates the `v<VERSION>` tag.
+- **Pushing a changed `VERSION` to `main` publishes a release.** `.github/workflows/release.yml` builds Windows, Linux and a universal macOS app, attaches the artifacts to a draft release, and publishing that draft creates the `v<VERSION>` tag.
 
 ### Every commit bumps the version
 
@@ -87,7 +87,7 @@ If a change has UI consequences these checks cannot confirm, **say so plainly in
 
 - **Never raise major on your own judgement.** A change that looks breaking still gets minor — raise the question in the summary instead.
 - **One bump per commit, counted from the version in `HEAD`.** A working tree that already carries a bump over `HEAD` is not bumped again; if the pending change has grown from a fix into a feature, turn the patch bump into a minor one.
-- Change `VERSION` alone, as above — the hook carries the number into the other nine files at commit time.
+- Change `VERSION` alone, as above — the hook carries the number into the other eleven files at commit time.
 - Because a changed `VERSION` on `main` publishes a release, every commit that reaches `main` becomes a release.
 
 ---

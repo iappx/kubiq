@@ -13,7 +13,6 @@ vendor/
 # ── Wails3 ──────────────────────────────────────────────────────────────────
 build/linux/appimage/build/
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
-build/darwin/
 build/android/
 build/ios/
 

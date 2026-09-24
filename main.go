@@ -16,6 +16,7 @@ import (
 	"iappx_k8s_admin/core/services/process"
 	"iappx_k8s_admin/core/services/storage"
 	"iappx_k8s_admin/core/tray"
+	"iappx_k8s_admin/core/utils"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -37,6 +38,8 @@ const (
 )
 
 func main() {
+	utils.InheritLoginShellPath()
+
 	kubeSessions := kube.NewSessionRegistry()
 	userData := openUserData()
 	appJournal := openJournal(userData)
@@ -66,16 +69,11 @@ func main() {
 	})
 
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:     appName,
-		Width:     windowWidth,
-		Height:    windowHeight,
-		MinWidth:  minWindowWidth,
-		MinHeight: minWindowHeight,
-		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 50,
-			Backdrop:                application.MacBackdropTranslucent,
-			TitleBar:                application.MacTitleBarHiddenInset,
-		},
+		Title:            appName,
+		Width:            windowWidth,
+		Height:           windowHeight,
+		MinWidth:         minWindowWidth,
+		MinHeight:        minWindowHeight,
 		BackgroundColour: application.NewRGB(21, 27, 30),
 		URL:              "/",
 		// The native background would flash before the page paints its splash in the stored theme.

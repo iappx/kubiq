@@ -4,11 +4,9 @@ includes:
   common: ./build/Taskfile.yml
   windows: ./build/windows/Taskfile.yml
   linux: ./build/linux/Taskfile.yml
+  darwin: ./build/darwin/Taskfile.yml
   # Assets for these platforms are not generated in this project; without
   # `optional` a missing file makes Task refuse to load the whole Taskfile.
-  darwin:
-    taskfile: ./build/darwin/Taskfile.yml
-    optional: true
   ios:
     taskfile: ./build/ios/Taskfile.yml
     optional: true

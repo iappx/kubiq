@@ -17,7 +17,7 @@ One native application, no browser tab, nothing to install in your cluster.
 ![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vuedotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-6b7280)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-6b7280)
 
 [Why](#why-another-kubernetes-console) ·
 [What you get](#what-you-get) ·
@@ -301,7 +301,8 @@ what the user sees. A blank screen with no explanation is the one outcome that i
 ### What is stored, and where
 
 Nothing leaves your machine. Settings and the journal live in your user profile
-(`%AppData%\kubiq` on Windows, `$XDG_CONFIG_HOME/kubiq` on Linux), directories created `0700` and
+(`%AppData%\kubiq` on Windows, `$XDG_CONFIG_HOME/kubiq` on Linux,
+`~/Library/Application Support/kubiq` on macOS), directories created `0700` and
 files `0600`. Kubeconfig files are read in place and never copied, rewritten or uploaded. The
 journal redacts before it writes. A development build — anything compiled without the `production`
 tag the release tasks pass — keeps its data in `kubiq-dev` instead, so it never touches the
@@ -321,8 +322,8 @@ running. A version you skip is not announced again.
 
 Under the hood the release is an entity read through `@iappx/entity-repo-rest`, like every other
 collection, while the Go side only streams a file to disk with its digest and starts a program.
-Installing in place needs a copy set up by the installer; a plain `.exe`, a Linux package or a
-development build gets a link to the release page instead.
+Installing in place needs a copy set up by the installer; a plain `.exe`, a Linux package, the
+macOS app or a development build gets a link to the release page instead.
 
 ---
 
@@ -343,9 +344,21 @@ development build gets a link to the release page instead.
 ## Getting started
 
 Every release ships a Windows installer and a plain `.exe`, and for Linux an `amd64` binary with
-`.deb` and `.rpm` packages — on the [releases page](https://github.com/iappx/kubiq/releases). The
+`.deb` and `.rpm` packages, and for macOS a universal `.app` (Apple Silicon and Intel, macOS 12+)
+in a `.zip` — on the [releases page](https://github.com/iappx/kubiq/releases). The Windows
 installer sets kubiq up for the current user under `%LocalAppData%\Programs\kubiq` and asks for no
 administrator rights; only a copy installed this way can update itself.
+
+The macOS app is signed ad hoc, not with an Apple Developer ID, so Gatekeeper refuses the first
+launch of a downloaded copy. Move `kubiq.app` to `/Applications` and either allow it under
+**System Settings → Privacy & Security → Open Anyway**, or clear the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/kubiq.app
+```
+
+Started from Finder or the Dock, kubiq takes `PATH` from your login shell, so `kubectl` and `helm`
+installed with Homebrew are found the same way a terminal finds them.
 
 To build it from source you will need
 [Go 1.25+](https://go.dev/dl/), [Node 22+](https://nodejs.org/) and the
@@ -374,7 +387,8 @@ wails3 task dev
 ```
 
 `wails3 task build` produces a binary for the current OS in `bin/`, and `wails3 task package`
-builds the installer — NSIS or MSIX on Windows, AppImage or an nfpm package on Linux.
+builds the installer — NSIS or MSIX on Windows, AppImage or an nfpm package on Linux, an ad-hoc
+signed `.app` on macOS (`wails3 task darwin:package:universal` for both architectures and a `.zip`).
 
 kubiq needs nothing installed in the cluster, and no CLI to browse one: lists, watches, `exec`,
 port forwarding and node shells all speak to the API server directly. Two optional tools widen
@@ -453,19 +467,21 @@ Application identity — name, company, description, identifier — lives in `bu
 `frontend/.env`, and the palette is the `--primary` / `--accent` / `--ring` tokens in
 `frontend/src/assets/styles/css/index.css`.
 
-**Releases.** The version is the `VERSION` file at the root, and nine build files repeat it —
-`build/config.yml`, the Windows resource, installer and MSIX manifests, the nfpm config and
-`package.json` with its lock. Edit `VERSION` and nothing else: the `.githooks/pre-commit` hook
-writes the number into all nine and adds them to the same commit, so the version can never be
+**Releases.** The version is the `VERSION` file at the root, and eleven build files repeat it —
+`build/config.yml`, the Windows resource, installer and MSIX manifests, both macOS `Info.plist`
+files, the nfpm config and `package.json` with its lock. Edit `VERSION` and nothing else: the
+`.githooks/pre-commit` hook writes the number into all eleven and adds them to the same commit, so the version can never be
 half-applied. Install it once per clone with `wails3 task setup:hooks`;
 `.github/scripts/version.sh set <x.y.z>` does the same by hand, and `… check` fails the build when
 the files disagree. Pushing a changed `VERSION` to `main` runs
-[the release workflow](.github/workflows/release.yml): it builds Windows and Linux on GitHub
+[the release workflow](.github/workflows/release.yml): it builds Windows, Linux and macOS on GitHub
 runners, attaches the artifacts to a draft release, and publishing that draft is what creates the
 `v<VERSION>` tag. The in-app update finds its installer by the `-windows-<arch>-installer.exe` end
 of the asset name, so keep that suffix if the workflow ever renames its artifacts. Every other push
-and pull request runs [the checks](.github/workflows/ci.yml) — the Go suite on Windows and Linux, and the frontend's
-lint, types, tests and bundle.
+and pull request runs [the checks](.github/workflows/ci.yml) — the Go suite on Windows, Linux and
+macOS, the frontend's lint, types, tests and bundle, and a macOS smoke run that builds the `.app` on
+Apple Silicon and on Intel, starts it, checks it is still running 20 seconds later and keeps the
+zipped app and a screenshot as run artifacts for a week.
 
 The rules every change in this repository follows are in [CLAUDE.md](CLAUDE.md); the interface
 brief every screen follows is in [.ai/ui-ux.md](.ai/ui-ux.md).
