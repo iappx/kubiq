@@ -191,3 +191,129 @@ describe('ResourceDetailService.relations', () => {
         expect(groups.map(group => group.title)).toContain(ResourceDetailService.claimsTitle)
     })
 })
+
+describe('ResourceDetailService.referrers', () => {
+    const configMaps = KubeResourceRegistry.find('', 'configmaps')!
+    const secrets = KubeResourceRegistry.find('', 'secrets')!
+    const deployments = KubeResourceRegistry.find('apps', 'deployments')!
+    const daemonSets = KubeResourceRegistry.find('apps', 'daemonsets')!
+    const serviceAccounts = KubeResourceRegistry.find('', 'serviceaccounts')!
+    const ingresses = KubeResourceRegistry.find('networking.k8s.io', 'ingresses')!
+
+    const configMap = { apiVersion: 'v1', kind: 'ConfigMap', metadata: { name: 'cilium-config', namespace: 'kube-system', uid: 'cm-1' } }
+    const secret = { apiVersion: 'v1', kind: 'Secret', metadata: { name: 'web-tls', namespace: 'shop', uid: 'sec-1' } }
+
+    const podSpec = (spec: Record<string, unknown>) => ({ containers: [{ name: 'agent', image: 'agent:1' }], ...spec })
+
+    beforeEach(() => {
+        transport.reset()
+        const yamlService = new ResourceYamlService(connectionService, new KubeObjectAdapter(contexts))
+        service = new ResourceDetailService(yamlService, new ResourceListService(connectionService))
+    })
+
+    it('finds the deployment, daemon set and pods that read a config map, one group per kind', async () => {
+        transport.answerWith({
+            items: [
+                { metadata: { uid: 'd-1', name: 'cilium-operator', namespace: 'kube-system' }, spec: { template: { spec: podSpec({ volumes: [{ name: 'c', configMap: { name: 'cilium-config' } }] }) } } },
+                { metadata: { uid: 'd-2', name: 'coredns', namespace: 'kube-system' }, spec: { template: { spec: podSpec({}) } } },
+            ],
+        })
+        transport.answerWith({
+            items: [{
+                metadata: { uid: 'ds-1', name: 'cilium', namespace: 'kube-system' },
+                spec: { template: { spec: podSpec({ initContainers: [{ name: 'init', envFrom: [{ configMapRef: { name: 'cilium-config' } }] }] }) } },
+            }],
+        })
+        transport.answerWith({
+            items: [
+                { metadata: { uid: 'p-1', name: 'cilium-abcde', namespace: 'kube-system' }, spec: podSpec({ volumes: [{ name: 'c', configMap: { name: 'cilium-config' } }] }) },
+                { metadata: { uid: 'p-2', name: 'coredns-xyz', namespace: 'kube-system' }, spec: podSpec({}) },
+            ],
+        })
+
+        const groups = await service.referrers({
+            clusterId: 'prod',
+            kind: configMaps,
+            object: configMap,
+            served: [configMaps, deployments, daemonSets, pods],
+        })
+
+        expect(groups.map(group => group.title)).toEqual([
+            'Referenced by Deployments',
+            'Referenced by Daemon Sets',
+            'Referenced by Pods',
+        ])
+        expect(groups.map(group => group.objects.map(object => object.name))).toEqual([
+            ['cilium-operator'],
+            ['cilium'],
+            ['cilium-abcde'],
+        ])
+        expect(groups[1].objects[0]).toMatchObject({ kindName: 'DaemonSet', namespace: 'kube-system', kind: daemonSets, detail: 'envFrom' })
+    })
+
+    it('lists every candidate kind in the object namespace only', async () => {
+        await service.referrers({
+            clusterId: 'prod',
+            kind: configMaps,
+            object: configMap,
+            served: [configMaps, deployments, daemonSets, pods],
+        })
+
+        expect(transport.requests.map(sent => sent.url)).toEqual([
+            '/apis/apps/v1/namespaces/kube-system/deployments',
+            '/apis/apps/v1/namespaces/kube-system/daemonsets',
+            '/api/v1/namespaces/kube-system/pods',
+        ])
+    })
+
+    it('finds the service account and the ingress that name a secret', async () => {
+        transport.answerWith({ items: [] })
+        transport.answerWith({
+            items: [
+                { metadata: { uid: 'sa-1', name: 'web', namespace: 'shop' }, imagePullSecrets: [{ name: 'web-tls' }] },
+                { metadata: { uid: 'sa-2', name: 'default', namespace: 'shop' }, secrets: [{ name: 'default-token' }] },
+            ],
+        })
+        transport.answerWith({
+            items: [{ metadata: { uid: 'i-1', name: 'storefront', namespace: 'shop' }, spec: { tls: [{ secretName: 'web-tls' }] } }],
+        })
+
+        const groups = await service.referrers({
+            clusterId: 'prod',
+            kind: secrets,
+            object: secret,
+            served: [secrets, pods, serviceAccounts, ingresses],
+        })
+
+        expect(groups.map(group => `${group.title}: ${group.objects.map(object => `${object.name} (${object.detail})`).join(', ')}`)).toEqual([
+            'Referenced by Service Accounts: web (imagePullSecrets)',
+            'Referenced by Ingresses: storefront (TLS)',
+        ])
+    })
+
+    it('keeps the kinds it could list when another kind is refused', async () => {
+        transport.failWith(new ApiError('Denied', 'Forbidden', 403))
+        transport.answerWith({
+            items: [{ metadata: { uid: 'p-1', name: 'cilium-abcde', namespace: 'kube-system' }, spec: podSpec({ volumes: [{ name: 'c', configMap: { name: 'cilium-config' } }] }) }],
+        })
+
+        const groups = await service.referrers({ clusterId: 'prod', kind: configMaps, object: configMap, served: [deployments, pods] })
+
+        expect(groups.map(group => group.title)).toEqual(['Referenced by Pods'])
+    })
+
+    it('asks nothing for an object that is neither a config map nor a secret', async () => {
+        expect(await service.referrers(request)).toEqual([])
+        expect(transport.requests).toHaveLength(0)
+    })
+
+    it('adds the referrers to the relations of a config map', async () => {
+        transport.answerWith({
+            items: [{ metadata: { uid: 'p-1', name: 'cilium-abcde', namespace: 'kube-system' }, spec: podSpec({ volumes: [{ name: 'c', configMap: { name: 'cilium-config' } }] }) }],
+        })
+
+        const groups = await service.relations({ clusterId: 'prod', kind: configMaps, object: configMap, served: [pods] })
+
+        expect(groups.map(group => group.title)).toEqual(['Referenced by Pods'])
+    })
+})

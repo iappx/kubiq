@@ -7,5 +7,6 @@ export type TClusterMenuItem = {
     slug: string
     group: string
     section: TKubeSection
+    order?: number
     namespaced: boolean
 }

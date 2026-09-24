@@ -23,6 +23,7 @@ export class ClusterSectionBuilder {
             slug: kind.slug,
             group: kind.group,
             section: kind.section,
+            order: kind.order,
             namespaced: kind.namespaced,
         }
     }
@@ -50,7 +51,7 @@ export class ClusterSectionBuilder {
         const title = KubeSectionCatalog.title(key)
 
         if (key !== KubeSectionCatalog.custom) {
-            return { key, title, items: ClusterSectionBuilder.sort(items), groups: [] }
+            return { key, title, items: ClusterSectionBuilder.sortByOrder(items), groups: [] }
         }
 
         const groups = ClusterSectionBuilder.subGroups(items)
@@ -72,7 +73,7 @@ export class ClusterSectionBuilder {
             .map(([group, members]) => ({
                 key: `group:${group}`,
                 title: group.length > 0 ? group : ClusterSectionBuilder.coreGroupTitle,
-                items: ClusterSectionBuilder.sort(members),
+                items: ClusterSectionBuilder.sortByTitle(members),
             }))
     }
 
@@ -100,7 +101,25 @@ export class ClusterSectionBuilder {
         return bySection
     }
 
-    private static sort(items: TClusterMenuItem[]): TClusterMenuItem[] {
+    private static sortByOrder(items: TClusterMenuItem[]): TClusterMenuItem[] {
+        return [...items].sort((a, b) => ClusterSectionBuilder.compareOrder(a.order, b.order) || a.title.localeCompare(b.title))
+    }
+
+    private static sortByTitle(items: TClusterMenuItem[]): TClusterMenuItem[] {
         return [...items].sort((a, b) => a.title.localeCompare(b.title))
+    }
+
+    private static compareOrder(left: number | undefined, right: number | undefined): number {
+        if (left === right) {
+            return 0
+        }
+        if (left === undefined) {
+            return 1
+        }
+        if (right === undefined) {
+            return -1
+        }
+
+        return left - right
     }
 }

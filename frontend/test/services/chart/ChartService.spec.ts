@@ -4,6 +4,13 @@ import { ChartTokens } from '@/application/services/chart/constants/ChartTokens'
 import { ChartTheme } from '@/application/services/chart/models/ChartTheme'
 import { CssTokenAdapter } from '@/infrastructure/theme/CssTokenAdapter'
 
+const stylesheet = vi.hoisted(() => ({ loads: 0 }))
+
+vi.mock('uplot/dist/uPlot.min.css', () => {
+    stylesheet.loads += 1
+    return {}
+})
+
 const values: Record<string, string> = {
     '--muted-foreground': '200 9% 46%',
     '--border': '200 16% 88%',
@@ -84,5 +91,12 @@ describe('ChartService', () => {
 
         expect(typeof first).toBe('function')
         expect(second).toBe(first)
+    })
+
+    // Without it the canvas keeps its backing-store size as its CSS size: twice the card at DPR 2.
+    it('brings the stylesheet that sizes the canvas in CSS pixels along with the library', async () => {
+        await service.load()
+
+        expect(stylesheet.loads).toBe(1)
     })
 })

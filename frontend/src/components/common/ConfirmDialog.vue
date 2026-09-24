@@ -41,7 +41,7 @@
                 type="button"
                 @click="$emit('cancel')"
             >
-              Cancel
+              {{ cancelLabel }}
             </button>
             <button
                 :class="variant === 'danger' ? 'btn-danger' : 'btn-primary'"
@@ -83,6 +83,9 @@ export default class ConfirmDialog extends ModalShellBase {
 
   @Prop({ required: false, default: 'Delete' })
   public readonly confirmLabel?: string
+
+  @Prop({ required: false, default: 'Cancel' })
+  public readonly cancelLabel?: string
 
   @Prop({ required: false, default: 'danger' })
   public readonly variant?: 'danger' | 'warning'

@@ -4,4 +4,6 @@ export class ResourceRelationLimits {
     public static readonly maxOwnerHops: number = 4
 
     public static readonly maxRelatedServices: number = 500
+
+    public static readonly maxReferenceCandidates: number = 500
 }

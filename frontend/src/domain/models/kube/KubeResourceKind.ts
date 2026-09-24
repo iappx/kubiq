@@ -19,6 +19,8 @@ export class KubeResourceKind {
 
     public readonly section: TKubeSection
 
+    public readonly order: number | undefined
+
     public readonly icon: string
 
     public readonly columns: TKubeColumn[]
@@ -35,6 +37,7 @@ export class KubeResourceKind {
         this.title = definition.title
         this.namespaced = definition.namespaced
         this.section = definition.section
+        this.order = definition.order
         this.icon = definition.icon
         this.columns = [...definition.columns]
         this.verbs = [...definition.verbs]
@@ -128,6 +131,7 @@ export class KubeResourceKind {
             title: this.title,
             namespaced: this.namespaced,
             section: this.section,
+            order: this.order,
             icon: this.icon,
             columns: this.columns,
             verbs: this.verbs,

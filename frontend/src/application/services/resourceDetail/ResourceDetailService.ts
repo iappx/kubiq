@@ -5,8 +5,17 @@ import { ResourceRelationLimits } from '@/application/services/resourceDetail/co
 import type { TRelatedGroup } from '@/application/services/resourceDetail/types/TRelatedGroup'
 import type { TRelatedObject } from '@/application/services/resourceDetail/types/TRelatedObject'
 import type { TResourceRelationsRequest } from '@/application/services/resourceDetail/types/TResourceRelationsRequest'
-import { KubeKindLocator, KubeManifest, KubePodRelations, KubeResourceRegistry, KubeWorkloadCatalog } from '@/domain/models/kube'
+import {
+    KubeClusterCatalog,
+    KubeKindLocator,
+    KubeManifest,
+    KubePodRelations,
+    KubeResourceRegistry,
+    KubeWorkloadCatalog,
+} from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
+import { ConfigReferenceFinder, ConfigReferenceUseCatalog } from '@/domain/entities/config'
+import type { TConfigReferenceTarget } from '@/domain/entities/config'
 import type { TKubeLabels } from '@/domain/entities/kube'
 
 @injectable()
@@ -17,22 +26,42 @@ export class ResourceDetailService {
 
     public static readonly claimsTitle: string = 'Volume claims'
 
+    public static readonly referrersTitle: string = 'Referenced by'
+
     constructor(
         @inject(ResourceYamlService) private readonly yamlService: ResourceYamlService,
         @inject(ResourceListService) private readonly listService: ResourceListService,
     ) {}
 
     public async relations(request: TResourceRelationsRequest): Promise<TRelatedGroup[]> {
-        const [owners, services] = await Promise.all([
+        const [owners, services, referrers] = await Promise.all([
             this.owners(request),
             this.services(request),
+            this.referrers(request),
         ])
 
         return [
             { title: ResourceDetailService.ownersTitle, objects: owners },
             { title: ResourceDetailService.servicesTitle, objects: services },
             { title: ResourceDetailService.claimsTitle, objects: ResourceDetailService.claims(request) },
+            ...referrers,
         ].filter(group => group.objects.length > 0)
+    }
+
+    public async referrers(request: TResourceRelationsRequest): Promise<TRelatedGroup[]> {
+        const target = ResourceDetailService.referenceTargetOf(request)
+        const namespace = KubeManifest.namespaceOf(request.object)
+        if (!target || namespace === '') {
+            return []
+        }
+
+        const kinds = ConfigReferenceFinder.referrersOf(target.objectKind)
+            .map(referrer => KubeKindLocator.find(request.served, referrer.apiVersion, referrer.kind))
+            .filter((kind): kind is KubeResourceKind => kind !== undefined)
+
+        const groups = await Promise.all(kinds.map(kind => this.referrersOfKind(request.clusterId, kind, namespace, target)))
+
+        return groups.filter(group => group.objects.length > 0)
     }
 
     public async owners(request: TResourceRelationsRequest): Promise<TRelatedObject[]> {
@@ -125,6 +154,76 @@ export class ResourceDetailService {
             kind: claimsKind,
             detail: '',
         }))
+    }
+
+    private async referrersOfKind(
+        clusterId: string,
+        kind: KubeResourceKind,
+        namespace: string,
+        target: TConfigReferenceTarget,
+    ): Promise<TRelatedGroup> {
+        const listed = await this.tryListObjects(clusterId, kind, namespace)
+        const objects: TRelatedObject[] = []
+
+        for (const candidate of listed) {
+            const uses = ConfigReferenceFinder.usesIn(kind.kind, candidate.object, target)
+            if (uses.length === 0 || candidate.name === '') {
+                continue
+            }
+
+            objects.push({
+                key: `${kind.key}/${namespace}/${candidate.name}`,
+                kindName: kind.kind,
+                name: candidate.name,
+                namespace,
+                kind,
+                detail: ConfigReferenceUseCatalog.describe(uses),
+            })
+        }
+
+        return { title: `${ResourceDetailService.referrersTitle} ${kind.title}`, objects }
+    }
+
+    private async tryListObjects(
+        clusterId: string,
+        kind: KubeResourceKind,
+        namespace: string,
+    ): Promise<{ name: string; object: Record<string, unknown> }[]> {
+        try {
+            const result = await this.listService.list({
+                clusterId,
+                kind,
+                namespaces: [namespace],
+                limit: ResourceRelationLimits.maxReferenceCandidates,
+            })
+
+            return result.items.map((item) => {
+                const source = item as unknown as Record<string, unknown>
+
+                return {
+                    name: typeof source.name === 'string' ? source.name : '',
+                    object: {
+                        spec: source.spec,
+                        secrets: source.secrets,
+                        imagePullSecrets: source.imagePullSecrets,
+                    },
+                }
+            })
+        } catch {
+            return []
+        }
+    }
+
+    private static referenceTargetOf(request: TResourceRelationsRequest): TConfigReferenceTarget | null {
+        const name = KubeManifest.nameOf(request.object)
+        if (name === '') {
+            return null
+        }
+        if (KubeClusterCatalog.isSecret(request.kind)) {
+            return { objectKind: 'secret', name }
+        }
+
+        return KubeClusterCatalog.isConfigMap(request.kind) ? { objectKind: 'configMap', name } : null
     }
 
     private async tryRead(

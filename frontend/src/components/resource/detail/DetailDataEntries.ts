@@ -1,3 +1,4 @@
+import type { TResourceDataPair } from '@/application/services/resourceData/types/TResourceDataPair'
 import type { TDetailDataEntry } from '@/components/resource/detail/types/TDetailDataEntry'
 import { KubeDataMapReader } from '@/domain/entities/config'
 import type { TKubeDataMap } from '@/domain/entities/config'
@@ -30,6 +31,41 @@ export class DetailDataEntries {
 
     public static isPrintable(object: Record<string, unknown>, entry: TDetailDataEntry): boolean {
         return !entry.binary && KubeDataMapReader.isPrintable(DetailDataEntries.valueOf(object, entry))
+    }
+
+    public static isCopyable(object: Record<string, unknown>, entry: TDetailDataEntry): boolean {
+        if (entry.binary) {
+            return false
+        }
+
+        const value = DetailDataEntries.valueOf(object, entry)
+
+        return value === '' || KubeDataMapReader.isPrintable(value)
+    }
+
+    public static pairOf(object: Record<string, unknown>, entry: TDetailDataEntry): TResourceDataPair {
+        return { key: entry.key, value: DetailDataEntries.valueOf(object, entry) }
+    }
+
+    public static pairsOf(object: Record<string, unknown>, entries: readonly TDetailDataEntry[]): TResourceDataPair[] {
+        return entries
+            .filter(entry => DetailDataEntries.isCopyable(object, entry))
+            .map(entry => DetailDataEntries.pairOf(object, entry))
+    }
+
+    // A hidden value is never searched: a match would reveal part of it through the result.
+    public static filter(
+        object: Record<string, unknown>,
+        entries: readonly TDetailDataEntry[],
+        query: string,
+    ): TDetailDataEntry[] {
+        const needle = query.trim().toLowerCase()
+        if (needle === '') {
+            return [...entries]
+        }
+
+        return entries.filter(entry => entry.key.toLowerCase().includes(needle)
+            || (!entry.hidden && !entry.binary && DetailDataEntries.valueOf(object, entry).toLowerCase().includes(needle)))
     }
 
     private static fromField(

@@ -1,6 +1,7 @@
 <template>
   <ui-data-table
       :actions="actions"
+      :actions-of="actionsOf"
       :busy-keys="busyKeys"
       :columns="columns"
       :cursor="cursor"
@@ -75,6 +76,9 @@ export default class ResourceTable extends VueBase {
 
   @Prop({ required: false, default: () => [] })
   public readonly actions?: TUiMenuItem[]
+
+  @Prop({ required: false })
+  public readonly actionsOf?: (row: TResourceRow) => TUiMenuItem[]
 
   @Prop({ required: false, default: () => [] })
   public readonly selected?: string[]

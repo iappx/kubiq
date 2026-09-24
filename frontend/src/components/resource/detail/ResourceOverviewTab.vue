@@ -24,6 +24,12 @@
           @open="$emit('open', $event)"
       />
     </template>
+
+    <template v-if="hasDataMap">
+      <resource-metadata-tab :object="state.object" />
+
+      <resource-data-section :state="state" :target="target" />
+    </template>
   </div>
 </template>
 
@@ -31,6 +37,8 @@
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import ResourceConditionList from '@/components/resource/detail/ResourceConditionList.vue'
 import ResourceContainerList from '@/components/resource/detail/ResourceContainerList.vue'
+import ResourceDataSection from '@/components/resource/detail/ResourceDataSection.vue'
+import ResourceMetadataTab from '@/components/resource/detail/ResourceMetadataTab.vue'
 import ResourceMetricsSection from '@/components/resource/detail/ResourceMetricsSection.vue'
 import ResourceRelatedGroup from '@/components/resource/detail/ResourceRelatedGroup.vue'
 import ResourceRelatedSkeleton from '@/components/resource/detail/ResourceRelatedSkeleton.vue'
@@ -43,6 +51,7 @@ import { DetailTaints } from '@/components/resource/detail/DetailTaints'
 import type { TDetailCondition } from '@/components/resource/detail/types/TDetailCondition'
 import type { TDetailContainer } from '@/components/resource/detail/types/TDetailContainer'
 import type { TDetailTaint } from '@/components/resource/detail/types/TDetailTaint'
+import { KubeClusterCatalog } from '@/domain/models/kube'
 import type { TResourceObjectRef } from '@/store/modules/resourceObject/types/TResourceObjectRef'
 import type { TResourceObjectState } from '@/store/modules/resourceObject/types/TResourceObjectState'
 
@@ -50,6 +59,8 @@ import type { TResourceObjectState } from '@/store/modules/resourceObject/types/
   components: {
     ResourceConditionList,
     ResourceContainerList,
+    ResourceDataSection,
+    ResourceMetadataTab,
     ResourceMetricsSection,
     ResourceRelatedGroup,
     ResourceRelatedSkeleton,
@@ -67,6 +78,10 @@ export default class ResourceOverviewTab extends VueBase {
 
   public get hasMetrics(): boolean {
     return DetailTabs.hasMetrics(this.target.kind)
+  }
+
+  public get hasDataMap(): boolean {
+    return KubeClusterCatalog.hasDataMap(this.target.kind)
   }
 
   // A reload keeps the groups it already has on screen; only an empty panel gets the skeleton.

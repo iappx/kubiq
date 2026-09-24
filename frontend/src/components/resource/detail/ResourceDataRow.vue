@@ -1,7 +1,7 @@
 <template>
   <li class="space-y-1 rounded border border-border px-3 py-2">
     <div class="flex items-baseline gap-2">
-      <span class="min-w-0 flex-1 truncate text-xs font-medium text-foreground" :title="entry.key">
+      <span class="min-w-0 flex-1 truncate font-mono text-xs font-medium text-foreground" :title="entry.key">
         {{ entry.key }}
       </span>
 
@@ -18,6 +18,17 @@
         <eye-off v-if="revealed" :size="14" />
         <eye v-else :size="14" />
       </button>
+
+      <button
+          v-if="copyable"
+          :aria-label="copyLabel"
+          :title="copyLabel"
+          class="btn-icon h-6 w-6 shrink-0"
+          type="button"
+          @click="$emit('copy', entry)"
+      >
+        <copy :size="14" />
+      </button>
     </div>
 
     <p v-if="entry.binary" class="text-xs text-muted-foreground">
@@ -32,18 +43,19 @@
       This value is not printable text.
     </p>
 
-    <pre v-else class="max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs text-muted-foreground">{{ value }}</pre>
+    <pre v-else class="max-h-64 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-muted-foreground">{{ value }}</pre>
   </li>
 </template>
 
 <script lang="ts">
 import { Component, Prop, VueBase, Watch } from '@iappx/vue-facing-di'
-import { Eye, EyeOff } from '@lucide/vue'
+import { Copy, Eye, EyeOff } from '@lucide/vue'
 import { DetailDataEntries } from '@/components/resource/detail/DetailDataEntries'
 import type { TDetailDataEntry } from '@/components/resource/detail/types/TDetailDataEntry'
 
 @Component({
-  components: { Eye, EyeOff },
+  components: { Copy, Eye, EyeOff },
+  emits: ['copy'],
 })
 export default class ResourceDataRow extends VueBase {
   @Prop({ required: true })
@@ -68,6 +80,16 @@ export default class ResourceDataRow extends VueBase {
 
   public get sizeLabel(): string {
     return `${this.entry.size} B`
+  }
+
+  public get copyable(): boolean {
+    return DetailDataEntries.isCopyable(this.object, this.entry)
+  }
+
+  public get copyLabel(): string {
+    return this.entry.hidden
+      ? `Copy the decoded value of ${this.entry.key} to the clipboard`
+      : `Copy the value of ${this.entry.key} to the clipboard`
   }
 
   public get toggleLabel(): string {

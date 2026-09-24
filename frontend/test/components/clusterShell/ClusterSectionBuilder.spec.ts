@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ClusterSectionBuilder } from '@/components/clusterShell/ClusterSectionBuilder'
-import { KubeDiscovery, KubeResourceRegistry, KubeSectionCatalog } from '@/domain/models/kube'
+import { KubeDiscovery, KubeResourceKind, KubeResourceRegistry, KubeSectionCatalog } from '@/domain/models/kube'
 import type { TApiResourceListDocument } from '@/domain/models/kube'
 
 const coreList: TApiResourceListDocument = {
@@ -112,15 +112,51 @@ describe('ClusterSectionBuilder', () => {
         expect(titles(sections).sort()).toEqual(registry.map(kind => kind.title).sort())
     })
 
-    it('keeps the catalogue order between sections and sorts kinds inside one', () => {
+    it('keeps the catalogue order between sections', () => {
         const sections = ClusterSectionBuilder.build(KubeResourceRegistry.all())
         const order = sections.map(section => KubeSectionCatalog.orderOf(section.key))
 
         expect(order).toEqual([...order].sort((a, b) => a - b))
-        sections.forEach((section) => {
-            const names = section.items.map(item => item.title)
-            expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)))
+    })
+
+    it('orders the kinds of a section the way the registry lists them, not by name', () => {
+        const sections = ClusterSectionBuilder.build(KubeResourceRegistry.all())
+        const itemsOf = (key: string) => sections.find(section => section.key === key)?.items.map(item => item.title)
+
+        expect(itemsOf('workloads')).toEqual([
+            'Pods', 'Deployments', 'Daemon Sets', 'Stateful Sets', 'Replica Sets',
+            'Replication Controllers', 'Jobs', 'Cron Jobs',
+        ])
+        expect(itemsOf('config')).toEqual([
+            'Config Maps', 'Secrets', 'Resource Quotas', 'Limit Ranges', 'Horizontal Pod Autoscalers',
+            'Pod Disruption Budgets', 'Priority Classes', 'Runtime Classes', 'Leases',
+        ])
+        expect(itemsOf('network')).toEqual(['Services', 'Endpoints', 'Ingresses', 'Ingress Classes', 'Network Policies'])
+    })
+
+    it('puts a kind with no order at the end of its section, by name', () => {
+        const unordered = (resource: string, title: string) => new KubeResourceKind({
+            group: 'example.test', version: 'v1', resource, kind: title, title,
+            namespaced: true, section: 'workloads', icon: 'Box', columns: [], verbs: ['list'],
         })
+        const sections = ClusterSectionBuilder.build([
+            unordered('zebras', 'Zebras'),
+            ...discover([appsList, coreList]),
+            unordered('apples', 'Apples'),
+        ])
+        const workloads = sections.find(section => section.key === 'workloads')
+
+        expect(workloads?.items.map(item => item.title)).toEqual(['Pods', 'Deployments', 'Apples', 'Zebras'])
+    })
+
+    it('falls back to the name between two kinds of the same order', () => {
+        const pods = KubeResourceRegistry.find('', 'pods') as KubeResourceKind
+        const sections = ClusterSectionBuilder.build([
+            pods.withDefinition({ resource: 'zpods', title: 'Z pods' }),
+            pods.withDefinition({ resource: 'apods', title: 'A pods' }),
+        ])
+
+        expect(titles(sections)).toEqual(['A pods', 'Z pods'])
     })
 
     it('shows no section at all when the cluster serves nothing listable', () => {

@@ -1,10 +1,13 @@
-import { Ban, Cable, CircleCheck, Droplets, PanelRight, Play, RefreshCw, ScrollText, Scaling, SquareTerminal, Trash2 } from '@lucide/vue'
+import { Ban, Cable, CircleCheck, Droplets, FilePenLine, PanelRight, Play, RefreshCw, ScrollText, Scaling, SquareTerminal, Star, StarOff, Trash2 } from '@lucide/vue'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
-import { KubeClusterCatalog, KubeWorkloadCatalog } from '@/domain/models/kube'
+import type { TResourceRow } from '@/components/resource/types/TResourceRow'
+import { KubeClusterCatalog, KubeDefaultClassCatalog, KubeWorkloadCatalog } from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
 
 export class ResourceActions {
     public static readonly openKey: string = 'open'
+
+    public static readonly editYamlKey: string = 'edit-yaml'
 
     public static readonly logsKey: string = 'logs'
 
@@ -24,6 +27,10 @@ export class ResourceActions {
 
     public static readonly drainKey: string = 'drain'
 
+    public static readonly setDefaultKey: string = 'set-default'
+
+    public static readonly unsetDefaultKey: string = 'unset-default'
+
     public static readonly deleteKey: string = 'delete'
 
     public static of(kind: KubeResourceKind | null): TUiMenuItem[] {
@@ -34,6 +41,10 @@ export class ResourceActions {
         const items: TUiMenuItem[] = [
             { key: ResourceActions.openKey, label: 'View details', icon: PanelRight },
         ]
+
+        if (kind.canPatch || kind.canUpdate) {
+            items.push({ key: ResourceActions.editYamlKey, label: 'Edit YAML', icon: FilePenLine })
+        }
 
         if (KubeWorkloadCatalog.isPod(kind)) {
             items.push({ key: ResourceActions.logsKey, label: 'View logs', icon: ScrollText })
@@ -58,6 +69,10 @@ export class ResourceActions {
         if (KubeClusterCatalog.canDrain(kind)) {
             items.push({ key: ResourceActions.drainKey, label: 'Drain', icon: Droplets })
         }
+        if (KubeDefaultClassCatalog.canSetDefault(kind)) {
+            items.push({ key: ResourceActions.setDefaultKey, label: 'Set as default', icon: Star, separatorBefore: true })
+            items.push({ key: ResourceActions.unsetDefaultKey, label: 'Unset default', icon: StarOff, separatorBefore: true })
+        }
         if (kind.canDelete) {
             items.push({
                 key: ResourceActions.deleteKey,
@@ -69,5 +84,11 @@ export class ResourceActions {
         }
 
         return items
+    }
+
+    public static forRow(items: readonly TUiMenuItem[], row: TResourceRow): TUiMenuItem[] {
+        const hidden = row.isDefault === true ? ResourceActions.setDefaultKey : ResourceActions.unsetDefaultKey
+
+        return items.filter(item => item.key !== hidden)
     }
 }

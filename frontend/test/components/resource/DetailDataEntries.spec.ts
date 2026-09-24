@@ -57,11 +57,62 @@ describe('DetailDataEntries', () => {
     })
 })
 
+describe('DetailDataEntries filtering and copying', () => {
+    const settings = {
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: { name: 'settings', namespace: 'dev' },
+        data: { 'log.level': 'debug', 'app.conf': 'mode=fast\nport=8080\n', empty: '' },
+        binaryData: { blob: 'AAEC' },
+    }
+    const entries = DetailDataEntries.of(settings, kind('', 'configmaps'))
+    const keysOf = (found: { key: string }[]): string[] => found.map(entry => entry.key)
+
+    it('keeps every entry for an empty query', () => {
+        expect(keysOf(DetailDataEntries.filter(settings, entries, '  '))).toEqual(['app.conf', 'empty', 'log.level', 'blob'])
+    })
+
+    it('matches a config map key regardless of case', () => {
+        expect(keysOf(DetailDataEntries.filter(settings, entries, 'LOG'))).toEqual(['log.level'])
+    })
+
+    it('matches a config map value', () => {
+        expect(keysOf(DetailDataEntries.filter(settings, entries, '8080'))).toEqual(['app.conf'])
+    })
+
+    it('matches a secret by key but never by its hidden value', () => {
+        const secretEntries = DetailDataEntries.of(secret, kind('', 'secrets'))
+
+        expect(keysOf(DetailDataEntries.filter(secret, secretEntries, 'greet'))).toEqual(['greeting'])
+        expect(DetailDataEntries.filter(secret, secretEntries, 'hello')).toEqual([])
+    })
+
+    it('hands back the same entry objects so a row keeps its state while the filter changes', () => {
+        expect(DetailDataEntries.filter(settings, entries, 'log')[0]).toBe(entries[2])
+    })
+
+    it('copies text values, empty ones included, and leaves binary data out', () => {
+        expect(DetailDataEntries.pairsOf(settings, entries)).toEqual([
+            { key: 'app.conf', value: 'mode=fast\nport=8080\n' },
+            { key: 'empty', value: '' },
+            { key: 'log.level', value: 'debug' },
+        ])
+    })
+
+    it('copies a secret decoded', () => {
+        const [entry] = DetailDataEntries.of(secret, kind('', 'secrets'))
+
+        expect(DetailDataEntries.pairOf(secret, entry)).toEqual({ key: 'greeting', value: 'hello-world' })
+        expect(DetailDataEntries.isCopyable(secret, entry)).toBe(true)
+    })
+})
+
 describe('DetailTabs', () => {
-    it('gives a Data tab to config maps and secrets only', () => {
-        expect(DetailTabs.of(kind('', 'secrets')).map(tab => tab.key)).toContain(DetailTabs.dataKey)
-        expect(DetailTabs.of(kind('', 'configmaps')).map(tab => tab.key)).toContain(DetailTabs.dataKey)
-        expect(DetailTabs.of(kind('', 'pods')).map(tab => tab.key)).not.toContain(DetailTabs.dataKey)
+    it('shows the data of config maps and secrets on the overview rather than a tab of its own', () => {
+        expect(DetailTabs.of(kind('', 'secrets')).map(tab => tab.key))
+            .toEqual(['overview', 'details', 'metadata', 'events', 'yaml'])
+        expect(DetailTabs.of(kind('', 'configmaps')).map(tab => tab.key))
+            .toEqual(['overview', 'details', 'metadata', 'events', 'yaml'])
     })
 
     it('gives a Pods tab to nodes only', () => {

@@ -6,8 +6,6 @@ import type { KubeResourceKind } from '@/domain/models/kube'
 export class DetailTabs {
     public static readonly overviewKey: string = 'overview'
 
-    public static readonly dataKey: string = 'data'
-
     public static readonly podsKey: string = 'pods'
 
     public static readonly environmentKey: string = 'environment'
@@ -25,9 +23,6 @@ export class DetailTabs {
             { key: DetailTabs.overviewKey, label: 'Overview' },
         ]
 
-        if (kind && KubeClusterCatalog.hasDataMap(kind)) {
-            tabs.push({ key: DetailTabs.dataKey, label: 'Data' })
-        }
         if (kind && KubeClusterCatalog.isNode(kind)) {
             tabs.push({ key: DetailTabs.podsKey, label: 'Pods' })
         }

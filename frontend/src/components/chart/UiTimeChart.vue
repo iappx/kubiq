@@ -1,7 +1,7 @@
 <template>
   <figure class="ui-chart">
     <figcaption class="sr-only">{{ label }}</figcaption>
-    <div ref="host" class="ui-chart-host" />
+    <div ref="host" :style="{ height: `${height}px` }" class="ui-chart-host" />
     <ul v-if="series.length > 1" class="ui-chart-legend">
       <li v-for="(entry, index) in series" :key="entry.key" class="ui-chart-legend-item">
         <span :style="{ backgroundColor: colourAt(index) }" aria-hidden="true" class="ui-chart-swatch" />
@@ -154,69 +154,43 @@ export default class UiTimeChart extends VueBase {
 </script>
 
 <style scoped>
-/* uPlot builds its own DOM, so its structural rules live here instead of the
-   stylesheet the package ships — the colours have to come from the tokens. */
 .ui-chart-host {
-  width: 100%;
-}
-
-.ui-chart-host :deep(.u-wrap) {
   position: relative;
-  user-select: none;
-}
-
-.ui-chart-host :deep(.u-over),
-.ui-chart-host :deep(.u-under) {
-  position: absolute;
-}
-
-.ui-chart-host :deep(.u-under) {
+  width: 100%;
   overflow: hidden;
+}
+
+/* Out of flow so the fixed pixel width uPlot sets never widens the card and blocks a shrink. */
+.ui-chart-host :deep(.uplot) {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .ui-chart-host :deep(.u-over) {
   z-index: 1;
 }
 
-.ui-chart-host :deep(.u-axis) {
-  position: absolute;
-}
-
 .ui-chart-host :deep(.u-cursor-x),
 .ui-chart-host :deep(.u-cursor-y) {
-  position: absolute;
-  left: 0;
-  top: 0;
-  pointer-events: none;
-  will-change: transform;
   z-index: 100;
 }
 
 .ui-chart-host :deep(.u-hz .u-cursor-x) {
-  height: 100%;
   border-right: 1px dashed hsl(var(--border));
 }
 
 .ui-chart-host :deep(.u-hz .u-cursor-y) {
-  width: 100%;
   border-bottom: 1px dashed hsl(var(--border));
 }
 
 .ui-chart-host :deep(.u-cursor-pt) {
-  position: absolute;
-  top: 0;
-  left: 0;
-  border-radius: 50%;
   border: 1px solid hsl(var(--background));
-  pointer-events: none;
-  will-change: transform;
   z-index: 100;
 }
 
 .ui-chart-host :deep(.u-select) {
-  position: absolute;
   background: hsl(var(--primary) / 0.12);
-  pointer-events: none;
 }
 
 .ui-chart-host :deep(.u-cursor-pt),

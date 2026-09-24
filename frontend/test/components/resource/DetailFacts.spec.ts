@@ -155,7 +155,7 @@ describe('DetailTabs', () => {
 
         expect(DetailTabs.hasMetrics(secrets)).toBe(false)
         expect(DetailTabs.of(secrets).map(tab => tab.key))
-            .toEqual(['overview', 'data', 'details', 'metadata', 'events', 'yaml'])
+            .toEqual(['overview', 'details', 'metadata', 'events', 'yaml'])
     })
 
     it('answers whether a tab is there', () => {

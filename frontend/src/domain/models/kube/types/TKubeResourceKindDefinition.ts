@@ -10,6 +10,7 @@ export type TKubeResourceKindDefinition = {
     title: string
     namespaced: boolean
     section: TKubeSection
+    order?: number
     icon: string
     columns: TKubeColumn[]
     verbs: TKubeVerb[]

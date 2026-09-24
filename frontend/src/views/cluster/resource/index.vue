@@ -101,6 +101,7 @@
       <resource-table
           v-else
           :actions="actions"
+          :actions-of="rowActions"
           :busy-keys="busyKeys"
           :columns="columns"
           :cursor="cursor"
@@ -139,14 +140,17 @@
 
     <resource-detail-panel
         :active-tab="detailTab"
+        :default-busy="defaultBusy"
         :kind="kind"
         :row="selectedRow"
         :tabs="detailTabs"
         :width="uiStore.panelWidth"
-        @close="uiStore.closeDetail()"
+        @close="closeDetail"
         @delete="askDelete(selectedRow)"
         @forward="openPortForward(selectedRow)"
+        @set-default="changeDefault(selectedRow, true)"
         @shell="openShell(selectedRow)"
+        @unset-default="changeDefault(selectedRow, false)"
         @update:active-tab="selectTab($event)"
         @update:width="uiStore.setPanelWidth($event)"
     >
@@ -155,9 +159,16 @@
           :key="detailKey"
           :tab="detailTab"
           :target="detailTarget"
+          @cancel-edit="cancelYamlEdit"
           @open="openRelated"
       />
     </resource-detail-panel>
+
+    <resource-yaml-discard-dialog
+        :open="pendingLeave !== null"
+        @cancel="keepEditing"
+        @confirm="discardEdits"
+    />
 
     <create-resource-panel
         :cluster-id="clusterId"
@@ -198,6 +209,13 @@
         @confirm="confirmDrain"
     />
 
+    <default-class-dialog
+        :busy="acting"
+        :plan="pendingDefault"
+        @cancel="pendingDefault = null"
+        @confirm="confirmDefault"
+    />
+
     <create-namespace-dialog
         :busy="namespaceStore.creating"
         :open="creatingNamespace"
@@ -213,8 +231,10 @@ import { inject } from 'tsyringe'
 import type { RepoEntityBase } from '@iappx/entity-repo'
 import { CirclePlus, FilePlus2, Inbox, RefreshCw, Search } from '@lucide/vue'
 import type { Component as VueComponent } from 'vue'
+import type { RouteLocationNormalized } from 'vue-router'
 import CreateNamespaceDialog from '@/components/resource/CreateNamespaceDialog.vue'
 import CreateResourcePanel from '@/components/resource/CreateResourcePanel.vue'
+import DefaultClassDialog from '@/components/resource/DefaultClassDialog.vue'
 import DeleteResourceDialog from '@/components/resource/DeleteResourceDialog.vue'
 import DrainNodeDialog from '@/components/resource/DrainNodeDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -222,6 +242,7 @@ import EventScopeBar from '@/components/resource/EventScopeBar.vue'
 import ResourceDetailBody from '@/components/resource/detail/ResourceDetailBody.vue'
 import ResourceDetailPanel from '@/components/resource/ResourceDetailPanel.vue'
 import ResourceTable from '@/components/resource/ResourceTable.vue'
+import ResourceYamlDiscardDialog from '@/components/resource/detail/ResourceYamlDiscardDialog.vue'
 import ScaleWorkloadDialog from '@/components/resource/ScaleWorkloadDialog.vue'
 import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
@@ -242,12 +263,14 @@ import type { TResourceRow } from '@/components/resource/types/TResourceRow'
 import type { TRelatedObject } from '@/application/services/resourceDetail/types/TRelatedObject'
 import type { TResourceObjectRef } from '@/store/modules/resourceObject/types/TResourceObjectRef'
 import { ResourceObjectStore } from '@/store/modules/resourceObject/ResourceObjectStore'
+import { ResourceYamlEditStore } from '@/store/modules/resourceYamlEdit/ResourceYamlEditStore'
 import type { TUiTableColumn } from '@/components/common/table/types/TUiTableColumn'
 import type { TUiTableSort } from '@/components/common/table/types/TUiTableSort'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 import type { TResourceListRequest } from '@/application/services/resourceList/types/TResourceListRequest'
 import type { TResourceUsage } from '@/application/services/metrics/types/TResourceUsage'
 import type { TWorkloadTarget } from '@/application/services/workloadAction/types/TWorkloadTarget'
+import type { TDefaultClassPlan } from '@/application/services/defaultClass/types/TDefaultClassPlan'
 import { AppConnectivityEvent } from '@/domain/events/app/AppConnectivityEvent'
 import { AppResumedEvent } from '@/domain/events/app/AppResumedEvent'
 import { OpenPodLogsEvent } from '@/domain/events/cluster/OpenPodLogsEvent'
@@ -266,6 +289,7 @@ import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterD
 import { ClusterMetricsStore } from '@/store/modules/clusterMetrics/ClusterMetricsStore'
 import { ClusterResourceStore } from '@/store/modules/clusterResource/ClusterResourceStore'
 import { CustomResourceKindStore } from '@/store/modules/customResourceKind/CustomResourceKindStore'
+import { DefaultClassStore } from '@/store/modules/defaultClass/DefaultClassStore'
 import { NamespaceStore } from '@/store/modules/namespace/NamespaceStore'
 import { NodeStore } from '@/store/modules/node/NodeStore'
 import type { TResourceListState } from '@/store/modules/clusterResource/types/TResourceListState'
@@ -275,6 +299,7 @@ import type { TResourceListState } from '@/store/modules/clusterResource/types/T
     CirclePlus,
     CreateNamespaceDialog,
     CreateResourcePanel,
+    DefaultClassDialog,
     DeleteResourceDialog,
     DrainNodeDialog,
     EmptyState,
@@ -284,6 +309,7 @@ import type { TResourceListState } from '@/store/modules/clusterResource/types/T
     ResourceDetailBody,
     ResourceDetailPanel,
     ResourceTable,
+    ResourceYamlDiscardDialog,
     ScaleWorkloadDialog,
     UiDeferredLoader,
     UiErrorState,
@@ -311,6 +337,8 @@ export default class ResourcePage extends VueBase {
 
   public pendingDrain: TResourceRow | null = null
 
+  public pendingDefault: TDefaultClassPlan | null = null
+
   public acting = false
 
   public creating = false
@@ -322,6 +350,10 @@ export default class ResourcePage extends VueBase {
   public fieldSelector = ''
 
   public requestedTab: string = DetailTabs.overviewKey
+
+  public pendingLeave: (() => void) | null = null
+
+  private removeLeaveGuard!: () => void
 
   private watchedClusterId = ''
 
@@ -340,9 +372,11 @@ export default class ResourcePage extends VueBase {
       @inject(ClusterMetricsStore) public readonly metricsStore: ClusterMetricsStore,
       @inject(ClusterResourceStore) public readonly resourceStore: ClusterResourceStore,
       @inject(CustomResourceKindStore) public readonly customKindStore: CustomResourceKindStore,
+      @inject(DefaultClassStore) public readonly defaultClassStore: DefaultClassStore,
       @inject(NamespaceStore) public readonly namespaceStore: NamespaceStore,
       @inject(NodeStore) public readonly nodeStore: NodeStore,
       @inject(ResourceObjectStore) public readonly objectStore: ResourceObjectStore,
+      @inject(ResourceYamlEditStore) private readonly yamlEditStore: ResourceYamlEditStore,
       @inject(EventScopeService) private readonly eventScopeService: EventScopeService,
       @inject(EventBus) private readonly eventBus: EventBus,
   ) {
@@ -399,7 +433,15 @@ export default class ResourcePage extends VueBase {
   }
 
   public get busyKeys(): string[] {
-    return [...this.state.busyKeys, ...this.nodeStore.busyRowKeys(this.clusterId)]
+    return [
+      ...this.state.busyKeys,
+      ...this.nodeStore.busyRowKeys(this.clusterId),
+      ...this.defaultClassStore.busyRowKeys(this.clusterId),
+    ]
+  }
+
+  public get defaultBusy(): boolean {
+    return !!this.selectedRow && this.defaultClassStore.busyRowKeys(this.clusterId).includes(this.selectedRow.key)
   }
 
   public get isEventList(): boolean {
@@ -425,6 +467,12 @@ export default class ResourcePage extends VueBase {
 
   public get actions(): TUiMenuItem[] {
     return ResourceActions.of(this.kind)
+  }
+
+  public get rowActions(): (row: TResourceRow) => TUiMenuItem[] {
+    const actions = this.actions
+
+    return row => ResourceActions.forRow(actions, row)
   }
 
   public get hasSelection(): boolean {
@@ -559,6 +607,7 @@ export default class ResourcePage extends VueBase {
     }
     this.eventBus.registerHandler(AppResumedEvent, this.onResumed)
     this.eventBus.registerHandler(AppConnectivityEvent, this.onConnectivity)
+    this.removeLeaveGuard = this.$router.beforeEach((to, from) => this.guardRoute(to, from))
 
     this.resetView()
     this.queryState = new RouteQueryState(
@@ -574,6 +623,7 @@ export default class ResourcePage extends VueBase {
 
   async beforeUnmount(): Promise<void> {
     this.queryState.stop()
+    this.removeLeaveGuard()
     this.eventBus.unregisterHandler(AppResumedEvent, this.onResumed)
     this.eventBus.unregisterHandler(AppConnectivityEvent, this.onConnectivity)
     this.uiStore.closeDetail()
@@ -632,12 +682,37 @@ export default class ResourcePage extends VueBase {
   }
 
   public openDetails(row: TResourceRow): void {
-    this.creating = false
-    this.uiStore.openDetail(row.namespace, row.name)
+    if (this.isDetailOf(row)) {
+      this.showDetails(row)
+      return
+    }
+
+    this.leave(() => this.showDetails(row))
   }
 
   public selectTab(tab: string): void {
-    this.requestedTab = tab
+    if (tab !== this.detailTab) {
+      this.leave(() => { this.requestedTab = tab })
+    }
+  }
+
+  public closeDetail(): void {
+    this.leave(() => this.uiStore.closeDetail())
+  }
+
+  public cancelYamlEdit(): void {
+    this.leave(() => this.yamlEditStore.discard())
+  }
+
+  public keepEditing(): void {
+    this.pendingLeave = null
+  }
+
+  public discardEdits(): void {
+    const action = this.pendingLeave
+    this.pendingLeave = null
+    this.yamlEditStore.discard()
+    action?.()
   }
 
   public openOverview(): void {
@@ -645,8 +720,10 @@ export default class ResourcePage extends VueBase {
   }
 
   public openCreate(): void {
-    this.uiStore.closeDetail()
-    this.creating = true
+    this.leave(() => {
+      this.uiStore.closeDetail()
+      this.creating = true
+    })
   }
 
   public async onCreated(created: { kind: KubeResourceKind; name: string; namespace: string }): Promise<void> {
@@ -698,6 +775,9 @@ export default class ResourcePage extends VueBase {
       case ResourceActions.openKey:
         this.openDetails(event.row)
         return
+      case ResourceActions.editYamlKey:
+        this.editYaml(event.row)
+        return
       case ResourceActions.logsKey:
         this.openLogs(event.row)
         return
@@ -724,6 +804,12 @@ export default class ResourcePage extends VueBase {
         return
       case ResourceActions.drainKey:
         this.pendingDrain = event.row
+        return
+      case ResourceActions.setDefaultKey:
+        void this.changeDefault(event.row, true)
+        return
+      case ResourceActions.unsetDefaultKey:
+        void this.changeDefault(event.row, false)
         return
       case ResourceActions.deleteKey:
         this.askDelete(event.row)
@@ -780,6 +866,33 @@ export default class ResourcePage extends VueBase {
     }
   }
 
+  public async changeDefault(row: TResourceRow | null, isDefault: boolean): Promise<void> {
+    const kind = this.kind
+    if (!row || !kind) {
+      return
+    }
+
+    const plan = await this.defaultClassStore.prepare(
+      { clusterId: this.clusterId, kind, name: row.name, rowKey: row.key },
+      isDefault,
+    )
+    if (!plan) {
+      return
+    }
+
+    this.pendingDefault = plan
+  }
+
+  public async confirmDefault(): Promise<void> {
+    const plan = this.pendingDefault
+    if (!plan) {
+      return
+    }
+
+    await this.run(() => this.applyDefault(plan))
+    this.pendingDefault = null
+  }
+
   public async confirmCreateNamespace(name: string): Promise<void> {
     const kind = this.kind
     if (!kind) {
@@ -795,6 +908,62 @@ export default class ResourcePage extends VueBase {
     if (!this.state.watching) {
       await this.reload()
     }
+  }
+
+  private editYaml(row: TResourceRow): void {
+    const kind = this.kind
+    if (!kind) {
+      return
+    }
+
+    const key = ResourceObjectStore.keyOf({
+      clusterId: this.clusterId,
+      kind,
+      name: row.name,
+      namespace: row.namespace,
+      served: this.servedKinds,
+    })
+    const open = () => {
+      this.showDetails(row)
+      this.requestedTab = DetailTabs.yamlKey
+      this.yamlEditStore.request(key)
+    }
+
+    if (this.isDetailOf(row)) {
+      open()
+      return
+    }
+
+    this.leave(open)
+  }
+
+  private showDetails(row: TResourceRow): void {
+    this.creating = false
+    this.uiStore.openDetail(row.namespace, row.name)
+  }
+
+  private isDetailOf(row: TResourceRow): boolean {
+    return this.uiStore.detailName === row.name && this.uiStore.detailNamespace === row.namespace
+  }
+
+  private leave(action: () => void): void {
+    if (this.yamlEditStore.hasUnsavedChanges) {
+      this.pendingLeave = action
+      return
+    }
+
+    this.yamlEditStore.discard()
+    action()
+  }
+
+  private guardRoute(to: RouteLocationNormalized, from: RouteLocationNormalized): boolean {
+    if (!this.yamlEditStore.hasUnsavedChanges || to.fullPath === from.fullPath) {
+      return true
+    }
+
+    this.pendingLeave = () => void this.$router.push(to.fullPath)
+
+    return false
   }
 
   private openLogs(row: TResourceRow): void {
@@ -835,6 +1004,16 @@ export default class ResourcePage extends VueBase {
       cronJob,
       jobKind,
     }))
+  }
+
+  private async applyDefault(plan: TDefaultClassPlan): Promise<boolean> {
+    const applied = await this.defaultClassStore.apply(plan)
+
+    if (applied && !this.state.watching) {
+      await this.reload()
+    }
+
+    return applied
   }
 
   private async setScheduling(row: TResourceRow, cordoned: boolean): Promise<void> {
@@ -983,6 +1162,7 @@ export default class ResourcePage extends VueBase {
     this.pendingDelete = null
     this.pendingScale = null
     this.pendingDrain = null
+    this.pendingDefault = null
     this.creating = false
     this.creatingNamespace = false
     this.hiddenKeys = ResourceColumns.defaultHidden(this.columns)

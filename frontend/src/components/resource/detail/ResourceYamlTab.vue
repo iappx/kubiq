@@ -1,11 +1,11 @@
 <template>
   <div class="flex min-h-0 flex-1 flex-col gap-2">
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="text-xs text-muted-foreground">{{ changeSummary }}</span>
+    <div class="flex min-h-7 flex-wrap items-center gap-2">
+      <span v-if="changeSummary" class="text-xs text-muted-foreground">{{ changeSummary }}</span>
 
       <span v-if="modeLabel" class="pill pill-active shrink-0 px-1.5 py-0">{{ modeLabel }}</span>
 
-      <div class="ml-auto flex items-center gap-1">
+      <div v-if="editing" class="ml-auto flex items-center gap-1">
         <button
             :disabled="!dirty || state.applying"
             class="btn-ghost h-7 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
@@ -14,6 +14,15 @@
         >
           <undo-2 :size="14" />
           Revert
+        </button>
+
+        <button
+            :disabled="state.applying"
+            class="btn-ghost h-7 px-2 text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+            type="button"
+            @click="$emit('cancel')"
+        >
+          Cancel
         </button>
 
         <button
@@ -26,6 +35,16 @@
           Apply
         </button>
       </div>
+
+      <button
+          v-else-if="canWrite"
+          class="btn-secondary ml-auto h-7 px-2 text-xs"
+          type="button"
+          @click="startEditing"
+      >
+        <pencil :size="14" />
+        Edit
+      </button>
     </div>
 
     <p v-if="parseError" class="text-xs text-destructive" role="alert">{{ parseError }}</p>
@@ -42,12 +61,13 @@
     />
 
     <monaco-editor
+        ref="editor"
         v-model:value="draft"
         :font-size="fontSize"
         :label="editorLabel"
         :marked-lines="markedLines"
         :path="modelPath"
-        :readonly="readonly"
+        :readonly="!editing"
         class="min-h-64"
     />
   </div>
@@ -56,7 +76,8 @@
 <script lang="ts">
 import { Component, Prop, VueBase, Watch } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
-import { LoaderCircle, Undo2 } from '@lucide/vue'
+import { LoaderCircle, Pencil, Undo2 } from '@lucide/vue'
+import { nextTick } from 'vue'
 import MonacoEditor from '@/components/editor/MonacoEditor.vue'
 import ResourceYamlConflict from '@/components/resource/detail/ResourceYamlConflict.vue'
 import { KubeSchemaService } from '@/application/services/kubeSchema/KubeSchemaService'
@@ -65,14 +86,17 @@ import { ResourceYamlService } from '@/application/services/resourceYaml/Resourc
 import { YamlDiff } from '@/application/services/resourceYaml/models/YamlDiff'
 import { YamlDocument } from '@/application/services/resourceYaml/models/YamlDocument'
 import type { TYamlApplyPlan } from '@/application/services/resourceYaml/types/TYamlApplyPlan'
+import type { TYamlApplyResult } from '@/application/services/resourceYaml/types/TYamlApplyResult'
 import type { TYamlDiffLine } from '@/application/services/resourceYaml/types/TYamlDiffLine'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { ResourceObjectStore } from '@/store/modules/resourceObject/ResourceObjectStore'
 import type { TResourceObjectRef } from '@/store/modules/resourceObject/types/TResourceObjectRef'
 import type { TResourceObjectState } from '@/store/modules/resourceObject/types/TResourceObjectState'
+import { ResourceYamlEditStore } from '@/store/modules/resourceYamlEdit/ResourceYamlEditStore'
 
 @Component({
-  components: { LoaderCircle, MonacoEditor, ResourceYamlConflict, Undo2 },
+  components: { LoaderCircle, MonacoEditor, Pencil, ResourceYamlConflict, Undo2 },
+  emits: ['cancel'],
 })
 export default class ResourceYamlTab extends VueBase {
   public static readonly comfortableFontSize: number = 13
@@ -92,6 +116,7 @@ export default class ResourceYamlTab extends VueBase {
   constructor(
       @inject(AppUiStore) public readonly uiStore: AppUiStore,
       @inject(ResourceObjectStore) public readonly objectStore: ResourceObjectStore,
+      @inject(ResourceYamlEditStore) private readonly editStore: ResourceYamlEditStore,
       @inject(ResourceYamlService) private readonly yamlService: ResourceYamlService,
       @inject(KubeSchemaService) private readonly schemaService: KubeSchemaService,
       @inject(MonacoEditorService) private readonly editorService: MonacoEditorService,
@@ -107,16 +132,28 @@ export default class ResourceYamlTab extends VueBase {
     return this.draft !== this.original
   }
 
-  public get readonly(): boolean {
-    return !this.target.kind.canPatch && !this.target.kind.canUpdate
+  public get objectKey(): string {
+    return ResourceObjectStore.keyOf(this.target)
+  }
+
+  public get canWrite(): boolean {
+    return this.target.kind.canPatch || this.target.kind.canUpdate
+  }
+
+  public get editing(): boolean {
+    return this.canWrite && this.editStore.isEditing(this.objectKey)
+  }
+
+  public get requested(): boolean {
+    return this.editStore.isRequested(this.objectKey)
   }
 
   public get canApply(): boolean {
-    return this.dirty && !this.state.applying && !this.readonly
+    return this.dirty && !this.state.applying && this.editing
   }
 
   public get modelPath(): string {
-    return `inmemory://kubiq/${encodeURIComponent(ResourceObjectStore.keyOf(this.target))}.yaml`
+    return `inmemory://kubiq/${encodeURIComponent(this.objectKey)}.yaml`
   }
 
   public get editorLabel(): string {
@@ -138,8 +175,11 @@ export default class ResourceYamlTab extends VueBase {
   }
 
   public get changeSummary(): string {
-    if (this.readonly) {
+    if (!this.canWrite) {
       return 'Read only — this cluster does not let you write this kind'
+    }
+    if (!this.editing) {
+      return ''
     }
     if (!this.dirty) {
       return 'No changes'
@@ -194,10 +234,17 @@ export default class ResourceYamlTab extends VueBase {
 
   created(): void {
     this.draft = this.original
+    if (this.requested) {
+      this.startEditing()
+    }
   }
 
   async mounted(): Promise<void> {
     await this.loadSchema()
+  }
+
+  beforeUnmount(): void {
+    this.editStore.end(this.objectKey)
   }
 
   @Watch('original')
@@ -209,6 +256,35 @@ export default class ResourceYamlTab extends VueBase {
   @Watch('draft')
   draftChanged(): void {
     this.parseError = ''
+  }
+
+  @Watch('dirty')
+  dirtyChanged(dirty: boolean): void {
+    this.editStore.setDirty(this.objectKey, dirty)
+  }
+
+  @Watch('requested')
+  requestedChanged(requested: boolean): void {
+    if (requested) {
+      this.startEditing()
+    }
+  }
+
+  @Watch('editing')
+  async editingChanged(editing: boolean): Promise<void> {
+    if (!editing) {
+      this.revert()
+      return
+    }
+
+    await nextTick()
+    this.editor()?.focus()
+  }
+
+  public startEditing(): void {
+    if (this.canWrite) {
+      this.editStore.begin(this.objectKey)
+    }
   }
 
   public revert(): void {
@@ -223,7 +299,7 @@ export default class ResourceYamlTab extends VueBase {
       return
     }
 
-    await this.objectStore.apply(this.target, parsed.document)
+    this.finishOn(await this.objectStore.apply(this.target, parsed.document))
   }
 
   public reload(): void {
@@ -238,7 +314,17 @@ export default class ResourceYamlTab extends VueBase {
       return
     }
 
-    await this.objectStore.apply(this.target, this.objectStore.rebase(this.target, parsed.document))
+    this.finishOn(await this.objectStore.apply(this.target, this.objectStore.rebase(this.target, parsed.document)))
+  }
+
+  private finishOn(result: TYamlApplyResult | null): void {
+    if (result) {
+      this.editStore.end(this.objectKey)
+    }
+  }
+
+  private editor(): { focus(): void } | undefined {
+    return this.$refs.editor as { focus(): void } | undefined
   }
 
   // A cluster that does not serve OpenAPI v3 gets an editor without completion rather than an error.

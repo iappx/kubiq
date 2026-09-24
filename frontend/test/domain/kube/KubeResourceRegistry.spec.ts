@@ -23,6 +23,20 @@ describe('KubeResourceRegistry', () => {
         expect(custom.map(p => p.kind)).toEqual(['CustomResourceDefinition'])
     })
 
+    it('gives every built-in kind outside Custom Resources a place of its own in its section', () => {
+        const builtIn = KubeResourceRegistry.all().filter(kind => kind.section !== KubeSectionCatalog.custom)
+        const places = new Set(builtIn.map(kind => `${kind.section}:${kind.order}`))
+
+        expect(builtIn.every(kind => kind.order !== undefined)).toBe(true)
+        expect(places.size).toBe(builtIn.length)
+    })
+
+    it('leaves the definitions without an order, so Custom Resources stay sorted by name', () => {
+        const custom = KubeResourceRegistry.all().filter(kind => kind.section === KubeSectionCatalog.custom)
+
+        expect(custom.every(kind => kind.order === undefined)).toBe(true)
+    })
+
     it('holds one entry per group and resource', () => {
         const kinds = KubeResourceRegistry.all()
         const keys = new Set(kinds.map(p => p.registryKey))

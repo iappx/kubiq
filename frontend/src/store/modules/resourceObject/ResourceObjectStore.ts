@@ -2,6 +2,8 @@ import { inject } from 'tsyringe'
 import { PodEnvironmentService } from '@/application/services/podEnvironment/PodEnvironmentService'
 import { PodEnvironmentText } from '@/application/services/podEnvironment/models/PodEnvironmentText'
 import type { TPodEnvironmentGroup } from '@/application/services/podEnvironment/types/TPodEnvironmentGroup'
+import { ResourceDataService } from '@/application/services/resourceData/ResourceDataService'
+import type { TResourceDataPair } from '@/application/services/resourceData/types/TResourceDataPair'
 import { ResourceDetailService } from '@/application/services/resourceDetail/ResourceDetailService'
 import { ResourceEventLog } from '@/application/services/resourceEvents/models/ResourceEventLog'
 import { ResourceEventsService } from '@/application/services/resourceEvents/ResourceEventsService'
@@ -16,7 +18,7 @@ import { ResourceAppliedEvent } from '@/domain/events/cluster/ResourceAppliedEve
 import { ResourceCreatedEvent } from '@/domain/events/cluster/ResourceCreatedEvent'
 import { SuccessMessageEvent } from '@/domain/events/app/SuccessMessageEvent'
 import { ApiError } from '@/domain/errors/ApiError'
-import { KubeManifest } from '@/domain/models/kube'
+import { KubeClusterCatalog, KubeManifest } from '@/domain/models/kube'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { KubeStatusReader } from '@/infrastructure/entityRepo/kube/transport/KubeStatusReader'
 import { InjectableStore, StoreBase } from '@/lib/vue-store'
@@ -33,6 +35,7 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
         @inject(ResourceDetailService) private readonly detailService: ResourceDetailService,
         @inject(ResourceEventsService) private readonly eventsService: ResourceEventsService,
         @inject(PodEnvironmentService) private readonly environmentService: PodEnvironmentService,
+        @inject(ResourceDataService) private readonly dataService: ResourceDataService,
         @inject(EventBus) private readonly eventBus: EventBus,
     ) {
         super()
@@ -236,6 +239,45 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
             return true
         } catch (err) {
             this.eventBus.emitEvent(new AppErrorEvent(err, 'ResourceObjectStore.copyEnvironmentGroup'))
+
+            return false
+        }
+    }
+
+    public async copyDataValue(ref: TResourceObjectRef, pair: TResourceDataPair): Promise<boolean> {
+        try {
+            await this.dataService.copyValue(pair)
+            this.eventBus.emitEvent(new SuccessMessageEvent(
+                KubeClusterCatalog.isSecret(ref.kind)
+                    ? `Copied the decoded value of ${pair.key} to the clipboard`
+                    : `Copied the value of ${pair.key} to the clipboard`,
+            ))
+
+            return true
+        } catch (err) {
+            this.eventBus.emitEvent(new AppErrorEvent(err, 'ResourceObjectStore.copyDataValue'))
+
+            return false
+        }
+    }
+
+    public async copyDataMap(ref: TResourceObjectRef, pairs: readonly TResourceDataPair[]): Promise<boolean> {
+        if (pairs.length === 0) {
+            return false
+        }
+
+        try {
+            const copied = await this.dataService.copyAll(pairs)
+            const noun = copied === 1 ? 'key' : 'keys'
+            this.eventBus.emitEvent(new SuccessMessageEvent(
+                KubeClusterCatalog.isSecret(ref.kind)
+                    ? `Copied ${copied} ${noun} of ${ref.name} as YAML, secret values decoded`
+                    : `Copied ${copied} ${noun} of ${ref.name} as YAML`,
+            ))
+
+            return true
+        } catch (err) {
+            this.eventBus.emitEvent(new AppErrorEvent(err, 'ResourceObjectStore.copyDataMap'))
 
             return false
         }

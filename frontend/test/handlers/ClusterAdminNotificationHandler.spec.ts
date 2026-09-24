@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { container } from 'tsyringe'
 import { ClusterAdminNotificationHandler } from '@/application/handlers/cluster/ClusterAdminNotificationHandler'
+import { DefaultClassChangedEvent } from '@/domain/events/cluster/DefaultClassChangedEvent'
 import { NamespaceCreatedEvent } from '@/domain/events/cluster/NamespaceCreatedEvent'
 import { NodeDrainedEvent } from '@/domain/events/cluster/NodeDrainedEvent'
 import { NodeSchedulingChangedEvent } from '@/domain/events/cluster/NodeSchedulingChangedEvent'
@@ -55,5 +56,19 @@ describe('ClusterAdminNotificationHandler', () => {
         eventBus.emitEvent(new NamespaceCreatedEvent('prod', 'payments'))
 
         expect(last()).toMatchObject({ type: 'success', message: 'Created namespace payments' })
+    })
+
+    it('names the new default class and the ones it took the flag from', () => {
+        eventBus.emitEvent(new DefaultClassChangedEvent('prod', 'StorageClass', 'fast', true, ['standard', 'legacy']))
+
+        expect(last()).toMatchObject({ type: 'success', message: 'Made StorageClass fast the default' })
+        expect(last().description).toBe('Cleared the flag on standard, legacy')
+    })
+
+    it('acknowledges an unset default without a list of cleared classes', () => {
+        eventBus.emitEvent(new DefaultClassChangedEvent('prod', 'IngressClass', 'nginx', false, []))
+
+        expect(last().message).toBe('IngressClass nginx is no longer the default')
+        expect(last().description).toBeUndefined()
     })
 })

@@ -17,7 +17,8 @@ export class ChartService {
 
     public load(): Promise<TChartApi> {
         if (!this.loading) {
-            this.loading = import('uplot').then(module => module.default)
+            this.loading = Promise.all([import('uplot'), import('uplot/dist/uPlot.min.css')])
+                .then(([module]) => module.default)
         }
 
         return this.loading

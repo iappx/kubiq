@@ -304,6 +304,11 @@ Never for a cluster mutation: the watch is what tells us it happened.
   `ConfirmDialog` in `danger` variant naming kind, name and namespace, with the propagation policy
   visible. Scaling, restarting and cordoning are not confirmed — they are reversible and confirming
   them trains people to click through dialogs.
+- **Exception: anything that changes cluster-wide behaviour is always confirmed, even when it is
+  reversible.** Setting or unsetting the default StorageClass or IngressClass is the reference case:
+  undoing it later does not undo what was created in between, and the effect lands on objects and
+  people the user is not looking at. The dialog says what changes for whom — e.g. which classes lose
+  the default flag, and that objects naming no class get a different one or none.
 - A destructive confirm never has focus on the destructive button when it opens.
 - Errors follow `CLAUDE.md` → Errors without exception: transport throws `ApiError`, whoever cannot
   recover emits `AppErrorEvent`, `ErrorHandler` decides. No component writes its own error copy for

@@ -104,6 +104,7 @@ import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
 import { DockStore } from '@/store/modules/dock/DockStore'
+import { ResourceYamlEditStore } from '@/store/modules/resourceYamlEdit/ResourceYamlEditStore'
 
 @Component({
   components: {
@@ -127,6 +128,7 @@ export default class ClusterShellPage extends VueBase {
       @inject(AppUiStore) public readonly uiStore: AppUiStore,
       @inject(ClusterDiscoveryStore) public readonly discoveryStore: ClusterDiscoveryStore,
       @inject(DockStore) public readonly dockStore: DockStore,
+      @inject(ResourceYamlEditStore) private readonly yamlEditStore: ResourceYamlEditStore,
       @inject(ClusterEntryService) private readonly entryService: ClusterEntryService,
       @inject(EventBus) private readonly eventBus: EventBus,
   ) {
@@ -233,6 +235,10 @@ export default class ClusterShellPage extends VueBase {
       dockOpen: this.dockStore.hasTabs && !this.uiStore.dockCollapsed,
     })
 
+    // With unsaved YAML edits the panel's own Escape must reach the resource page, which asks before closing.
+    if (target === 'panel' && this.yamlEditStore.hasUnsavedChanges) {
+      return false
+    }
     if (target === 'panel') {
       this.uiStore.closeDetail()
       return true

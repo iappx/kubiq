@@ -448,3 +448,71 @@ describe('ResourceObjectStore environment', () => {
         expect(clipboardWrites).toEqual([])
     })
 })
+
+describe('ResourceObjectStore data copying', () => {
+    const secretTarget = {
+        clusterId: 'prod',
+        kind: KubeResourceRegistry.find('', 'secrets')!,
+        name: 'app-creds',
+        namespace: 'payments',
+        served: podServed,
+    }
+    const configMapTarget = { ...secretTarget, kind: KubeResourceRegistry.find('', 'configmaps')!, name: 'app-config' }
+
+    beforeEach(() => {
+        captured.length = 0
+        clipboardWrites.length = 0
+    })
+
+    it('copies one value and names the key, not the value', async () => {
+        eventBus.registerHandler(SuccessMessageEvent, record)
+
+        const done = await store.copyDataValue(secretTarget, { key: 'password', value: 'placeholder-value' })
+
+        eventBus.unregisterHandler(SuccessMessageEvent, record)
+        expect(done).toBe(true)
+        expect(clipboardWrites).toEqual(['placeholder-value'])
+        expect((captured[0] as SuccessMessageEvent).content).toBe('Copied the decoded value of password to the clipboard')
+    })
+
+    it('copies a config map as YAML and says how many keys went', async () => {
+        eventBus.registerHandler(SuccessMessageEvent, record)
+
+        const done = await store.copyDataMap(configMapTarget, [
+            { key: 'level', value: 'debug' },
+            { key: 'app.conf', value: 'a=1\nb=2\n' },
+        ])
+
+        eventBus.unregisterHandler(SuccessMessageEvent, record)
+        expect(done).toBe(true)
+        expect(clipboardWrites).toEqual(['level: debug\napp.conf: |\n  a=1\n  b=2\n'])
+        expect((captured[0] as SuccessMessageEvent).content).toBe('Copied 2 keys of app-config as YAML')
+    })
+
+    it('says that copying a secret took the decoded values with it', async () => {
+        eventBus.registerHandler(SuccessMessageEvent, record)
+
+        await store.copyDataMap(secretTarget, [{ key: 'password', value: 'placeholder-value' }])
+
+        eventBus.unregisterHandler(SuccessMessageEvent, record)
+        expect((captured[0] as SuccessMessageEvent).content).toBe('Copied 1 key of app-creds as YAML, secret values decoded')
+    })
+
+    it('copies nothing when there is nothing to copy', async () => {
+        expect(await store.copyDataMap(configMapTarget, [])).toBe(false)
+        expect(clipboardWrites).toEqual([])
+    })
+
+    it('raises the clipboard failure instead of claiming a copy', async () => {
+        eventBus.registerHandler(AppErrorEvent, record)
+        const clipboard = navigator.clipboard
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined })
+
+        const done = await store.copyDataValue(configMapTarget, { key: 'level', value: 'debug' })
+
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard })
+        eventBus.unregisterHandler(AppErrorEvent, record)
+        expect(done).toBe(false)
+        expect(captured[0]).toBeInstanceOf(AppErrorEvent)
+    })
+})

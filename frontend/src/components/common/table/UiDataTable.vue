@@ -114,7 +114,7 @@
 
     <ui-context-menu
         v-model:open="menuOpen"
-        :items="actions"
+        :items="menuItems"
         :x="menuX"
         :y="menuY"
         @closed="restoreFocus"
@@ -201,6 +201,9 @@ export default class UiDataTable extends VueBase {
   @Prop({ required: false })
   public readonly labelOf?: (row: any) => string
 
+  @Prop({ required: false })
+  public readonly actionsOf?: (row: any) => TUiMenuItem[]
+
   public flashing: string[] = []
 
   public menuOpen = false
@@ -236,6 +239,12 @@ export default class UiDataTable extends VueBase {
 
   public get hasActions(): boolean {
     return (this.actions ?? []).length > 0
+  }
+
+  public get menuItems(): TUiMenuItem[] {
+    const row = this.rowOf(this.menuRowKey)
+
+    return this.actionsOf && row !== undefined ? this.actionsOf(row) : (this.actions ?? [])
   }
 
   public get nameOffset(): number {

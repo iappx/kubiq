@@ -39,7 +39,7 @@ export class KubeResourceRegistry {
         return [
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'nodes', kind: 'Node',
-                title: 'Nodes', namespaced: false, section: 'cluster', icon: 'Server',
+                title: 'Nodes', namespaced: false, section: 'cluster', order: 1, icon: 'Server',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -52,7 +52,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'namespaces', kind: 'Namespace',
-                title: 'Namespaces', namespaced: false, section: 'cluster', icon: 'FolderTree',
+                title: 'Namespaces', namespaced: false, section: 'cluster', order: 2, icon: 'FolderTree',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -63,7 +63,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'events', kind: 'Event',
-                title: 'Events', namespaced: true, section: 'cluster', icon: 'Bell',
+                title: 'Events', namespaced: true, section: 'cluster', order: 3, icon: 'Bell',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     { key: 'lastSeen', title: 'Last Seen' },
@@ -77,7 +77,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'pods', kind: 'Pod',
-                title: 'Pods', namespaced: true, section: 'workloads', icon: 'Box',
+                title: 'Pods', namespaced: true, section: 'workloads', order: 1, icon: 'Box',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -92,7 +92,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'apps', version: 'v1', resource: 'deployments', kind: 'Deployment',
-                title: 'Deployments', namespaced: true, section: 'workloads', icon: 'Layers',
+                title: 'Deployments', namespaced: true, section: 'workloads', order: 2, icon: 'Layers',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -106,7 +106,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'apps', version: 'v1', resource: 'statefulsets', kind: 'StatefulSet',
-                title: 'Stateful Sets', namespaced: true, section: 'workloads', icon: 'Database',
+                title: 'Stateful Sets', namespaced: true, section: 'workloads', order: 4, icon: 'Database',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -119,7 +119,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'apps', version: 'v1', resource: 'daemonsets', kind: 'DaemonSet',
-                title: 'Daemon Sets', namespaced: true, section: 'workloads', icon: 'SquareStack',
+                title: 'Daemon Sets', namespaced: true, section: 'workloads', order: 3, icon: 'SquareStack',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -132,7 +132,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'apps', version: 'v1', resource: 'replicasets', kind: 'ReplicaSet',
-                title: 'Replica Sets', namespaced: true, section: 'workloads', icon: 'Blocks',
+                title: 'Replica Sets', namespaced: true, section: 'workloads', order: 5, icon: 'Blocks',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -144,7 +144,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'replicationcontrollers', kind: 'ReplicationController',
-                title: 'Replication Controllers', namespaced: true, section: 'workloads', icon: 'Copy',
+                title: 'Replication Controllers', namespaced: true, section: 'workloads', order: 6, icon: 'Copy',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -157,7 +157,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'batch', version: 'v1', resource: 'jobs', kind: 'Job',
-                title: 'Jobs', namespaced: true, section: 'workloads', icon: 'Play',
+                title: 'Jobs', namespaced: true, section: 'workloads', order: 7, icon: 'Play',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -170,7 +170,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'batch', version: 'v1', resource: 'cronjobs', kind: 'CronJob',
-                title: 'Cron Jobs', namespaced: true, section: 'workloads', icon: 'CalendarClock',
+                title: 'Cron Jobs', namespaced: true, section: 'workloads', order: 8, icon: 'CalendarClock',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -184,7 +184,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'configmaps', kind: 'ConfigMap',
-                title: 'Config Maps', namespaced: true, section: 'config', icon: 'FileText',
+                title: 'Config Maps', namespaced: true, section: 'config', order: 1, icon: 'FileText',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -195,7 +195,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'secrets', kind: 'Secret',
-                title: 'Secrets', namespaced: true, section: 'config', icon: 'KeyRound',
+                title: 'Secrets', namespaced: true, section: 'config', order: 2, icon: 'KeyRound',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -207,7 +207,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'resourcequotas', kind: 'ResourceQuota',
-                title: 'Resource Quotas', namespaced: true, section: 'config', icon: 'Gauge',
+                title: 'Resource Quotas', namespaced: true, section: 'config', order: 3, icon: 'Gauge',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -219,7 +219,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'limitranges', kind: 'LimitRange',
-                title: 'Limit Ranges', namespaced: true, section: 'config', icon: 'SlidersHorizontal',
+                title: 'Limit Ranges', namespaced: true, section: 'config', order: 4, icon: 'SlidersHorizontal',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -230,7 +230,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'autoscaling', version: 'v2', resource: 'horizontalpodautoscalers', kind: 'HorizontalPodAutoscaler',
-                title: 'Horizontal Pod Autoscalers', namespaced: true, section: 'config', icon: 'TrendingUp',
+                title: 'Horizontal Pod Autoscalers', namespaced: true, section: 'config', order: 5, icon: 'TrendingUp',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -244,7 +244,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'policy', version: 'v1', resource: 'poddisruptionbudgets', kind: 'PodDisruptionBudget',
-                title: 'Pod Disruption Budgets', namespaced: true, section: 'config', icon: 'ShieldAlert',
+                title: 'Pod Disruption Budgets', namespaced: true, section: 'config', order: 6, icon: 'ShieldAlert',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -258,7 +258,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'scheduling.k8s.io', version: 'v1', resource: 'priorityclasses', kind: 'PriorityClass',
-                title: 'Priority Classes', namespaced: false, section: 'config', icon: 'ArrowUpNarrowWide',
+                title: 'Priority Classes', namespaced: false, section: 'config', order: 7, icon: 'ArrowUpNarrowWide',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -270,7 +270,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'node.k8s.io', version: 'v1', resource: 'runtimeclasses', kind: 'RuntimeClass',
-                title: 'Runtime Classes', namespaced: false, section: 'config', icon: 'Cpu',
+                title: 'Runtime Classes', namespaced: false, section: 'config', order: 8, icon: 'Cpu',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -281,7 +281,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'coordination.k8s.io', version: 'v1', resource: 'leases', kind: 'Lease',
-                title: 'Leases', namespaced: true, section: 'config', icon: 'Timer',
+                title: 'Leases', namespaced: true, section: 'config', order: 9, icon: 'Timer',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -293,7 +293,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'services', kind: 'Service',
-                title: 'Services', namespaced: true, section: 'network', icon: 'Network',
+                title: 'Services', namespaced: true, section: 'network', order: 1, icon: 'Network',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -308,7 +308,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'networking.k8s.io', version: 'v1', resource: 'ingresses', kind: 'Ingress',
-                title: 'Ingresses', namespaced: true, section: 'network', icon: 'Globe',
+                title: 'Ingresses', namespaced: true, section: 'network', order: 3, icon: 'Globe',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -322,7 +322,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'endpoints', kind: 'Endpoints',
-                title: 'Endpoints', namespaced: true, section: 'network', icon: 'Waypoints',
+                title: 'Endpoints', namespaced: true, section: 'network', order: 2, icon: 'Waypoints',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -335,7 +335,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'networking.k8s.io', version: 'v1', resource: 'ingressclasses', kind: 'IngressClass',
-                title: 'Ingress Classes', namespaced: false, section: 'network', icon: 'Route',
+                title: 'Ingress Classes', namespaced: false, section: 'network', order: 4, icon: 'Route',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -346,7 +346,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'networking.k8s.io', version: 'v1', resource: 'networkpolicies', kind: 'NetworkPolicy',
-                title: 'Network Policies', namespaced: true, section: 'network', icon: 'ShieldHalf',
+                title: 'Network Policies', namespaced: true, section: 'network', order: 5, icon: 'ShieldHalf',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -358,7 +358,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'persistentvolumes', kind: 'PersistentVolume',
-                title: 'Persistent Volumes', namespaced: false, section: 'storage', icon: 'HardDrive',
+                title: 'Persistent Volumes', namespaced: false, section: 'storage', order: 2, icon: 'HardDrive',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -373,7 +373,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'persistentvolumeclaims', kind: 'PersistentVolumeClaim',
-                title: 'Persistent Volume Claims', namespaced: true, section: 'storage', icon: 'Disc',
+                title: 'Persistent Volume Claims', namespaced: true, section: 'storage', order: 1, icon: 'Disc',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -388,7 +388,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'storage.k8s.io', version: 'v1', resource: 'storageclasses', kind: 'StorageClass',
-                title: 'Storage Classes', namespaced: false, section: 'storage', icon: 'Archive',
+                title: 'Storage Classes', namespaced: false, section: 'storage', order: 3, icon: 'Archive',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -401,7 +401,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: '', version: 'v1', resource: 'serviceaccounts', kind: 'ServiceAccount',
-                title: 'Service Accounts', namespaced: true, section: 'access', icon: 'CircleUser',
+                title: 'Service Accounts', namespaced: true, section: 'access', order: 1, icon: 'CircleUser',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -412,7 +412,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'rbac.authorization.k8s.io', version: 'v1', resource: 'roles', kind: 'Role',
-                title: 'Roles', namespaced: true, section: 'access', icon: 'IdCard',
+                title: 'Roles', namespaced: true, section: 'access', order: 3, icon: 'IdCard',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -423,7 +423,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'rbac.authorization.k8s.io', version: 'v1', resource: 'rolebindings', kind: 'RoleBinding',
-                title: 'Role Bindings', namespaced: true, section: 'access', icon: 'Users',
+                title: 'Role Bindings', namespaced: true, section: 'access', order: 5, icon: 'Users',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -435,7 +435,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'rbac.authorization.k8s.io', version: 'v1', resource: 'clusterroles', kind: 'ClusterRole',
-                title: 'Cluster Roles', namespaced: false, section: 'access', icon: 'Shield',
+                title: 'Cluster Roles', namespaced: false, section: 'access', order: 2, icon: 'Shield',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),
@@ -445,7 +445,7 @@ export class KubeResourceRegistry {
             }),
             new KubeResourceKind({
                 group: 'rbac.authorization.k8s.io', version: 'v1', resource: 'clusterrolebindings', kind: 'ClusterRoleBinding',
-                title: 'Cluster Role Bindings', namespaced: false, section: 'access', icon: 'ShieldCheck',
+                title: 'Cluster Role Bindings', namespaced: false, section: 'access', order: 4, icon: 'ShieldCheck',
                 verbs: KubeVerbCatalog.all(),
                 columns: [
                     KubeColumns.objectName(),

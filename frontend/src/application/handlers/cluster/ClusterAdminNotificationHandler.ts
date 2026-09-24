@@ -1,5 +1,6 @@
 import { inject, singleton } from 'tsyringe'
 import { ToastService } from '@/application/services/toast/ToastService'
+import { DefaultClassChangedEvent } from '@/domain/events/cluster/DefaultClassChangedEvent'
 import { NamespaceCreatedEvent } from '@/domain/events/cluster/NamespaceCreatedEvent'
 import { NodeDrainedEvent } from '@/domain/events/cluster/NodeDrainedEvent'
 import { NodeSchedulingChangedEvent } from '@/domain/events/cluster/NodeSchedulingChangedEvent'
@@ -25,6 +26,11 @@ export class ClusterAdminNotificationHandler {
 
         this.eventBus.registerHandler(NamespaceCreatedEvent, e => this.toastService.success(
             `Created namespace ${e.name}`,
+        ))
+
+        this.eventBus.registerHandler(DefaultClassChangedEvent, e => this.toastService.success(
+            e.isDefault ? `Made ${e.kindName} ${e.name} the default` : `${e.kindName} ${e.name} is no longer the default`,
+            e.cleared.length > 0 ? `Cleared the flag on ${e.cleared.join(', ')}` : undefined,
         ))
     }
 
