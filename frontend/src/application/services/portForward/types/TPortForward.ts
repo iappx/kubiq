@@ -1,17 +1,26 @@
-import type { TPortForwardState } from '@/application/services/portForward/types/TPortForwardState'
+import type {
+    TPortForwardRemotePort,
+    TPortForwardResource,
+    TPortForwardRestoreMode,
+    TPortForwardStatus,
+} from '@/domain/entities/portForward'
 
 export type TPortForward = {
-    forwardId: string
+    id: string
     clusterId: string
     namespace: string
-    resource: string
+    resource: TPortForwardResource
     name: string
-    label: string
-    podName: string
-    remotePort: number
-    targetPort: number
+    remotePort: TPortForwardRemotePort
     localPort: number
-    address: string
-    state: TPortForwardState
-    failure: string
+    lastLocalPort: number
+    restoreMode: TPortForwardRestoreMode
+    isStoppedByUser: boolean
+    createdAt: number
+    label: string
+    status: TPortForwardStatus
+    error: string
+    boundPort: number
+    podName: string
+    targetPort: number
 }

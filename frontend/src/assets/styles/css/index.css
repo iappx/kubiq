@@ -103,6 +103,16 @@
     --chart-4: 300 62% 42%;
     --chart-5: 38 96% 33%;
     --chart-6: 142 58% 32%;
+
+    --avatar-foreground: 0 0% 100%;
+    --avatar-teal: 189 90% 29%;
+    --avatar-violet: 262 62% 52%;
+    --avatar-blue: 218 80% 45%;
+    --avatar-magenta: 300 62% 42%;
+    --avatar-amber: 32 92% 36%;
+    --avatar-green: 142 58% 30%;
+    --avatar-red: 0 68% 46%;
+    --avatar-slate: 200 16% 38%;
   }
 
   .dark {
@@ -178,6 +188,16 @@
     --chart-4: 300 62% 72%;
     --chart-5: 38 88% 56%;
     --chart-6: 142 52% 46%;
+
+    --avatar-foreground: 200 18% 10%;
+    --avatar-teal: 187 72% 58%;
+    --avatar-violet: 262 74% 72%;
+    --avatar-blue: 213 82% 68%;
+    --avatar-magenta: 300 62% 72%;
+    --avatar-amber: 38 88% 58%;
+    --avatar-green: 142 52% 52%;
+    --avatar-red: 0 72% 68%;
+    --avatar-slate: 200 12% 64%;
   }
 
   /* Motion and density carry no colour, so they are defined once rather than
@@ -781,6 +801,99 @@
     color: hsl(var(--primary));
   }
 
+  /* ── Cluster avatar ─────────────────────────────────────────────────── */
+  .cluster-avatar {
+    @apply inline-flex shrink-0 items-center justify-center overflow-hidden font-semibold select-none;
+    width: var(--avatar-size);
+    height: var(--avatar-size);
+    border-radius: calc(var(--avatar-size) / 4);
+    font-size: calc(var(--avatar-size) * 0.42);
+    line-height: 1;
+    letter-spacing: 0;
+    color: hsl(var(--avatar-foreground));
+  }
+
+  .cluster-avatar-sm { --avatar-size: 20px; }
+  .cluster-avatar-md { --avatar-size: 28px; }
+  .cluster-avatar-lg { --avatar-size: 56px; }
+
+  .cluster-avatar-dense {
+    font-size: calc(var(--avatar-size) * 0.3);
+  }
+
+  .cluster-avatar-image {
+    background: hsl(var(--muted));
+  }
+
+  .cluster-avatar-status {
+    @apply absolute inline-flex rounded-full;
+    right: -3px;
+    bottom: -3px;
+    padding: 1px;
+    background: hsl(var(--card));
+  }
+
+  .cluster-avatar-button {
+    @apply inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md;
+    transition: opacity var(--motion-instant) var(--ease-standard);
+  }
+
+  .cluster-avatar-button:hover {
+    opacity: 0.85;
+  }
+
+  .cluster-avatar-image img {
+    @apply h-full w-full object-cover;
+  }
+
+  .cluster-avatar-teal { background: hsl(var(--avatar-teal)); }
+  .cluster-avatar-violet { background: hsl(var(--avatar-violet)); }
+  .cluster-avatar-blue { background: hsl(var(--avatar-blue)); }
+  .cluster-avatar-magenta { background: hsl(var(--avatar-magenta)); }
+  .cluster-avatar-amber { background: hsl(var(--avatar-amber)); }
+  .cluster-avatar-green { background: hsl(var(--avatar-green)); }
+  .cluster-avatar-red { background: hsl(var(--avatar-red)); }
+  .cluster-avatar-slate { background: hsl(var(--avatar-slate)); }
+
+  /* The radio inside is visually hidden, so its focus ring is drawn on the label that shows it. */
+  .cluster-choice {
+    cursor: pointer;
+  }
+
+  .cluster-choice:has(:focus-visible) {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  .cluster-swatch {
+    @apply inline-flex h-7 w-7 items-center justify-center rounded-md;
+    color: hsl(var(--avatar-foreground));
+    transition: box-shadow var(--motion-instant) var(--ease-standard);
+  }
+
+  .cluster-swatch-on {
+    box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--foreground) / 0.6);
+  }
+
+  .cluster-glyph-option {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground;
+    border: 1px solid transparent;
+    transition: background-color var(--motion-instant) var(--ease-standard),
+                border-color var(--motion-instant) var(--ease-standard),
+                color var(--motion-instant) var(--ease-standard);
+  }
+
+  .cluster-glyph-option:hover {
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+
+  .cluster-glyph-option-on {
+    background: hsl(var(--primary) / 0.1);
+    border-color: hsl(var(--primary) / 0.35);
+    color: hsl(var(--primary));
+  }
+
   /* ── Detail panel ───────────────────────────────────────────────────── */
   .ui-related-link {
     @apply flex w-full items-center gap-2 rounded-md px-2 text-xs;
@@ -890,6 +1003,18 @@
   .ui-menu-separator {
     @apply my-1 h-px;
     background: hsl(var(--border));
+  }
+
+  .ui-popover {
+    @apply flex flex-col overflow-hidden bg-popover border border-border rounded-lg text-popover-foreground;
+    box-shadow: var(--elevation-lg);
+    max-height: var(--reka-popover-content-available-height, 32rem);
+    z-index: 200;
+    transform-origin: var(--reka-popover-content-transform-origin, center);
+  }
+
+  .ui-popover[data-state='open'] {
+    animation: ui-menu-in var(--motion-fast) var(--ease-standard);
   }
 
   .ui-tooltip {

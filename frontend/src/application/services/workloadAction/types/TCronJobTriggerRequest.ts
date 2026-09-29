@@ -5,4 +5,5 @@ export type TCronJobTriggerRequest = {
     clusterId: string
     cronJob: CronJobEntity
     jobKind: KubeResourceKind
+    manifest?: Record<string, unknown>
 }

@@ -12,8 +12,9 @@
         <div
             ref="panel"
             :aria-labelledby="titleId"
+            :class="wide ? 'max-w-3xl' : 'max-w-md'"
             aria-modal="true"
-            class="surface-raised p-6 w-full max-w-md relative z-10 modal-panel"
+            class="surface-raised p-6 w-full relative z-10 modal-panel"
             role="dialog"
         >
           <div class="flex items-center justify-between mb-5">
@@ -74,7 +75,10 @@ export default class UiModal extends ModalShellBase {
   @Prop({ required: false })
   public readonly loading?: boolean
 
-  @VModel()
+  @Prop({ required: false, type: Boolean, default: false })
+  public readonly wide?: boolean
+
+  @VModel({ name: 'open', type: Boolean })
   public open: boolean
 
   public titleId = ''

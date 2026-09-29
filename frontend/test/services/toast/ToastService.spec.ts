@@ -110,6 +110,31 @@ describe('ToastService', () => {
         expect(store.items.map(t => t.message)).toEqual(['Failure 3', 'Failure 4', 'Failure 5', 'Failure 6', 'Failure 7'])
     })
 
+    it('carries an action to the screen', () => {
+        service.show({ type: 'success', message: 'Job created', action: { label: 'View job', run: () => undefined } })
+
+        expect(store.items[0].action?.label).toBe('View job')
+    })
+
+    it('runs the action and takes the toast away', () => {
+        const run = vi.fn()
+        service.show({ type: 'success', message: 'Job created', action: { label: 'View job', run } })
+
+        service.runAction(store.items[0].id)
+
+        expect(run).toHaveBeenCalledTimes(1)
+        expect(store.items).toHaveLength(0)
+    })
+
+    it('ignores a toast that has no action or is already gone', () => {
+        service.success('Saved')
+
+        service.runAction(store.items[0].id)
+        service.runAction('gone')
+
+        expect(store.items).toHaveLength(1)
+    })
+
     it('lets a dropped message raise a toast again', () => {
         for (let i = 0; i < 8; i++) {
             service.error(`Failure ${i}`)

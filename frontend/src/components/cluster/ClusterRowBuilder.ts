@@ -1,5 +1,6 @@
 import type { TClusterConnection } from '@/application/services/cluster/types/TClusterConnection'
 import type { TClusterContextInfo } from '@/application/services/cluster/types/TClusterContextInfo'
+import { ClusterMonogram } from '@/domain/entities/catalog/ClusterMonogram'
 import { ClusterStatusCatalog } from '@/domain/entities/catalog/ClusterStatusCatalog'
 import type { TClusterStatus } from '@/domain/entities/catalog/types/TClusterStatus'
 import { ClusterHealthCatalog } from '@/domain/models/kube'
@@ -11,14 +12,18 @@ import type { TClusterRowInput } from '@/components/cluster/types/TClusterRowInp
 export class ClusterRowBuilder {
     public static build(input: TClusterRowInput): TClusterRow[] {
         const connections = new Map(input.connections.map(connection => [connection.clusterId, connection]))
+        const appearances = new Map((input.appearances ?? []).map(appearance => [appearance.clusterId, appearance]))
 
         return input.contexts.map((context) => {
             const connection = connections.get(context.name)
+            const appearance = appearances.get(context.name)
             const status = ClusterRowBuilder.statusOf(context, connection, input)
 
             return {
                 clusterId: context.name,
                 name: context.name,
+                displayName: appearance?.displayName || context.name,
+                icon: appearance?.icon ?? ClusterMonogram.iconFor(context.name),
                 status,
                 statusTitle: ClusterStatusCatalog.title(status),
                 clusterName: context.clusterName,
@@ -109,7 +114,7 @@ export class ClusterRowBuilder {
     }
 
     private static haystack(row: TClusterRow): string {
-        return [row.name, row.clusterName, row.server, row.namespace, row.source]
+        return [row.displayName, row.name, row.clusterName, row.server, row.namespace, row.source]
             .join(' ')
             .toLowerCase()
     }

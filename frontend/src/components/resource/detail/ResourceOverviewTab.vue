@@ -6,6 +6,8 @@
       <resource-container-list :containers="containers" />
     </resource-section>
 
+    <resource-ports-section v-if="hasPorts" :state="state" :target="target" />
+
     <resource-section v-if="taints.length > 0" :hint="taintHint" title="Taints">
       <resource-taint-list :taints="taints" />
     </resource-section>
@@ -40,12 +42,14 @@ import ResourceContainerList from '@/components/resource/detail/ResourceContaine
 import ResourceDataSection from '@/components/resource/detail/ResourceDataSection.vue'
 import ResourceMetadataTab from '@/components/resource/detail/ResourceMetadataTab.vue'
 import ResourceMetricsSection from '@/components/resource/detail/ResourceMetricsSection.vue'
+import ResourcePortsSection from '@/components/resource/detail/ResourcePortsSection.vue'
 import ResourceRelatedGroup from '@/components/resource/detail/ResourceRelatedGroup.vue'
 import ResourceRelatedSkeleton from '@/components/resource/detail/ResourceRelatedSkeleton.vue'
 import ResourceSection from '@/components/resource/detail/ResourceSection.vue'
 import ResourceTaintList from '@/components/resource/detail/ResourceTaintList.vue'
 import { DetailConditions } from '@/components/resource/detail/DetailConditions'
 import { DetailContainers } from '@/components/resource/detail/DetailContainers'
+import { DetailPorts } from '@/components/resource/detail/DetailPorts'
 import { DetailTabs } from '@/components/resource/detail/DetailTabs'
 import { DetailTaints } from '@/components/resource/detail/DetailTaints'
 import type { TDetailCondition } from '@/components/resource/detail/types/TDetailCondition'
@@ -62,6 +66,7 @@ import type { TResourceObjectState } from '@/store/modules/resourceObject/types/
     ResourceDataSection,
     ResourceMetadataTab,
     ResourceMetricsSection,
+    ResourcePortsSection,
     ResourceRelatedGroup,
     ResourceRelatedSkeleton,
     ResourceSection,
@@ -78,6 +83,10 @@ export default class ResourceOverviewTab extends VueBase {
 
   public get hasMetrics(): boolean {
     return DetailTabs.hasMetrics(this.target.kind)
+  }
+
+  public get hasPorts(): boolean {
+    return DetailPorts.isShown(this.target.kind)
   }
 
   public get hasDataMap(): boolean {

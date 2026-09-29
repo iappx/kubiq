@@ -1,6 +1,6 @@
 <template>
   <ui-modal
-      v-model="isOpen"
+      v-model:open="isOpen"
       :loading="busy"
       submit-label="Add"
       title="Add a chart repository"

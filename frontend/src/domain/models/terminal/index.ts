@@ -1,6 +1,5 @@
 export * from './NodeShellCommand'
 export * from './PodShellCommand'
-export * from './PortForwardKey'
 export * from './TerminalBytes'
 export * from './TerminalKey'
 export * from './TerminalKindCatalog'

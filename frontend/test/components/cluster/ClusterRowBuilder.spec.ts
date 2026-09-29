@@ -4,6 +4,7 @@ import { ClusterToneMap } from '@/components/cluster/ClusterToneMap'
 import type { TClusterConnection } from '@/application/services/cluster/types/TClusterConnection'
 import type { TClusterContextInfo } from '@/application/services/cluster/types/TClusterContextInfo'
 import type { TClusterRowInput } from '@/components/cluster/types/TClusterRowInput'
+import { ClusterMonogram } from '@/domain/entities/catalog/ClusterMonogram'
 import { ClusterStatusCatalog } from '@/domain/entities/catalog/ClusterStatusCatalog'
 
 const context = (name: string, overrides: Partial<TClusterContextInfo> = {}): TClusterContextInfo => ({
@@ -231,6 +232,35 @@ describe('ClusterRowBuilder', () => {
 
             expect(rows.map(row => row.sourceOrigin)).toEqual(['file', 'paste', 'discovered'])
         })
+
+        it('shows the context name and a generated icon for a cluster nobody customized', () => {
+            const [row] = ClusterRowBuilder.build(input({ contexts: [context('prod-eu')] }))
+
+            expect(row.displayName).toBe('prod-eu')
+            expect(row.icon).toEqual(ClusterMonogram.iconFor('prod-eu'))
+        })
+
+        it('shows the name and icon the operator chose, keeping the context name apart', () => {
+            const icon = { kind: 'glyph' as const, initials: 'PR', color: 'red' as const, glyph: 'shield' as const, imageUrl: '' }
+            const [row] = ClusterRowBuilder.build(input({
+                contexts: [context('prod')],
+                appearances: [{ clusterId: 'prod', displayName: 'Production', icon, imagePath: '' }],
+            }))
+
+            expect(row.displayName).toBe('Production')
+            expect(row.name).toBe('prod')
+            expect(row.clusterId).toBe('prod')
+            expect(row.icon).toEqual(icon)
+        })
+
+        it('falls back to the context name when the chosen display name is empty', () => {
+            const [row] = ClusterRowBuilder.build(input({
+                contexts: [context('prod')],
+                appearances: [{ clusterId: 'prod', displayName: '', icon: ClusterMonogram.iconFor('prod'), imagePath: '' }],
+            }))
+
+            expect(row.displayName).toBe('prod')
+        })
     })
 
     describe('filter', () => {
@@ -254,6 +284,15 @@ describe('ClusterRowBuilder', () => {
             expect(ClusterRowBuilder.filter(rows, 'payments-eu').map(row => row.name)).toEqual(['prod'])
             expect(ClusterRowBuilder.filter(rows, 'lab.example').map(row => row.name)).toEqual(['lab'])
             expect(ClusterRowBuilder.filter(rows, 'sandbox').map(row => row.name)).toEqual(['lab'])
+        })
+
+        it('matches the display name the operator chose', () => {
+            const named = ClusterRowBuilder.build(input({
+                contexts: [context('prod'), context('lab')],
+                appearances: [{ clusterId: 'prod', displayName: 'Production', icon: ClusterMonogram.iconFor('prod'), imagePath: '' }],
+            }))
+
+            expect(ClusterRowBuilder.filter(named, 'product').map(row => row.name)).toEqual(['prod'])
         })
 
         it('answers an empty list rather than everything when nothing matches', () => {

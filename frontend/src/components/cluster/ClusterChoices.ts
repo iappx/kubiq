@@ -9,6 +9,8 @@ export class ClusterChoices {
     }
 
     public static hintOf(row: TClusterRow): string {
-        return `${row.statusTitle} · ${row.detail === '' ? row.server : row.detail}`
+        const context = row.displayName === row.name ? '' : `${row.name} · `
+
+        return `${context}${row.statusTitle} · ${row.detail === '' ? row.server : row.detail}`
     }
 }

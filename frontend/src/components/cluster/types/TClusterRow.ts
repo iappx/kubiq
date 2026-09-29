@@ -1,9 +1,12 @@
+import type { TClusterIcon } from '@/domain/entities/catalog/types/TClusterIcon'
 import type { TClusterSourceOrigin } from '@/domain/entities/catalog/types/TClusterSourceOrigin'
 import type { TClusterStatus } from '@/domain/entities/catalog/types/TClusterStatus'
 
 export type TClusterRow = {
     clusterId: string
     name: string
+    displayName: string
+    icon: TClusterIcon
     status: TClusterStatus
     statusTitle: string
     clusterName: string

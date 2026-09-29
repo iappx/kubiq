@@ -70,7 +70,6 @@
 
         <pod-logs-panel v-if="isLogTab" :key="dockStore.activeKey" :session-key="dockStore.activeKey" />
         <terminal-panel v-else-if="isTerminalTab" :key="dockStore.activeKey" :session-key="dockStore.activeKey" />
-        <port-forward-panel v-else-if="isForwardTab" :key="dockStore.activeKey" :cluster-id="clusterId" />
       </ui-dock>
     </div>
   </app-frame>
@@ -87,7 +86,6 @@ import UiDock from '@/components/common/panel/UiDock.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
 import UiSkeletons from '@/components/common/UiSkeletons.vue'
 import PodLogsPanel from '@/components/logs/PodLogsPanel.vue'
-import PortForwardPanel from '@/components/terminal/PortForwardPanel.vue'
 import TerminalLauncher from '@/components/terminal/TerminalLauncher.vue'
 import TerminalPanel from '@/components/terminal/TerminalPanel.vue'
 import { ClusterEntryService } from '@/application/services/clusterEntry/ClusterEntryService'
@@ -97,9 +95,10 @@ import { ShellKeymap } from '@/components/clusterShell/ShellKeymap'
 import { UiKeyboard } from '@/components/common/UiKeyboard'
 import type { TClusterEntryPhase } from '@/application/services/clusterEntry/types/TClusterEntryPhase'
 import type { TClusterSection } from '@/components/clusterShell/types/TClusterSection'
+import { OpenClusterObjectEvent } from '@/domain/events/cluster/OpenClusterObjectEvent'
 import { DockTabClosedEvent } from '@/domain/events/dock/DockTabClosedEvent'
 import { PodLogKey } from '@/domain/models/kube'
-import { PortForwardKey, TerminalKey } from '@/domain/models/terminal'
+import { TerminalKey } from '@/domain/models/terminal'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
@@ -111,7 +110,6 @@ import { ResourceYamlEditStore } from '@/store/modules/resourceYamlEdit/Resource
     AppFrame,
     LoaderCircle,
     PodLogsPanel,
-    PortForwardPanel,
     Sidebar,
     TerminalLauncher,
     TerminalPanel,
@@ -123,6 +121,8 @@ import { ResourceYamlEditStore } from '@/store/modules/resourceYamlEdit/Resource
 })
 export default class ClusterShellPage extends VueBase {
   private onEscape!: (event: KeyboardEvent) => void
+
+  private onOpenObject!: (event: OpenClusterObjectEvent) => void
 
   constructor(
       @inject(AppUiStore) public readonly uiStore: AppUiStore,
@@ -161,10 +161,6 @@ export default class ClusterShellPage extends VueBase {
 
   public get isTerminalTab(): boolean {
     return TerminalKey.isTerminal(this.dockStore.activeKey)
-  }
-
-  public get isForwardTab(): boolean {
-    return PortForwardKey.isPortForward(this.dockStore.activeKey)
   }
 
   // The dock strip is always mounted because it carries the terminal launcher.
@@ -212,6 +208,14 @@ export default class ClusterShellPage extends VueBase {
     }
 
     document.addEventListener('keydown', this.onEscape, true)
+
+    this.onOpenObject = (event) => {
+      void this.$router.push(ClusterRoutes.object(event.clusterId, event.kind, {
+        namespace: event.namespace,
+        name: event.name,
+      }))
+    }
+    this.eventBus.registerHandler(OpenClusterObjectEvent, this.onOpenObject)
   }
 
   async mounted(): Promise<void> {
@@ -220,6 +224,7 @@ export default class ClusterShellPage extends VueBase {
 
   beforeUnmount(): void {
     document.removeEventListener('keydown', this.onEscape, true)
+    this.eventBus.unregisterHandler(OpenClusterObjectEvent, this.onOpenObject)
     this.uiStore.closeDetail()
   }
 

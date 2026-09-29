@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { ClusterSwitchOptions } from '@/components/clusterShell/ClusterSwitchOptions'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 import type { TClusterStatus } from '@/domain/entities/catalog/types/TClusterStatus'
+import { ClusterMonogram } from '@/domain/entities/catalog/ClusterMonogram'
 import { ClusterStatusCatalog } from '@/domain/entities/catalog/ClusterStatusCatalog'
 
 const row = (name: string, status: TClusterStatus, overrides: Partial<TClusterRow> = {}): TClusterRow => ({
     clusterId: name,
     name,
+    displayName: name,
+    icon: ClusterMonogram.iconFor(name),
     status,
     statusTitle: ClusterStatusCatalog.title(status),
     clusterName: `${name}-cluster`,
@@ -83,6 +86,13 @@ describe('ClusterSwitchOptions.build', () => {
         ])
 
         expect(item.hint).toBe('Unsupported · exec plugins arrive later')
+    })
+
+    it('labels a cluster with the name the operator chose and hints the context behind it', () => {
+        const [item] = ClusterSwitchOptions.build([row('lab', 'available', { displayName: 'Laboratory' })])
+
+        expect(item.label).toBe('Laboratory')
+        expect(item.hint).toBe('lab · Available · https://lab.example.internal:6443')
     })
 
     it('reads a cluster back out of the key it was given', () => {

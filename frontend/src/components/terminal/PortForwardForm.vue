@@ -1,110 +1,132 @@
 <template>
-  <div class="border-b border-border">
-    <form class="port-forward-form" @submit.prevent="submit">
-      <ui-form-field v-slot="{ fieldId, describedBy }" class="w-32" label="Kind">
-        <select
-            :id="fieldId"
-            v-model="draft.resource"
-            :aria-describedby="describedBy"
-            class="ui-input"
-            @change="reload"
-        >
-          <option value="pods">Pod</option>
-          <option value="services">Service</option>
-        </select>
-      </ui-form-field>
-
-      <ui-suggest-field
-          v-model="draft.namespace"
-          :error="errors.namespace"
-          :options="namespaces"
-          class="w-40"
-          label="Namespace"
-          placeholder="default"
-          @change="reload"
+  <ui-modal
+      :loading="busy"
+      :open="open"
+      :submit-label="submitLabel"
+      :title="title"
+      @close="$emit('cancel')"
+      @submit="submit"
+  >
+    <div class="space-y-4">
+      <port-forward-target-summary
+          v-if="targetLocked"
+          :cluster-id="clusterId"
+          :name="draft.name"
+          :namespace="draft.namespace"
+          :resource="draft.resource"
       />
 
-      <ui-suggest-field
-          v-model="draft.name"
-          :error="errors.name"
-          :options="portForwardStore.names"
-          class="flex-1 min-w-40"
-          label="Name"
-          @change="discover"
-      />
+      <div v-else class="grid grid-cols-2 gap-3">
+        <p class="col-span-2 text-xs text-muted-foreground">In cluster {{ clusterId }}</p>
 
-      <ui-form-field v-slot="{ fieldId, describedBy }" :error="errors.remotePort" class="w-28" label="Port">
-        <input
-            :id="fieldId"
+        <ui-form-field v-slot="{ fieldId, describedBy }" label="Kind">
+          <select
+              :id="fieldId"
+              v-model="draft.resource"
+              :aria-describedby="describedBy"
+              class="ui-input"
+              @change="targetChanged"
+          >
+            <option value="pods">Pod</option>
+            <option value="services">Service</option>
+          </select>
+        </ui-form-field>
+
+        <ui-suggest-field
+            v-model="draft.namespace"
+            :error="errors.namespace"
+            :options="namespaces"
+            label="Namespace"
+            placeholder="default"
+            @change="targetChanged"
+        />
+
+        <ui-suggest-field
+            v-model="draft.name"
+            :error="errors.name"
+            :options="portForwardStore.names"
+            class="col-span-2"
+            label="Name"
+            @change="discover"
+        />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <ui-combo-field
             v-model="draft.remotePort"
-            :aria-describedby="describedBy"
-            :aria-invalid="errors.remotePort ? 'true' : undefined"
-            class="ui-input tabular"
-            inputmode="numeric"
-            type="text"
-        >
-      </ui-form-field>
+            :error="errors.remotePort"
+            :options="portOptions"
+            :placeholder="portPlaceholder"
+            label="Remote port"
+        />
 
-      <ui-form-field v-slot="{ fieldId, describedBy }" :error="errors.localPort" class="w-32" label="Local port">
-        <input
-            :id="fieldId"
-            v-model="draft.localPort"
-            :aria-describedby="describedBy"
-            :aria-invalid="errors.localPort ? 'true' : undefined"
-            class="ui-input tabular"
-            inputmode="numeric"
-            placeholder="Any"
-            type="text"
-        >
-      </ui-form-field>
+        <ui-form-field v-slot="{ fieldId, describedBy }" :error="errors.localPort" label="Local port">
+          <input
+              :id="fieldId"
+              v-model="draft.localPort"
+              :aria-describedby="describedBy"
+              :aria-invalid="errors.localPort ? 'true' : undefined"
+              autocomplete="off"
+              class="ui-input tabular"
+              inputmode="numeric"
+              placeholder="Any free port"
+              type="text"
+              @keydown.enter.prevent="submit"
+          >
+        </ui-form-field>
+      </div>
 
-      <button :disabled="busy" class="btn-primary h-8 px-3 text-xs shrink-0" type="submit">
-        <play :size="12" />
-        <span>Forward</span>
-      </button>
-    </form>
-
-    <div v-if="known.length > 0" class="flex flex-wrap items-center gap-1 px-4 pb-2">
-      <span class="text-xs text-muted-foreground">Ports it declares:</span>
-      <button
-          v-for="port in known"
-          :key="`${port.port}-${port.name}`"
-          class="pill"
-          type="button"
-          @click="draft.remotePort = String(port.port)"
-      >
-        {{ port.name === '' ? port.port : `${port.port} · ${port.name}` }}
-      </button>
+      <port-forward-mode-field v-model="draft.restoreMode" :error="errors.restoreMode" />
     </div>
-  </div>
+  </ui-modal>
 </template>
 
 <script lang="ts">
 import { Component, Prop, VueBase, Watch } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
-import { Play } from '@lucide/vue'
+import UiComboField from '@/components/common/form/UiComboField.vue'
 import UiFormField from '@/components/common/form/UiFormField.vue'
 import UiSuggestField from '@/components/common/form/UiSuggestField.vue'
-import { PortForwardValidator } from '@/application/validators/PortForwardValidator'
+import UiModal from '@/components/common/modal/UiModal.vue'
+import PortForwardModeField from '@/components/terminal/PortForwardModeField.vue'
+import PortForwardTargetSummary from '@/components/terminal/PortForwardTargetSummary.vue'
+import { PortForwardPortOptions } from '@/components/terminal/PortForwardPortOptions'
+import type { TUiComboOption } from '@/components/common/form/types/TUiComboOption'
+import { PortForwardLabel } from '@/application/services/portForward/models/PortForwardLabel'
+import type { TPortForward } from '@/application/services/portForward/types/TPortForward'
 import type { TPortForwardDraft } from '@/application/services/portForward/types/TPortForwardDraft'
-import type { TPortForwardPort } from '@/application/services/portForward/types/TPortForwardPort'
-import type { TPortForwardTarget } from '@/application/services/portForward/types/TPortForwardTarget'
+import type { TPortForwardRequest } from '@/application/services/portForward/types/TPortForwardRequest'
+import { PortForwardValidator } from '@/application/validators/PortForwardValidator'
+import { PortForwardRestoreModeCatalog } from '@/domain/entities/portForward'
+import type { TPortForwardRemotePort, TPortForwardResource } from '@/domain/entities/portForward'
+import type { OpenPortForwardEvent } from '@/domain/events/terminal/OpenPortForwardEvent'
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 import { PortForwardStore } from '@/store/modules/portForward/PortForwardStore'
 
 @Component({
-  components: { Play, UiFormField, UiSuggestField },
+  components: { PortForwardModeField, PortForwardTargetSummary, UiComboField, UiFormField, UiModal, UiSuggestField },
+  emits: ['cancel', 'submit'],
 })
 export default class PortForwardForm extends VueBase {
-  @Prop({ required: true })
-  public readonly clusterId: string
+  @Prop({ required: true, type: Boolean })
+  public readonly open: boolean
+
+  @Prop({ required: false, default: null })
+  public readonly request: OpenPortForwardEvent | null
+
+  @Prop({ required: false, default: null })
+  public readonly forward: TPortForward | null
+
+  @Prop({ required: false, type: Boolean, default: false })
+  public readonly busy?: boolean
 
   public draft: TPortForwardDraft = {
-    resource: 'pods',
+    resource: PortForwardLabel.pods,
     namespace: '',
     name: '',
     remotePort: '',
     localPort: '',
+    restoreMode: PortForwardRestoreModeCatalog.defaultMode,
   }
 
   public errors: Record<string, string> = {}
@@ -117,41 +139,66 @@ export default class PortForwardForm extends VueBase {
     super()
   }
 
-  async created(): Promise<void> {
-    this.applyTarget(this.portForwardStore.target)
-
-    await this.namespaceStore.loadFor(this.clusterId)
-    await this.reload()
+  public get clusterId(): string {
+    return this.forward?.clusterId ?? this.request?.clusterId ?? ''
   }
 
-  public get busy(): boolean {
-    return this.portForwardStore.starting
+  public get editing(): boolean {
+    return this.forward !== null
   }
 
-  public get known(): TPortForwardPort[] {
-    return this.portForwardStore.ports
+  public get targetLocked(): boolean {
+    return this.editing || (this.request?.hasTarget ?? false)
+  }
+
+  public get title(): string {
+    return this.editing ? 'Edit port forward' : 'Forward a port'
+  }
+
+  public get submitLabel(): string {
+    return this.editing ? 'Save' : 'Forward'
   }
 
   public get namespaces(): string[] {
     return this.namespaceStore.availableOf(this.clusterId)
   }
 
-  @Watch('portForwardStore.target')
-  targetChanged(target: TPortForwardTarget | null): void {
-    this.applyTarget(target)
-    void this.reload()
+  public get portOptions(): TUiComboOption[] {
+    return PortForwardPortOptions.of(this.portForwardStore.ports)
   }
 
-  public reload(): Promise<void> {
-    return this.portForwardStore.loadNames(this.clusterId, this.draft.namespace.trim(), this.draft.resource)
+  public get portPlaceholder(): string {
+    return this.portForwardStore.loadingPorts ? 'Reading declared ports' : 'Number or name'
   }
 
-  public discover(): void {
-    if (this.draft.namespace === '' || this.draft.name === '') {
+  @Watch('request')
+  async requestChanged(request: OpenPortForwardEvent | null): Promise<void> {
+    if (!request) {
       return
     }
 
-    void this.portForwardStore.loadPorts(
+    this.reset()
+    await this.prepare()
+  }
+
+  @Watch('portForwardStore.ports')
+  portsChanged(): void {
+    if (!this.open || this.draft.remotePort.trim() !== '') {
+      return
+    }
+
+    this.draft.remotePort = PortForwardPortOptions.initial(this.portForwardStore.ports, '')
+  }
+
+  public async targetChanged(): Promise<void> {
+    await Promise.all([
+      this.portForwardStore.loadNames(this.clusterId, this.draft.namespace.trim(), this.draft.resource),
+      this.discover(),
+    ])
+  }
+
+  public async discover(): Promise<void> {
+    await this.portForwardStore.loadPorts(
         this.clusterId,
         this.draft.namespace.trim(),
         this.draft.resource,
@@ -160,47 +207,78 @@ export default class PortForwardForm extends VueBase {
   }
 
   public submit(): void {
-    const result = this.validator.validate(this.draft)
+    if (this.busy) {
+      return
+    }
+
+    const result = this.validator.validate(this.draft, this.takenPorts())
     this.errors = result.errors
 
     if (!result.valid) {
       return
     }
 
-    const parsed = PortForwardValidator.parse(this.draft)
-
-    void this.portForwardStore.start({
+    const request: TPortForwardRequest = {
       clusterId: this.clusterId,
       namespace: this.draft.namespace.trim(),
-      resource: this.draft.resource,
+      resource: this.resourceOf(this.draft.resource),
       name: this.draft.name.trim(),
-      remotePort: parsed.remotePort,
-      localPort: parsed.localPort,
-    })
+      ...PortForwardValidator.parse(this.draft),
+    }
+
+    this.$emit('submit', request)
   }
 
-  private applyTarget(target: TPortForwardTarget | null): void {
-    if (!target) {
+  private reset(): void {
+    this.errors = {}
+    this.portForwardStore.clearPorts()
+
+    const forward = this.forward
+    if (forward) {
+      this.draft = {
+        resource: forward.resource,
+        namespace: forward.namespace,
+        name: forward.name,
+        remotePort: String(forward.remotePort),
+        localPort: forward.localPort > 0 ? String(forward.localPort) : '',
+        restoreMode: forward.restoreMode,
+      }
       return
     }
 
     this.draft = {
-      resource: target.resource,
-      namespace: target.namespace,
-      name: target.name,
-      remotePort: target.remotePort > 0 ? String(target.remotePort) : '',
+      resource: this.resourceOf(this.request?.resource ?? ''),
+      namespace: this.request?.namespace ?? '',
+      name: this.request?.name ?? '',
+      remotePort: PortForwardPortOptions.initial([], this.request?.remotePort ?? ''),
       localPort: '',
+      restoreMode: PortForwardRestoreModeCatalog.defaultMode,
     }
-    this.errors = {}
+  }
+
+  private async prepare(): Promise<void> {
+    if (this.targetLocked) {
+      await this.discover()
+      return
+    }
+
+    await Promise.all([
+      this.namespaceStore.loadFor(this.clusterId),
+      this.portForwardStore.loadNames(this.clusterId, this.draft.namespace.trim(), this.draft.resource),
+    ])
+  }
+
+  private takenPorts(): TPortForwardRemotePort[] {
+    const forward = this.forward
+    if (!forward) {
+      return []
+    }
+
+    return this.portForwardStore.remotePortsOn(forward.clusterId, forward.namespace, forward.resource, forward.name, forward.id)
+  }
+
+  private resourceOf(resource: string): TPortForwardResource {
+    return resource === PortForwardLabel.services ? 'services' : 'pods'
   }
 }
 </script>
-
-<style scoped>
-.port-forward-form {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  padding: 12px 16px;
-}
-</style>

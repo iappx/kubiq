@@ -190,4 +190,89 @@ describe('WorkloadActionService.trigger', () => {
         expect(cronJob().jobTemplateSpec).toMatchObject({ backoffLimit: 2 })
         expect(cronJob().jobTemplateLabels).toEqual({ app: 'report' })
     })
+
+    it('creates the job from an edited manifest instead of the template when handed one', async () => {
+        transport.answerWith({ metadata: { uid: 'job-uid', name: 'nightly-report-manual-q8z4d' } })
+        const manifest = WorkloadActionService.jobManifest(cronJob(), jobs) as Record<string, any>
+        manifest.spec = {
+            backoffLimit: 0,
+            template: { spec: { containers: [{ name: 'report', args: ['--dry-run'], env: [{ name: 'MODE', value: 'manual' }] }] } },
+        }
+
+        await service.trigger({ clusterId: 'prod', cronJob: cronJob(), jobKind: jobs, manifest })
+
+        expect(transport.last.url).toBe('/apis/batch/v1/namespaces/payments/jobs')
+        expect(body().spec).toEqual(manifest.spec)
+        expect(body().metadata.generateName).toBe('nightly-report-manual-')
+        expect(body().metadata.ownerReferences[0]).toMatchObject({ kind: 'CronJob', uid: 'cron-uid' })
+    })
+})
+
+describe('WorkloadActionService.jobManifest', () => {
+    it('builds the job the way the cron controller would, marked as a manual run', () => {
+        expect(WorkloadActionService.jobManifest(cronJob(), jobs)).toEqual({
+            apiVersion: 'batch/v1',
+            kind: 'Job',
+            metadata: {
+                generateName: 'nightly-report-manual-',
+                namespace: 'payments',
+                labels: { app: 'report' },
+                annotations: { [WorkloadAnnotations.instantiate]: WorkloadAnnotations.manual },
+                ownerReferences: [{
+                    apiVersion: 'batch/v1',
+                    kind: 'CronJob',
+                    name: 'nightly-report',
+                    uid: 'cron-uid',
+                    controller: false,
+                    blockOwnerDeletion: true,
+                }],
+            },
+            spec: { backoffLimit: 2, template: { spec: { containers: [{ name: 'report' }] } } },
+        })
+    })
+
+    it('keeps the annotations of the job template next to the manual mark', () => {
+        const annotated = CronJobEntity.build({
+            uid: 'cron-uid',
+            apiVersion: 'batch/v1',
+            kind: 'CronJob',
+            metadata: { uid: 'cron-uid', name: 'nightly-report', namespace: 'payments' },
+            spec: { schedule: '0 2 * * *', jobTemplate: { metadata: { annotations: { team: 'billing' } }, spec: {} } },
+        })
+
+        const metadata = WorkloadActionService.jobManifest(annotated, jobs).metadata as Record<string, unknown>
+
+        expect(metadata.annotations).toEqual({
+            team: 'billing',
+            [WorkloadAnnotations.instantiate]: WorkloadAnnotations.manual,
+        })
+    })
+})
+
+describe('WorkloadActionService.setSuspended', () => {
+    const cronTarget: TWorkloadTarget = { ...target, kind: cronJobs, name: 'nightly-report', rowKey: 'cron-uid' }
+
+    beforeEach(() => {
+        transport.reset()
+        service = new WorkloadActionService(connectionService)
+    })
+
+    it('suspends the cron job with a merge patch of spec.suspend alone', async () => {
+        transport.answerWith({})
+
+        await service.setSuspended(cronTarget, true)
+
+        expect(transport.last.url).toBe('/apis/batch/v1/namespaces/payments/cronjobs/nightly-report')
+        expect(transport.last.method).toBe('PATCH')
+        expect(transport.last.headers?.['content-type']).toBe(KubePatchRequestFactory.mergePatchType)
+        expect(body()).toEqual({ spec: { suspend: true } })
+    })
+
+    it('resumes it by writing false rather than dropping the field', async () => {
+        transport.answerWith({})
+
+        await service.setSuspended(cronTarget, false)
+
+        expect(body()).toEqual({ spec: { suspend: false } })
+    })
 })

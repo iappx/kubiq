@@ -366,6 +366,51 @@ describe('ClusterEntryService', () => {
         })
     })
 
+    describe('connecting without entering', () => {
+        it('connects the cluster but leaves the one in use active and the last one entered alone', async () => {
+            await service.enter('prod')
+
+            await expect(service.connectInBackground('staging')).resolves.toBe(true)
+
+            expect(connectionStore.isConnected('staging')).toBe(true)
+            expect(connectionStore.namespacesOf('staging')).toEqual(['payments'])
+            expect(connectionStore.activeClusterId).toBe('prod')
+            expect(uiStore.lastClusterId).toBe('prod')
+        })
+
+        it('shares one connection attempt with an entry that starts at the same time', async () => {
+            const [background, entry] = await Promise.all([
+                service.connectInBackground('staging'),
+                service.enter('staging'),
+            ])
+
+            expect(background).toBe(true)
+            expect(entry).toBe('ready')
+            expect(fake.connect).toHaveBeenCalledTimes(1)
+            expect(connectionStore.activeClusterId).toBe('staging')
+        })
+
+        it('takes back a session a reload left open instead of opening another', async () => {
+            fake.state.reclaimed = [fake.connection('staging')]
+
+            await expect(service.connectInBackground('staging')).resolves.toBe(true)
+
+            expect(fake.connect).not.toHaveBeenCalled()
+        })
+
+        it('answers false for a cluster the catalog does not know', async () => {
+            await expect(service.connectInBackground('gone')).resolves.toBe(false)
+
+            expect(fake.connect).not.toHaveBeenCalled()
+        })
+
+        it('answers false when the cluster will not answer', async () => {
+            fake.state.connectFails = new ApiError('The cluster rejected the credentials', 'Unauthorized', 401)
+
+            await expect(service.connectInBackground('staging')).resolves.toBe(false)
+        })
+    })
+
     describe('the phase the shell renders', () => {
         it('is connecting before anything has been read', () => {
             expect(service.phaseOf('staging')).toBe('connecting')

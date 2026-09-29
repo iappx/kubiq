@@ -128,7 +128,7 @@ export class ClusterConnectionStore extends StoreBase<ClusterConnectionStore> {
         })
     }
 
-    public connect(clusterId: string, extraPaths: readonly string[] = []): Promise<void> {
+    public connect(clusterId: string, extraPaths: readonly string[] = [], activate: boolean = true): Promise<void> {
         return this.guard('ClusterConnectionStore.connect', async () => {
             if (this.isConnecting(clusterId)) {
                 return
@@ -147,7 +147,9 @@ export class ClusterConnectionStore extends StoreBase<ClusterConnectionStore> {
                     connection,
                 ]
                 this.clearFailure(clusterId)
-                this.activeClusterId = clusterId
+                if (activate || this.activeClusterId === '') {
+                    this.activeClusterId = clusterId
+                }
                 this.eventBus.emitEvent(
                     new ClusterConnectedEvent(clusterId, connection.contextName, connection.version),
                 )

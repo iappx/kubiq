@@ -14,7 +14,7 @@ export class ClusterSwitchOptions {
         const ordered = ClusterChoices.ordered(rows)
         const clusters = ordered.map((row, index) => ({
             key: ClusterSwitchOptions.keyOf(row.clusterId),
-            label: row.name,
+            label: row.displayName,
             tone: ClusterToneMap.of(row.status),
             hint: ClusterChoices.hintOf(row),
             separatorBefore: index > 0 && ordered[index - 1].isConnected && !row.isConnected,

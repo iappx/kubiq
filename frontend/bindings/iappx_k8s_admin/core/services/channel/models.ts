@@ -223,6 +223,35 @@ export class ForwardInfo {
     }
 }
 
+export class ForwardTargetSpec {
+    "forwardId": string;
+    "path": string;
+    "remotePort": number;
+
+    /** Creates a new ForwardTargetSpec instance. */
+    constructor($$source: Partial<ForwardTargetSpec> = {}) {
+        if (!("forwardId" in $$source)) {
+            this["forwardId"] = "";
+        }
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("remotePort" in $$source)) {
+            this["remotePort"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ForwardTargetSpec instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ForwardTargetSpec {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ForwardTargetSpec($$parsedSource as Partial<ForwardTargetSpec>);
+    }
+}
+
 export class ForwardsResult {
     "success": boolean;
     "forwards": ForwardInfo[];

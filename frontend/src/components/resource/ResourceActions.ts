@@ -1,4 +1,4 @@
-import { Ban, Cable, CircleCheck, Droplets, FilePenLine, PanelRight, Play, RefreshCw, ScrollText, Scaling, SquareTerminal, Star, StarOff, Trash2 } from '@lucide/vue'
+import { Ban, Cable, CircleCheck, CirclePause, CirclePlay, Droplets, FilePenLine, FilePlay, PanelRight, Play, RefreshCw, ScrollText, Scaling, SquareTerminal, Star, StarOff, Trash2 } from '@lucide/vue'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 import type { TResourceRow } from '@/components/resource/types/TResourceRow'
 import { KubeClusterCatalog, KubeDefaultClassCatalog, KubeWorkloadCatalog } from '@/domain/models/kube'
@@ -20,6 +20,12 @@ export class ResourceActions {
     public static readonly restartKey: string = 'restart'
 
     public static readonly triggerKey: string = 'trigger'
+
+    public static readonly triggerEditKey: string = 'trigger-edit'
+
+    public static readonly suspendKey: string = 'suspend'
+
+    public static readonly resumeKey: string = 'resume'
 
     public static readonly cordonKey: string = 'cordon'
 
@@ -61,6 +67,11 @@ export class ResourceActions {
         }
         if (KubeWorkloadCatalog.canTrigger(kind)) {
             items.push({ key: ResourceActions.triggerKey, label: 'Trigger now', icon: Play, separatorBefore: true })
+            items.push({ key: ResourceActions.triggerEditKey, label: 'Trigger with edits…', icon: FilePlay })
+        }
+        if (KubeWorkloadCatalog.canSuspend(kind)) {
+            items.push({ key: ResourceActions.suspendKey, label: 'Suspend', icon: CirclePause })
+            items.push({ key: ResourceActions.resumeKey, label: 'Resume', icon: CirclePlay })
         }
         if (KubeClusterCatalog.canCordon(kind)) {
             items.push({ key: ResourceActions.cordonKey, label: 'Cordon', icon: Ban, separatorBefore: true })
@@ -87,8 +98,11 @@ export class ResourceActions {
     }
 
     public static forRow(items: readonly TUiMenuItem[], row: TResourceRow): TUiMenuItem[] {
-        const hidden = row.isDefault === true ? ResourceActions.setDefaultKey : ResourceActions.unsetDefaultKey
+        const hidden = [
+            row.isDefault === true ? ResourceActions.setDefaultKey : ResourceActions.unsetDefaultKey,
+            row.isSuspended === true ? ResourceActions.suspendKey : ResourceActions.resumeKey,
+        ]
 
-        return items.filter(item => item.key !== hidden)
+        return items.filter(item => !hidden.includes(item.key))
     }
 }

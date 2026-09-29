@@ -7,7 +7,7 @@
 **A desktop Kubernetes console for people who live in one.**
 
 Dense tables you can read at a glance. Live lists that admit when they are stale.
-Logs, shells and port forwards in a dock at the bottom. Helm and Argo CD in the same window.
+Logs and shells in a dock at the bottom, port forwards that survive a restart. Helm and Argo CD in the same window.
 One native application, no browser tab, nothing to install in your cluster.
 
 [![CI](https://github.com/iappx/kubiq/actions/workflows/ci.yml/badge.svg)](https://github.com/iappx/kubiq/actions/workflows/ci.yml)
@@ -18,6 +18,7 @@ One native application, no browser tab, nothing to install in your cluster.
 ![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-6b7280)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 [Why](#why-another-kubernetes-console) ·
 [What you get](#what-you-get) ·
@@ -71,15 +72,15 @@ reachable from the keyboard.
 | **Live lists** | Backed by `watch`. Changes are batched and flushed every 100 ms; reconnects back off from 500 ms to 15 s and survive a laptop going to sleep. A dropped watch is shown, not swallowed. |
 | **A detail panel that does not block the list** | Overview, Environment, Details, Metadata, Events and YAML, side by side with the table. Resizable, and the width is remembered. |
 | **YAML you can edit and apply** | Monaco, holding the object exactly as the server returned it. **Apply** sends your document, **Revert** throws it away, and the header says whether anything is unsaved. Create new objects from a template the same way. |
-| **Object actions** | Scale, restart rollout, trigger a cron job now, cordon, uncordon, drain, delete — with a confirmation that names what it is about to touch. |
+| **Object actions** | Scale, restart rollout, trigger a cron job now or with edits to the job it would create, suspend and resume a cron job, cordon, uncordon, drain, delete — with a confirmation that names what it is about to touch. |
 | **Logs that read like logs** | Streaming, ANSI colour preserved, per-container, previous container, search with highlighting and match count, show-only-matching, wrap, timestamps, tail size and time window, save to a file or copy. |
 | **Three kinds of shell** | `exec` into a container over a WebSocket channel; a node shell — a privileged pod scheduled onto the node you picked and deleted when you close the tab; and a local shell on your own machine, already pointed at the cluster and namespace you are looking at. |
-| **Port forwards** | To a pod or a service. The form offers the namespaces, names and declared ports that actually exist, then hands you `127.0.0.1:<port>` and a button to open it. |
+| **Port forwards** | To a pod or a service. The dialog offers the ports the object declares — number, name and protocol — or takes one you type, then hands you `127.0.0.1:<port>` and a button to open it. |
 | **Metrics** | Current usage from `metrics.k8s.io` as bars against requests and limits, and history from Prometheus — discovered in the cluster or pointed at by hand — for the cluster, a node, a workload or a single pod. |
 | **Helm** | Repositories, chart browsing, releases with revision history, values, rendered manifest, notes and the objects a release owns. Install, upgrade, roll back and uninstall with the command's output streamed live. |
 | **Argo CD** | Applications, projects and application sets. Sync, refresh, roll back to a revision, toggle automated/prune/self-heal, read resource trees, history and conditions. |
 | **Secrets stay secret** | The environment inspector shows where every variable came from and masks anything sourced from a Secret until you reveal it — and a revealed value is never written to a log or a file. |
-| **Themes and density** | Light and dark, compact and comfortable, both persisted. Every colour is a token, so rebranding is a stylesheet change. |
+| **Themes and density** | Light and dark, compact and comfortable, both chosen in Settings and persisted. Every colour is a token, so rebranding is a stylesheet change. |
 
 ---
 
@@ -89,6 +90,11 @@ reachable from the keyboard.
 
 Every context kubiq can see, with its server, its default namespace and the version it answers
 with. Pin the ones you use. Click a row and you are inside.
+
+Every cluster gets an icon — initials in a color picked from its name, until you choose your own
+initials, a symbol or an image, and a display name that stands in for the context name everywhere
+in kubiq. Click the icon, or **Customize…** in the row menu. The kubeconfig is left untouched, and
+an image is copied into the app data folder, so the original can go.
 
 ![The cluster catalog](docs/images/catalog.png)
 
@@ -139,9 +145,22 @@ means the same thing as the screen here.
 
 ### Port forwards
 
-Pick a pod or a service; kubiq offers the namespaces and names that exist and the ports the
-object declares, so there is nothing to mistype. Forwards are listed with the local address they
-are bound to and stay up until you stop them.
+**Forward port** on a pod or a service — from its row menu, from the detail panel, or from the
+dock's `+` menu — opens one dialog. It lists the ports the object declares with their names and
+protocols, preselects the port when there is only one, and takes a number or a port name typed by
+hand. Leave the local port empty to be given a free one. The same dialog edits a saved forward:
+change either port or the restore mode, and a running forward restarts on the new port.
+
+Forwards are saved and come back after a restart: each one either waits for you to start it, starts
+whenever its cluster is connected (the default), or connects its cluster when kubiq starts. A forward
+that asked for any free port gets the one it had last time if it is still free, so the address does
+not move. A forward to a service follows the service: when its pod goes away in a rollout or an
+eviction it moves to another running pod on the same local port.
+
+Every saved forward, from every cluster, sits behind one chip in the top bar that counts the active
+ones and turns amber or red when one is reconnecting or has failed. Its popover lists them by
+cluster with their address, status and restore mode, and opens, copies, edits, starts, stops or
+deletes any of them; clicking a target opens that object in its own cluster.
 
 ![Two live port forwards](docs/images/port-forward.png)
 
@@ -497,6 +516,13 @@ brief every screen follows is in [.ai/ui-ux.md](.ai/ui-ux.md).
 Early, and honest about it: the version numbers are still `0.x` and Wails 3 is itself in alpha.
 What is in the tour above is what works today, against real clusters — every screenshot on this
 page was taken from the running application.
+
+---
+
+## License
+
+kubiq is licensed under the [Apache License 2.0](LICENSE). Copyright 2026 IAPPX — see [NOTICE](NOTICE).
+Contributions are accepted under the same license.
 
 <div align="center">
 <sub>Built by <a href="https://github.com/iappx">IAPPX</a>.</sub>

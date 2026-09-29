@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CommandPaletteIndex } from '@/components/clusterShell/CommandPaletteIndex'
 import { KubeResourceRegistry } from '@/domain/models/kube'
+import { ClusterMonogram } from '@/domain/entities/catalog/ClusterMonogram'
 import { ClusterStatusCatalog } from '@/domain/entities/catalog/ClusterStatusCatalog'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 import type { TClusterStatus } from '@/domain/entities/catalog/types/TClusterStatus'
@@ -9,6 +10,8 @@ import type { TCommandItem } from '@/components/clusterShell/types/TCommandItem'
 const row = (name: string, status: TClusterStatus): TClusterRow => ({
     clusterId: name,
     name,
+    displayName: name,
+    icon: ClusterMonogram.iconFor(name),
     status,
     statusTitle: ClusterStatusCatalog.title(status),
     clusterName: `${name}-cluster`,

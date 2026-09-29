@@ -71,6 +71,7 @@
           :sort="sort"
           :total-count="allRows.length"
           @connect="connect"
+          @customize="customize"
           @delete="askDelete"
           @details="select"
           @disconnect="connectionStore.disconnect($event)"
@@ -106,6 +107,7 @@
         :row="selectedRow"
         :width="panelWidth"
         @close="selectedId = ''"
+        @customize="customize"
         @delete="askDelete"
         @disconnect="connectionStore.disconnect($event)"
         @enter="enterById"
@@ -145,6 +147,9 @@ import { ClusterCatalogColumns } from '@/components/cluster/ClusterCatalogColumn
 import { ClusterRowBuilder } from '@/components/cluster/ClusterRowBuilder'
 import { ClusterRowSource } from '@/components/cluster/ClusterRowSource'
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
+import { OpenClusterCustomizeEvent } from '@/domain/events/cluster/OpenClusterCustomizeEvent'
+import { EventBus } from '@/infrastructure/eventBus/EventBus'
+import { ClusterAppearanceStore } from '@/store/modules/clusterAppearance/ClusterAppearanceStore'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
@@ -201,6 +206,8 @@ export default class ClustersPage extends VueBase {
       @inject(ClusterConnectionStore) public readonly connectionStore: ClusterConnectionStore,
       @inject(ClusterHealthStore) public readonly healthStore: ClusterHealthStore,
       @inject(ClusterNamespaceStore) public readonly namespaceStore: ClusterNamespaceStore,
+      @inject(ClusterAppearanceStore) private readonly appearanceStore: ClusterAppearanceStore,
+      @inject(EventBus) private readonly eventBus: EventBus,
   ) {
     super()
   }
@@ -210,7 +217,7 @@ export default class ClustersPage extends VueBase {
   }
 
   public get allRows(): TClusterRow[] {
-    return ClusterRowSource.build(this.catalogStore, this.connectionStore, this.healthStore)
+    return ClusterRowSource.build(this.catalogStore, this.connectionStore, this.healthStore, this.appearanceStore)
   }
 
   public get rows(): TClusterRow[] {
@@ -300,6 +307,10 @@ export default class ClustersPage extends VueBase {
 
   public togglePin(clusterId: string): void {
     void this.catalogStore.togglePin(clusterId)
+  }
+
+  public customize(clusterId: string): void {
+    this.eventBus.emitEvent(new OpenClusterCustomizeEvent(clusterId))
   }
 
   public setNamespaces(namespaces: string[]): void {

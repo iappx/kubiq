@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { EntityRepo } from '@iappx/entity-repo'
+import { ClusterAppearanceEntity } from '@/domain/entities/catalog/ClusterAppearanceEntity'
 import { KubeconfigSourceEntity } from '@/domain/entities/catalog/KubeconfigSourceEntity'
 import { NamespaceSelectionEntity } from '@/domain/entities/catalog/NamespaceSelectionEntity'
 import { PinnedClusterEntity } from '@/domain/entities/catalog/PinnedClusterEntity'
@@ -10,6 +11,7 @@ import { MemoryFileTransport } from '../support/MemoryFileTransport'
 const PINNED_FILE = 'userdata:clusters/pinned.json'
 const SELECTIONS_FILE = 'userdata:clusters/namespaces.json'
 const SOURCES_FILE = 'userdata:clusters/kubeconfigs.json'
+const APPEARANCE_FILE = 'userdata:clusters/appearance.json'
 
 let transport: MemoryFileTransport
 let context: ClusterCatalogEntityContext
@@ -32,6 +34,22 @@ describe('ClusterCatalogEntityContext', () => {
         )
 
         expect([...transport.files.keys()].sort()).toEqual([SOURCES_FILE, SELECTIONS_FILE, PINNED_FILE].sort())
+    })
+
+    it('keeps cluster appearances in a file of their own under the user profile', async () => {
+        await context.appearances.create(ClusterAppearanceEntity.build({
+            clusterId: 'prod',
+            displayName: 'Production',
+            iconKind: 'initials',
+            initials: 'PR',
+            color: 'red',
+            glyph: 'server',
+            imagePath: '',
+            updatedAt: 1,
+        }))
+
+        expect(transport.read(APPEARANCE_FILE)).toEqual([expect.objectContaining({ clusterId: 'prod', displayName: 'Production' })])
+        await expect(context.appearances.getById('prod')).resolves.toMatchObject({ color: 'red' })
     })
 
     it('reads an entity back with the values it was given', async () => {

@@ -4,6 +4,8 @@ import { ClusterConnectionService } from '@/application/services/cluster/Cluster
 import { WorkloadAnnotations } from '@/application/services/workloadAction/constants/WorkloadAnnotations'
 import type { TCronJobTriggerRequest } from '@/application/services/workloadAction/types/TCronJobTriggerRequest'
 import type { TWorkloadTarget } from '@/application/services/workloadAction/types/TWorkloadTarget'
+import type { CronJobEntity } from '@/domain/entities/workloads'
+import type { KubeResourceKind } from '@/domain/models/kube'
 import { KubeEntitySets } from '@/infrastructure/entityRepo/kube/KubeEntitySets'
 import { KubeUrlBuilder } from '@/infrastructure/entityRepo/kube/strategies/KubeUrlBuilder'
 
@@ -33,38 +35,45 @@ export class WorkloadActionService {
     }
 
     public async trigger(request: TCronJobTriggerRequest): Promise<string> {
-        const cronJob = request.cronJob
         const query = KubeEntitySets.queryFor(
             this.connectionService.context(request.clusterId),
             request.jobKind,
-            cronJob.namespace,
+            request.cronJob.namespace,
         )
+        const manifest = request.manifest ?? WorkloadActionService.jobManifest(request.cronJob, request.jobKind)
 
-        const job = query.entityConstructor.build({})
-        job.setDataValue('apiVersion', request.jobKind.apiVersion)
-        job.setDataValue('kind', request.jobKind.kind)
-        job.setDataValue('metadata', {
-            generateName: WorkloadActionService.generatedPrefix(cronJob.name),
-            namespace: cronJob.namespace,
-            labels: cronJob.jobTemplateLabels,
-            annotations: {
-                ...cronJob.jobTemplateAnnotations,
-                [WorkloadAnnotations.instantiate]: WorkloadAnnotations.manual,
-            },
-            ownerReferences: [{
-                apiVersion: cronJob.apiVersion,
-                kind: cronJob.kind,
-                name: cronJob.name,
-                uid: cronJob.uid,
-                controller: false,
-                blockOwnerDeletion: true,
-            }],
-        })
-        job.setDataValue('spec', cronJob.jobTemplateSpec)
-
-        const created = await query.create(job)
+        const created = await query.create(query.entityConstructor.build(manifest))
 
         return WorkloadActionService.nameOf(created)
+    }
+
+    public async setSuspended(target: TWorkloadTarget, suspended: boolean): Promise<void> {
+        await this.patch(target, 'spec', { suspend: suspended })
+    }
+
+    public static jobManifest(cronJob: CronJobEntity, jobKind: KubeResourceKind): Record<string, unknown> {
+        return {
+            apiVersion: jobKind.apiVersion,
+            kind: jobKind.kind,
+            metadata: {
+                generateName: WorkloadActionService.generatedPrefix(cronJob.name),
+                namespace: cronJob.namespace,
+                labels: cronJob.jobTemplateLabels,
+                annotations: {
+                    ...cronJob.jobTemplateAnnotations,
+                    [WorkloadAnnotations.instantiate]: WorkloadAnnotations.manual,
+                },
+                ownerReferences: [{
+                    apiVersion: cronJob.apiVersion,
+                    kind: cronJob.kind,
+                    name: cronJob.name,
+                    uid: cronJob.uid,
+                    controller: false,
+                    blockOwnerDeletion: true,
+                }],
+            },
+            spec: cronJob.jobTemplateSpec,
+        }
     }
 
     public static generatedPrefix(name: string): string {

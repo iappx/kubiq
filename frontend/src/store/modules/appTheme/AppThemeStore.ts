@@ -14,14 +14,6 @@ export class AppThemeStore extends StoreBase<AppThemeStore> {
         super()
     }
 
-    public get isDarkTheme(): boolean {
-        return this.appTheme === AppTheme.Dark
-    }
-
-    public toggleTheme(): void {
-        this.setTheme(this.isDarkTheme ? AppTheme.Light : AppTheme.Dark)
-    }
-
     public setTheme(appTheme: AppTheme): void {
         this.appTheme = appTheme
         this.eventBus.emitEvent(new ThemeChangedEvent(appTheme))

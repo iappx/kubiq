@@ -139,6 +139,7 @@
     </div>
 
     <resource-detail-panel
+        :action-busy="selectedBusy"
         :active-tab="detailTab"
         :default-busy="defaultBusy"
         :kind="kind"
@@ -148,8 +149,12 @@
         @close="closeDetail"
         @delete="askDelete(selectedRow)"
         @forward="openPortForward(selectedRow)"
+        @resume="setSuspended(selectedRow, false)"
         @set-default="changeDefault(selectedRow, true)"
         @shell="openShell(selectedRow)"
+        @suspend="setSuspended(selectedRow, true)"
+        @trigger="trigger(selectedRow)"
+        @trigger-edit="pendingTrigger = selectedRow"
         @unset-default="changeDefault(selectedRow, false)"
         @update:active-tab="selectTab($event)"
         @update:width="uiStore.setPanelWidth($event)"
@@ -201,6 +206,16 @@
         @confirm="confirmScale"
     />
 
+    <trigger-cron-job-dialog
+        :busy="acting"
+        :cluster-id="clusterId"
+        :cron-job="pendingTriggerCronJob"
+        :job-kind="pendingTriggerJobKind"
+        :open="!!pendingTrigger"
+        @cancel="pendingTrigger = null"
+        @run="confirmTrigger"
+    />
+
     <drain-node-dialog
         :busy="acting"
         :open="!!pendingDrain"
@@ -244,6 +259,7 @@ import ResourceDetailPanel from '@/components/resource/ResourceDetailPanel.vue'
 import ResourceTable from '@/components/resource/ResourceTable.vue'
 import ResourceYamlDiscardDialog from '@/components/resource/detail/ResourceYamlDiscardDialog.vue'
 import ScaleWorkloadDialog from '@/components/resource/ScaleWorkloadDialog.vue'
+import TriggerCronJobDialog from '@/components/resource/TriggerCronJobDialog.vue'
 import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
 import UiLiveIndicator from '@/components/common/feedback/UiLiveIndicator.vue'
@@ -279,6 +295,7 @@ import { OpenPortForwardEvent } from '@/domain/events/terminal/OpenPortForwardEv
 import { EventScopeService } from '@/application/services/eventScope/EventScopeService'
 import type { TNodeTarget } from '@/application/services/node/types/TNodeTarget'
 import type { TEventScope } from '@/domain/entities/cluster'
+import type { CronJobEntity } from '@/domain/entities/workloads'
 import { KubeAccessHint, KubeClusterCatalog, KubeKindLocator, KubeResourceRegistry } from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
@@ -311,6 +328,7 @@ import type { TResourceListState } from '@/store/modules/clusterResource/types/T
     ResourceTable,
     ResourceYamlDiscardDialog,
     ScaleWorkloadDialog,
+    TriggerCronJobDialog,
     UiDeferredLoader,
     UiErrorState,
     UiLiveIndicator,
@@ -336,6 +354,8 @@ export default class ResourcePage extends VueBase {
   public pendingScale: TResourceRow | null = null
 
   public pendingDrain: TResourceRow | null = null
+
+  public pendingTrigger: TResourceRow | null = null
 
   public pendingDefault: TDefaultClassPlan | null = null
 
@@ -442,6 +462,18 @@ export default class ResourcePage extends VueBase {
 
   public get defaultBusy(): boolean {
     return !!this.selectedRow && this.defaultClassStore.busyRowKeys(this.clusterId).includes(this.selectedRow.key)
+  }
+
+  public get selectedBusy(): boolean {
+    return !!this.selectedRow && this.state.busyKeys.includes(this.selectedRow.key)
+  }
+
+  public get pendingTriggerCronJob(): CronJobEntity | null {
+    return ResourceWorkload.asCronJob(this.entityOf(this.pendingTrigger))
+  }
+
+  public get pendingTriggerJobKind(): KubeResourceKind | null {
+    return this.pendingTrigger ? this.jobKind() : null
   }
 
   public get isEventList(): boolean {
@@ -796,6 +828,15 @@ export default class ResourcePage extends VueBase {
       case ResourceActions.triggerKey:
         void this.trigger(event.row)
         return
+      case ResourceActions.triggerEditKey:
+        this.pendingTrigger = event.row
+        return
+      case ResourceActions.suspendKey:
+        void this.setSuspended(event.row, true)
+        return
+      case ResourceActions.resumeKey:
+        void this.setSuspended(event.row, false)
+        return
       case ResourceActions.cordonKey:
         void this.setScheduling(event.row, true)
         return
@@ -990,20 +1031,40 @@ export default class ResourcePage extends VueBase {
     }
   }
 
-  private async trigger(row: TResourceRow): Promise<void> {
+  public async trigger(row: TResourceRow | null, manifest?: Record<string, unknown>): Promise<boolean> {
     const target = this.targetOf(row)
     const cronJob = ResourceWorkload.asCronJob(this.entityOf(row))
     const jobKind = this.jobKind()
 
     if (!target || !cronJob || !jobKind) {
-      return
+      return false
     }
 
-    await this.run(() => this.resourceStore.trigger(target, {
+    return this.run(() => this.resourceStore.trigger(target, {
       clusterId: this.clusterId,
       cronJob,
       jobKind,
+      manifest,
     }))
+  }
+
+  public async confirmTrigger(manifest: Record<string, unknown>): Promise<void> {
+    if (await this.trigger(this.pendingTrigger, manifest)) {
+      this.pendingTrigger = null
+    }
+  }
+
+  public async setSuspended(row: TResourceRow | null, suspended: boolean): Promise<void> {
+    const target = this.targetOf(row)
+    if (!target) {
+      return
+    }
+
+    const changed = await this.run(() => this.resourceStore.setSuspended(target, suspended))
+
+    if (changed && !this.state.watching) {
+      await this.reload()
+    }
   }
 
   private async applyDefault(plan: TDefaultClassPlan): Promise<boolean> {
@@ -1162,6 +1223,7 @@ export default class ResourcePage extends VueBase {
     this.pendingDelete = null
     this.pendingScale = null
     this.pendingDrain = null
+    this.pendingTrigger = null
     this.pendingDefault = null
     this.creating = false
     this.creatingNamespace = false

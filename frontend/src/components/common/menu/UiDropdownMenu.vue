@@ -13,8 +13,10 @@
               :title="item.hint"
               @select="$emit('select', item.key)"
           >
-            <ui-status-dot v-if="item.tone" :size="8" :tone="item.tone" />
-            <component :is="item.icon" v-if="item.icon" :size="14" aria-hidden="true" />
+            <slot :item="item" name="item-leading">
+              <ui-status-dot v-if="item.tone" :size="8" :tone="item.tone" />
+              <component :is="item.icon" v-if="item.icon" :size="14" aria-hidden="true" />
+            </slot>
             <span class="truncate">{{ item.label }}</span>
           </dropdown-menu-item>
         </template>

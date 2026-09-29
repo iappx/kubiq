@@ -93,7 +93,7 @@ export class CommandPaletteIndex {
             .filter(row => row.clusterId !== input.clusterId)
             .map(row => ({
                 key: `cluster:${row.clusterId}`,
-                label: row.name,
+                label: row.displayName,
                 hint: ClusterChoices.hintOf(row),
                 group: CommandPaletteIndex.clusterGroup,
                 path: ClusterRoutes.shell(row.clusterId),

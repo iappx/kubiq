@@ -1,10 +1,11 @@
 import { inject, singleton } from 'tsyringe'
-import { ChannelService, PortForwardSpec } from '../../../bindings/iappx_k8s_admin/core/services/channel'
+import { ChannelService, ForwardTargetSpec, PortForwardSpec } from '../../../bindings/iappx_k8s_admin/core/services/channel'
 import { ApiError } from '@/domain/errors/ApiError'
 import { KubeForwardSubscription } from '@/infrastructure/channel/KubeForwardSubscription'
 import type { IKubeForwardHandler } from '@/infrastructure/channel/types/IKubeForwardHandler'
 import type { TKubeForwardHandle } from '@/infrastructure/channel/types/TKubeForwardHandle'
 import type { TKubeForwardSpec } from '@/infrastructure/channel/types/TKubeForwardSpec'
+import type { TKubeForwardTarget } from '@/infrastructure/channel/types/TKubeForwardTarget'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 
 @singleton()
@@ -16,6 +17,8 @@ export class KubeForwardAdapter {
     public static readonly unopenable: string = 'Could not start the port forward'
 
     public static readonly unavailable: string = 'Port forwarding needs the desktop application'
+
+    public static readonly unmovable: string = 'Could not move the port forward to another pod'
 
     private readonly open = new Map<string, KubeForwardSubscription>()
 
@@ -60,6 +63,27 @@ export class KubeForwardAdapter {
         this.open.set(result.forwardId, subscription)
 
         return { forwardId: result.forwardId, localPort: result.localPort }
+    }
+
+    public async retarget(forwardId: string, target: TKubeForwardTarget): Promise<void> {
+        if (!this.isAvailable) {
+            throw new ApiError(KubeForwardAdapter.unavailable, 'No native bridge is present in this window')
+        }
+
+        let result
+        try {
+            result = await ChannelService.RetargetForward(new ForwardTargetSpec({
+                forwardId,
+                path: target.path,
+                remotePort: target.remotePort,
+            }))
+        } catch (err) {
+            throw new ApiError(KubeForwardAdapter.unmovable, err instanceof Error ? err.message : String(err))
+        }
+
+        if (!result.success) {
+            throw new ApiError(KubeForwardAdapter.unmovable, result.error)
+        }
     }
 
     public async stop(forwardId: string): Promise<void> {

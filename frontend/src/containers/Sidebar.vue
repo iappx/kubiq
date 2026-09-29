@@ -3,6 +3,8 @@
       :class="['ui-sidebar', collapsed ? 'w-14' : 'w-56']"
       aria-label="Resource sections"
   >
+    <sidebar-cluster-header :cluster-id="clusterId" :collapsed="collapsed" />
+
     <nav class="flex-1 min-h-0 overflow-y-auto py-2 px-2 space-y-3">
       <sidebar-overview-link :cluster-id="clusterId" :collapsed="collapsed" />
       <sidebar-helm-link :cluster-id="clusterId" :collapsed="collapsed" />
@@ -50,6 +52,7 @@ import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
 import SidebarArgoLink from '@/components/clusterShell/SidebarArgoLink.vue'
+import SidebarClusterHeader from '@/components/clusterShell/SidebarClusterHeader.vue'
 import SidebarHelmLink from '@/components/clusterShell/SidebarHelmLink.vue'
 import SidebarOverviewLink from '@/components/clusterShell/SidebarOverviewLink.vue'
 import SidebarSection from '@/components/clusterShell/SidebarSection.vue'
@@ -62,6 +65,7 @@ import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
     ChevronLeft,
     ChevronRight,
     SidebarArgoLink,
+    SidebarClusterHeader,
     SidebarHelmLink,
     SidebarOverviewLink,
     SidebarSection,

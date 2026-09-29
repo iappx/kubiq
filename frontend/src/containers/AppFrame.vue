@@ -21,6 +21,7 @@ import { UiKeyboard } from '@/components/common/UiKeyboard'
 import { OpenCommandPaletteEvent } from '@/domain/events/app/OpenCommandPaletteEvent'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
+import { ClusterAppearanceStore } from '@/store/modules/clusterAppearance/ClusterAppearanceStore'
 
 @Component({
   components: { AppLoading, AppModals, TopNav },
@@ -30,12 +31,15 @@ export default class AppFrame extends VueBase {
 
   constructor(
       @inject(AppUiStore) private readonly uiStore: AppUiStore,
+      @inject(ClusterAppearanceStore) private readonly appearanceStore: ClusterAppearanceStore,
       @inject(EventBus) private readonly eventBus: EventBus,
   ) {
     super()
   }
 
   created(): void {
+    void this.appearanceStore.loadOnce()
+
     this.onShellKey = (event) => {
       const command = ShellKeymap.command(event, UiKeyboard.isTyping(event.target))
       if (command === 'palette') {

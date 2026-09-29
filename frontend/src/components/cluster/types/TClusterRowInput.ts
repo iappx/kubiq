@@ -1,3 +1,4 @@
+import type { TClusterAppearance } from '@/application/services/clusterAppearance/types/TClusterAppearance'
 import type { TClusterConnection } from '@/application/services/cluster/types/TClusterConnection'
 import type { TClusterContextInfo } from '@/application/services/cluster/types/TClusterContextInfo'
 import type { TKubeconfigSourceMode } from '@/domain/entities/catalog/types/TKubeconfigSourceMode'
@@ -11,5 +12,6 @@ export type TClusterRowInput = {
     connectingIds: readonly string[]
     failures: Readonly<Record<string, string>>
     health?: Readonly<Record<string, TClusterHealth>>
+    appearances?: readonly TClusterAppearance[]
     activeClusterId: string
 }

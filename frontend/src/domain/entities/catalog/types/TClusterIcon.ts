@@ -1,0 +1,11 @@
+import type { TClusterIconColor } from '@/domain/entities/catalog/types/TClusterIconColor'
+import type { TClusterIconGlyph } from '@/domain/entities/catalog/types/TClusterIconGlyph'
+import type { TClusterIconKind } from '@/domain/entities/catalog/types/TClusterIconKind'
+
+export type TClusterIcon = {
+    kind: TClusterIconKind
+    initials: string
+    color: TClusterIconColor
+    glyph: TClusterIconGlyph
+    imageUrl: string
+}

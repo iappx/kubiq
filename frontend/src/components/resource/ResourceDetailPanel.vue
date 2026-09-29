@@ -32,6 +32,43 @@
         <cable :size="14" />
       </button>
 
+      <template v-if="canTrigger">
+        <button
+            :aria-label="`Trigger ${row?.name} now`"
+            :disabled="actionBusy"
+            class="btn-icon w-7 h-7"
+            title="Trigger now"
+            type="button"
+            @click="$emit('trigger')"
+        >
+          <play :size="14" />
+        </button>
+
+        <button
+            :aria-label="`Trigger ${row?.name} with edits`"
+            :disabled="actionBusy"
+            class="btn-icon w-7 h-7"
+            title="Trigger with edits…"
+            type="button"
+            @click="$emit('trigger-edit')"
+        >
+          <file-play :size="14" />
+        </button>
+      </template>
+
+      <button
+          v-if="canSuspend"
+          :aria-label="`${suspendActionTitle} ${row?.name}`"
+          :disabled="actionBusy"
+          :title="suspendActionTitle"
+          class="btn-icon w-7 h-7"
+          type="button"
+          @click="$emit(isSuspended ? 'resume' : 'suspend')"
+      >
+        <circle-play v-if="isSuspended" :size="14" />
+        <circle-pause v-else :size="14" />
+      </button>
+
       <button
           v-if="canChangeDefault"
           :aria-label="`${defaultActionTitle}: ${row?.name}`"
@@ -81,7 +118,7 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
-import { Cable, SquareTerminal, Star, StarOff, Trash2 } from '@lucide/vue'
+import { Cable, CirclePause, CirclePlay, FilePlay, Play, SquareTerminal, Star, StarOff, Trash2 } from '@lucide/vue'
 import UiSidePanel from '@/components/common/panel/UiSidePanel.vue'
 import UiStatusBadge from '@/components/common/status/UiStatusBadge.vue'
 import UiTabBar from '@/components/common/tabBar/UiTabBar.vue'
@@ -91,8 +128,13 @@ import type { KubeResourceKind } from '@/domain/models/kube'
 import { KubeDefaultClassCatalog, KubeWorkloadCatalog } from '@/domain/models/kube'
 
 @Component({
-  components: { Cable, SquareTerminal, Star, StarOff, Trash2, UiSidePanel, UiStatusBadge, UiTabBar },
-  emits: ['close', 'delete', 'forward', 'shell', 'set-default', 'unset-default', 'update:width', 'update:active-tab'],
+  components: {
+    Cable, CirclePause, CirclePlay, FilePlay, Play, SquareTerminal, Star, StarOff, Trash2, UiSidePanel, UiStatusBadge, UiTabBar,
+  },
+  emits: [
+    'close', 'delete', 'forward', 'shell', 'set-default', 'unset-default', 'trigger', 'trigger-edit', 'suspend', 'resume',
+    'update:width', 'update:active-tab',
+  ],
 })
 export default class ResourceDetailPanel extends VueBase {
   public static readonly overviewTab: string = 'overview'
@@ -114,6 +156,9 @@ export default class ResourceDetailPanel extends VueBase {
 
   @Prop({ required: false, type: Boolean, default: false })
   public readonly defaultBusy?: boolean
+
+  @Prop({ required: false, type: Boolean, default: false })
+  public readonly actionBusy?: boolean
 
   public get visibleTabs(): TTab[] {
     return this.tabs ?? []
@@ -137,6 +182,22 @@ export default class ResourceDetailPanel extends VueBase {
 
   public get canForward(): boolean {
     return !!this.row && !!this.kind && KubeWorkloadCatalog.canForwardPort(this.kind)
+  }
+
+  public get canTrigger(): boolean {
+    return typeof this.row?.isSuspended === 'boolean' && !!this.kind && KubeWorkloadCatalog.canTrigger(this.kind)
+  }
+
+  public get isSuspended(): boolean {
+    return this.row?.isSuspended === true
+  }
+
+  public get canSuspend(): boolean {
+    return typeof this.row?.isSuspended === 'boolean' && !!this.kind && KubeWorkloadCatalog.canSuspend(this.kind)
+  }
+
+  public get suspendActionTitle(): string {
+    return this.isSuspended ? 'Resume' : 'Suspend'
   }
 
   public get isDefaultClass(): boolean {

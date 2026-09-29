@@ -10,24 +10,34 @@
       :rows="rows"
       :sort="sort"
       class="flex-1"
-      name-key="name"
+      name-key="displayName"
       row-key="clusterId"
       @action="onAction"
       @open="$emit('open', $event)"
       @update:cursor="$emit('update:cursor', $event)"
       @update:sort="$emit('update:sort', $event)"
   >
-    <template #cell-name="{ row }">
+    <template #cell-displayName="{ row }">
       <div class="flex items-center gap-1 min-w-0">
         <button
-            :aria-label="row.isPinned ? `Unpin ${row.name}` : `Pin ${row.name}`"
+            :aria-label="row.isPinned ? `Unpin ${row.displayName}` : `Pin ${row.displayName}`"
             :aria-pressed="row.isPinned ? 'true' : 'false'"
             :class="['cluster-pin-toggle', row.isPinned ? 'cluster-pin-toggle-on' : '']"
-            :title="row.isPinned ? `Unpin ${row.name}` : `Pin ${row.name}`"
+            :title="row.isPinned ? `Unpin ${row.displayName}` : `Pin ${row.displayName}`"
             type="button"
             @click.stop="$emit('toggle-pin', row.clusterId)"
         >
           <pin :size="12" />
+        </button>
+
+        <button
+            :aria-label="`Customize ${row.displayName}`"
+            :title="`Customize ${row.displayName}`"
+            class="cluster-avatar-button"
+            type="button"
+            @click.stop="$emit('customize', row.clusterId)"
+        >
+          <cluster-avatar :icon="row.icon" size="sm" />
         </button>
 
         <button
@@ -36,8 +46,14 @@
             type="button"
             @click.stop="$emit('open', row)"
         >
-          {{ row.name }}
+          {{ row.displayName }}
         </button>
+
+        <span
+            v-if="row.displayName !== row.name"
+            :title="row.name"
+            class="min-w-0 truncate text-muted-foreground"
+        >{{ row.name }}</span>
 
         <span v-if="row.isCurrent" class="pill shrink-0">current</span>
       </div>
@@ -64,6 +80,7 @@
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import { LoaderCircle, Pin } from '@lucide/vue'
+import ClusterAvatar from '@/components/cluster/ClusterAvatar.vue'
 import UiDataTable from '@/components/common/table/UiDataTable.vue'
 import UiStatusBadge from '@/components/common/status/UiStatusBadge.vue'
 import { ClusterCatalogActions } from '@/components/cluster/ClusterCatalogActions'
@@ -76,8 +93,8 @@ import type { TUiTableSort } from '@/components/common/table/types/TUiTableSort'
 import type { TUiTone } from '@/components/common/status/types/TUiTone'
 
 @Component({
-  components: { LoaderCircle, Pin, UiDataTable, UiStatusBadge },
-  emits: ['open', 'details', 'connect', 'disconnect', 'toggle-pin', 'delete', 'update:sort', 'update:cursor'],
+  components: { ClusterAvatar, LoaderCircle, Pin, UiDataTable, UiStatusBadge },
+  emits: ['open', 'details', 'connect', 'disconnect', 'toggle-pin', 'customize', 'delete', 'update:sort', 'update:cursor'],
 })
 export default class ClusterCatalogTable extends VueBase {
   @Prop({ required: true })
@@ -118,7 +135,11 @@ export default class ClusterCatalogTable extends VueBase {
   }
 
   public openTitle(row: TClusterRow): string {
-    return row.status === 'unsupported' ? `View details for ${row.name}` : `Open ${row.name}`
+    const context = row.displayName === row.name ? '' : ` (${row.name})`
+
+    return row.status === 'unsupported'
+      ? `View details for ${row.displayName}${context}`
+      : `Open ${row.displayName}${context}`
   }
 
   public onAction(event: { action: string; row: TClusterRow }): void {
@@ -137,6 +158,9 @@ export default class ClusterCatalogTable extends VueBase {
         return
       case ClusterCatalogActions.pinKey:
         this.$emit('toggle-pin', event.row.clusterId)
+        return
+      case ClusterCatalogActions.customizeKey:
+        this.$emit('customize', event.row.clusterId)
         return
       case ClusterCatalogActions.deleteKey:
         this.$emit('delete', event.row)

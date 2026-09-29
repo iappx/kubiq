@@ -1,4 +1,5 @@
 import { ITransport } from '@iappx/entity-repo'
+import { ApiError } from '@/domain/errors/ApiError'
 import type { TFileEntry } from '@/infrastructure/entityRepo/transport/types/TFileEntry'
 import { TFileRequest } from '@/infrastructure/entityRepo/transport/types/TFileRequest'
 
@@ -12,8 +13,12 @@ export class MemoryFileTransport implements ITransport<TFileRequest> {
     public readonly removed: string[] = []
 
     public async send<TRes>(params: TFileRequest): Promise<TRes> {
-        if (params.operation === 'read') {
+        if (params.operation === 'read' || params.operation === 'readBinary') {
             return (this.files.get(params.path) ?? null) as TRes
+        }
+
+        if (params.operation === 'copy') {
+            return this.copy(params.source ?? '', params.path) as TRes
         }
 
         if (params.operation === 'list') {
@@ -46,6 +51,16 @@ export class MemoryFileTransport implements ITransport<TFileRequest> {
 
     public touch(path: string, at: number): void {
         this.modified.set(path, at)
+    }
+
+    private copy(source: string, target: string): null {
+        const content = this.files.get(source)
+        if (content === undefined) {
+            throw new ApiError('Could not copy the file', `${source}: no such file`)
+        }
+
+        this.files.set(target, content)
+        return null
     }
 
     private list(folder: string): TFileEntry[] | null {

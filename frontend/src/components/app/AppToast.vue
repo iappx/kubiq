@@ -23,6 +23,14 @@
               >×{{ repeatsOf(item) }}</span>
             </p>
             <p v-if="item.description" class="text-xs text-muted-foreground mt-0.5">{{ item.description }}</p>
+            <button
+                v-if="item.action"
+                class="btn-secondary h-7 px-2 text-xs mt-2"
+                type="button"
+                @click="toastService.runAction(item.id)"
+            >
+              {{ item.action.label }}
+            </button>
           </div>
           <button aria-label="Dismiss notification" class="btn-icon w-6 h-6 shrink-0" type="button" @click="toastStore.remove(item.id)">
             <x :size="14" />
@@ -38,6 +46,7 @@ import type { Component as VueComponent } from 'vue'
 import { CircleAlert, TriangleAlert, CircleCheck, Info, X } from '@lucide/vue'
 import { Component, VueBase } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
+import { ToastService } from '@/application/services/toast/ToastService'
 import { ToastStore } from '@/store/modules/toast/ToastStore'
 import type { TToast } from '@/application/services/toast/types/TToast'
 
@@ -47,6 +56,7 @@ import type { TToast } from '@/application/services/toast/types/TToast'
 export default class AppToast extends VueBase {
   constructor(
       @inject(ToastStore) public readonly toastStore: ToastStore,
+      @inject(ToastService) public readonly toastService: ToastService,
   ) {
     super()
   }

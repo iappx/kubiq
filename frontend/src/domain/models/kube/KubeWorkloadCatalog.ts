@@ -61,6 +61,10 @@ export class KubeWorkloadCatalog {
         return kind.registryKey === KubeWorkloadCatalog.cronJobsKey
     }
 
+    public static canSuspend(kind: KubeResourceKind): boolean {
+        return kind.canPatch && kind.registryKey === KubeWorkloadCatalog.cronJobsKey
+    }
+
     public static isPod(kind: KubeResourceKind): boolean {
         return kind.registryKey === KubeWorkloadCatalog.podsKey
     }

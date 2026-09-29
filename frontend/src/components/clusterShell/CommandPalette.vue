@@ -71,6 +71,7 @@ import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
+import { ClusterAppearanceStore } from '@/store/modules/clusterAppearance/ClusterAppearanceStore'
 import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
@@ -99,6 +100,7 @@ export default class CommandPalette extends ModalShellBase {
       @inject(ClusterConnectionStore) private readonly connectionStore: ClusterConnectionStore,
       @inject(ClusterDiscoveryStore) private readonly discoveryStore: ClusterDiscoveryStore,
       @inject(ClusterHealthStore) private readonly healthStore: ClusterHealthStore,
+      @inject(ClusterAppearanceStore) private readonly appearanceStore: ClusterAppearanceStore,
       @inject(ClusterNamespaceStore) private readonly namespaceStore: ClusterNamespaceStore,
   ) {
     super()
@@ -115,7 +117,7 @@ export default class CommandPalette extends ModalShellBase {
   }
 
   public get clusterRows(): TClusterRow[] {
-    return ClusterRowSource.build(this.catalogStore, this.connectionStore, this.healthStore)
+    return ClusterRowSource.build(this.catalogStore, this.connectionStore, this.healthStore, this.appearanceStore)
   }
 
   public get visible(): TCommandItem[] {

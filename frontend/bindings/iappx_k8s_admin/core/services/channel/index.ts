@@ -13,6 +13,7 @@ export {
     ChannelSpec,
     ChannelsResult,
     ForwardInfo,
+    ForwardTargetSpec,
     ForwardsResult,
     PortForwardResult,
     PortForwardSpec

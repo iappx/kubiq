@@ -8,17 +8,17 @@
     <button
         :aria-current="row.isActive ? 'true' : undefined"
         :class="['cluster-pin', row.isActive ? 'cluster-pin-active' : '']"
-        :title="`Open ${row.name} — ${row.statusTitle}`"
+        :title="`Open ${row.displayName} — ${row.statusTitle}`"
         type="button"
         @click="$emit('enter', row)"
     >
-      <ui-status-dot :label="row.statusTitle" :tone="tone" />
-      <span class="truncate">{{ row.name }}</span>
+      <cluster-status-avatar :icon="row.icon" :status-label="row.statusTitle" :tone="tone" />
+      <span class="truncate">{{ row.displayName }}</span>
     </button>
 
     <button
-        :aria-label="`Unpin ${row.name}`"
-        :title="`Unpin ${row.name}`"
+        :aria-label="`Unpin ${row.displayName}`"
+        :title="`Unpin ${row.displayName}`"
         class="cluster-pin-remove"
         type="button"
         @click="$emit('unpin', row.clusterId)"
@@ -32,14 +32,14 @@
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import { motion } from 'motion-v'
 import { X } from '@lucide/vue'
-import UiStatusDot from '@/components/common/status/UiStatusDot.vue'
+import ClusterStatusAvatar from '@/components/cluster/ClusterStatusAvatar.vue'
 import { ClusterToneMap } from '@/components/cluster/ClusterToneMap'
 import { UiMotion } from '@/constants/UiMotion'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 import type { TUiTone } from '@/components/common/status/types/TUiTone'
 
 @Component({
-  components: { MotionDiv: motion.div, UiStatusDot, X },
+  components: { ClusterStatusAvatar, MotionDiv: motion.div, X },
   emits: ['enter', 'unpin'],
 })
 export default class ClusterPinnedCard extends VueBase {

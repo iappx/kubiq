@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"runtime"
 	"strconv"
@@ -233,6 +234,130 @@ func TestStopForwardEndsOpenConnections(t *testing.T) {
 	_ = local.SetReadDeadline(time.Now().Add(10 * time.Second))
 	if _, err := local.Read(make([]byte, 1)); err == nil {
 		t.Fatal("the local connection survived the stop")
+	}
+}
+
+func TestRetargetForwardSendsNewConnectionsToTheNewTarget(t *testing.T) {
+	paths := &frameRecorder{}
+	opening := &frameRecorder{}
+	// The server announces no port, so the upper-cased answer reaches the local side untouched.
+	server := newRequestSocketServer(t, []string{testSubprotocol}, func(request *http.Request, conn *websocket.Conn) {
+		paths.add([]byte(request.URL.Path))
+		ctx := context.Background()
+
+		announced := false
+		for {
+			_, message, err := conn.Read(ctx)
+			if err != nil {
+				return
+			}
+			if len(message) == 0 || message[0] != forwardData {
+				continue
+			}
+			if !announced {
+				announced = true
+				opening.add(message[1:])
+				continue
+			}
+			if err := writeFrame(ctx, conn, forwardData, bytes.ToUpper(message[1:])); err != nil {
+				return
+			}
+		}
+	})
+
+	service, registry, _ := newTestService(t)
+	sessionId := connectToServer(t, registry, server)
+
+	started := service.StartForward(PortForwardSpec{
+		SessionId:    sessionId,
+		Path:         "/pods/old/portforward",
+		Subprotocols: []string{testSubprotocol},
+		RemotePort:   testRemotePort,
+	})
+	if !started.Success {
+		t.Fatalf("start failed: %s", started.Error)
+	}
+
+	first := dialLocal(t, started.LocalPort)
+	defer first.Close()
+	if _, err := first.Write([]byte("one")); err != nil {
+		t.Fatalf("write to the local port: %v", err)
+	}
+	if answer := readLocal(t, first, 3); answer != "ONE" {
+		t.Fatalf("first connection received %q", answer)
+	}
+
+	retargeted := service.RetargetForward(ForwardTargetSpec{
+		ForwardId:  started.ForwardId,
+		Path:       "/pods/new/portforward",
+		RemotePort: testRemotePort + 1,
+	})
+	if !retargeted.Success {
+		t.Fatalf("retarget failed: %s", retargeted.Error)
+	}
+
+	second := dialLocal(t, started.LocalPort)
+	defer second.Close()
+	if _, err := second.Write([]byte("two")); err != nil {
+		t.Fatalf("write to the local port: %v", err)
+	}
+	if answer := readLocal(t, second, 3); answer != "TWO" {
+		t.Fatalf("second connection received %q", answer)
+	}
+
+	seen := paths.snapshot()
+	if len(seen) != 2 || string(seen[0]) != "/pods/old/portforward" || string(seen[1]) != "/pods/new/portforward" {
+		t.Fatalf("connections dialled %q", seen)
+	}
+
+	announced := opening.snapshot()
+	if len(announced) != 2 || !bytes.Equal(announced[1], portPrefix(testRemotePort+1)) {
+		t.Fatalf("the second connection announced %v", announced)
+	}
+
+	if _, err := first.Write([]byte("old")); err != nil {
+		t.Fatalf("write to the first connection: %v", err)
+	}
+	if answer := readLocal(t, first, 3); answer != "OLD" {
+		t.Fatalf("the open connection did not survive the retarget: %q", answer)
+	}
+
+	forwards := service.Forwards()
+	if len(forwards.Forwards) != 1 || forwards.Forwards[0].LocalPort != started.LocalPort {
+		t.Fatalf("the retarget changed the listener: %+v", forwards.Forwards)
+	}
+	if forwards.Forwards[0].RemotePort != testRemotePort+1 {
+		t.Fatalf("remote port is %d", forwards.Forwards[0].RemotePort)
+	}
+}
+
+func TestRetargetForwardRejectsWhatItCannotDial(t *testing.T) {
+	opening := &frameRecorder{}
+	server := newForwardServer(t, testRemotePort, opening, bytes.ToUpper)
+
+	service, registry, _ := newTestService(t)
+	sessionId := connectToServer(t, registry, server)
+
+	started := service.StartForward(PortForwardSpec{
+		SessionId:    sessionId,
+		Path:         "/portforward",
+		Subprotocols: []string{testSubprotocol},
+		RemotePort:   testRemotePort,
+	})
+	if !started.Success {
+		t.Fatalf("start failed: %s", started.Error)
+	}
+
+	cases := []ForwardTargetSpec{
+		{ForwardId: "missing", Path: "/portforward", RemotePort: testRemotePort},
+		{ForwardId: started.ForwardId, Path: "/portforward", RemotePort: 0},
+		{ForwardId: started.ForwardId, Path: "/portforward", RemotePort: maxPortNumber + 1},
+		{ForwardId: started.ForwardId, Path: " ", RemotePort: testRemotePort},
+	}
+	for _, spec := range cases {
+		if result := service.RetargetForward(spec); result.Success || result.Error == "" {
+			t.Fatalf("retarget %+v was accepted", spec)
+		}
 	}
 }
 

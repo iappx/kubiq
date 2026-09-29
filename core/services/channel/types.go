@@ -71,6 +71,12 @@ type PortForwardResult struct {
 	Error     string `json:"error"`
 }
 
+type ForwardTargetSpec struct {
+	ForwardId  string `json:"forwardId"`
+	Path       string `json:"path"`
+	RemotePort int    `json:"remotePort"`
+}
+
 type ForwardInfo struct {
 	Id           string `json:"id"`
 	SessionId    string `json:"sessionId"`

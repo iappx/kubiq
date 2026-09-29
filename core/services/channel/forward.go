@@ -29,13 +29,14 @@ const (
 type forwardHandle struct {
 	id           string
 	sessionId    string
-	path         string
 	subprotocols []string
 	headers      map[string]string
 	localAddress string
 	localPort    int
-	remotePort   int
 	startedAt    time.Time
+	targetMutex  sync.Mutex
+	path         string
+	remotePort   int
 	session      *kube.Session
 	listener     net.Listener
 	ctx          context.Context
@@ -104,6 +105,24 @@ func (s *ChannelService) StartForward(spec PortForwardSpec) (result PortForwardR
 	return PortForwardResult{Success: true, ForwardId: handle.id, LocalPort: handle.localPort}
 }
 
+func (s *ChannelService) RetargetForward(spec ForwardTargetSpec) ChannelActionResult {
+	handle, found := s.forward(spec.ForwardId)
+	if !found {
+		return ChannelActionResult{Error: "unknown forward: " + spec.ForwardId}
+	}
+
+	if spec.RemotePort <= 0 || spec.RemotePort > maxPortNumber {
+		return ChannelActionResult{Error: fmt.Sprintf("remote port is out of range: %d", spec.RemotePort)}
+	}
+	if strings.TrimSpace(spec.Path) == "" {
+		return ChannelActionResult{Error: "the forward needs a path to dial"}
+	}
+
+	handle.retarget(spec.Path, spec.RemotePort)
+
+	return ChannelActionResult{Success: true}
+}
+
 func (s *ChannelService) StopForward(forwardId string) ChannelActionResult {
 	handle, found := s.forward(forwardId)
 	if !found {
@@ -127,12 +146,13 @@ func (s *ChannelService) Forwards() ForwardsResult {
 
 	infos := make([]ForwardInfo, 0, len(handles))
 	for _, handle := range handles {
+		_, remotePort := handle.target()
 		infos = append(infos, ForwardInfo{
 			Id:           handle.id,
 			SessionId:    handle.sessionId,
 			LocalAddress: handle.localAddress,
 			LocalPort:    handle.localPort,
-			RemotePort:   handle.remotePort,
+			RemotePort:   remotePort,
 			Connections:  int(handle.connections.Load()),
 		})
 	}
@@ -202,7 +222,10 @@ func (s *ChannelService) serveForward(handle *forwardHandle, local net.Conn) {
 	ctx, cancel := context.WithCancel(handle.ctx)
 	defer cancel()
 
-	conn, err := dial(ctx, handle.session, handle.path, handle.subprotocols, handle.headers)
+	// A retarget reaches only connections opened after it; this one keeps the target it dialled.
+	path, remotePort := handle.target()
+
+	conn, err := dial(ctx, handle.session, path, handle.subprotocols, handle.headers)
 	if err != nil {
 		s.emitForwardError(handle, err.Error())
 		return
@@ -211,7 +234,7 @@ func (s *ChannelService) serveForward(handle *forwardHandle, local net.Conn) {
 
 	// The port the connection is meant to reach is announced in the first two
 	// bytes of the first data frame, the way the server announces it back.
-	if err := writeFrame(ctx, conn, forwardData, portPrefix(handle.remotePort)); err != nil {
+	if err := writeFrame(ctx, conn, forwardData, portPrefix(remotePort)); err != nil {
 		s.emitForwardError(handle, err.Error())
 		return
 	}
@@ -224,7 +247,7 @@ func (s *ChannelService) serveForward(handle *forwardHandle, local net.Conn) {
 		pumpToRemote(ctx, conn, local)
 	}()
 
-	s.pumpToLocal(ctx, handle, conn, local)
+	s.pumpToLocal(ctx, handle, remotePort, conn, local)
 
 	cancel()
 	// A blocked local read only ends when its socket goes away.
@@ -251,6 +274,7 @@ func pumpToRemote(ctx context.Context, conn *websocket.Conn, local net.Conn) {
 func (s *ChannelService) pumpToLocal(
 	ctx context.Context,
 	handle *forwardHandle,
+	remotePort int,
 	conn *websocket.Conn,
 	local net.Conn,
 ) {
@@ -275,7 +299,7 @@ func (s *ChannelService) pumpToLocal(
 		case forwardData:
 			if dataPrefixPending {
 				dataPrefixPending = false
-				payload = trimPortPrefix(payload, handle.remotePort)
+				payload = trimPortPrefix(payload, remotePort)
 			}
 			if len(payload) > 0 {
 				if _, err := local.Write(payload); err != nil {
@@ -285,13 +309,28 @@ func (s *ChannelService) pumpToLocal(
 		case forwardError:
 			if errorPrefixPending {
 				errorPrefixPending = false
-				payload = trimPortPrefix(payload, handle.remotePort)
+				payload = trimPortPrefix(payload, remotePort)
 			}
 			if len(payload) > 0 {
 				s.emitForwardError(handle, string(payload))
 			}
 		}
 	}
+}
+
+func (h *forwardHandle) target() (string, int) {
+	h.targetMutex.Lock()
+	defer h.targetMutex.Unlock()
+
+	return h.path, h.remotePort
+}
+
+func (h *forwardHandle) retarget(path string, remotePort int) {
+	h.targetMutex.Lock()
+	defer h.targetMutex.Unlock()
+
+	h.path = path
+	h.remotePort = remotePort
 }
 
 func (s *ChannelService) emitForwardError(handle *forwardHandle, message string) {

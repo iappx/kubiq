@@ -1,4 +1,4 @@
-import { ArrowRight, PanelRight, Pin, PinOff, Plug, Trash2, Unplug } from '@lucide/vue'
+import { ArrowRight, Palette, PanelRight, Pin, PinOff, Plug, Trash2, Unplug } from '@lucide/vue'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 
@@ -12,6 +12,8 @@ export class ClusterCatalogActions {
     public static readonly disconnectKey: string = 'disconnect'
 
     public static readonly pinKey: string = 'pin'
+
+    public static readonly customizeKey: string = 'customize'
 
     public static readonly deleteKey: string = 'delete'
 
@@ -50,6 +52,8 @@ export class ClusterCatalogActions {
             icon: row.isPinned ? PinOff : Pin,
             separatorBefore: true,
         })
+
+        items.push({ key: ClusterCatalogActions.customizeKey, label: 'Customize…', icon: Palette })
 
         // Deleting a discovered context would mean editing a kubeconfig Kubiq only reads.
         if (row.sourceOrigin !== 'discovered') {

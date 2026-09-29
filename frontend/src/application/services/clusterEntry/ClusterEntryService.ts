@@ -11,6 +11,8 @@ import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterN
 export class ClusterEntryService {
     private readonly running = new Map<string, Promise<TClusterEntryPhase>>()
 
+    private readonly connecting = new Map<string, Promise<void>>()
+
     public enter(clusterId: string): Promise<TClusterEntryPhase> {
         const started = this.running.get(clusterId)
         if (started) {
@@ -27,6 +29,25 @@ export class ClusterEntryService {
         await container.resolve(ClusterCatalogStore).refresh()
 
         return this.enter(clusterId)
+    }
+
+    public async connectInBackground(clusterId: string): Promise<boolean> {
+        const catalog = container.resolve(ClusterCatalogStore)
+        const connections = container.resolve(ClusterConnectionStore)
+
+        await catalog.loadOnce()
+        await connections.adopt(catalog.items.map(context => context.name))
+
+        if (catalog.loadError !== '' || !this.knows(clusterId)) {
+            return false
+        }
+
+        await connections.loadScope(clusterId)
+        if (!connections.isConnected(clusterId)) {
+            await this.connectOnce(clusterId, catalog.sources, false)
+        }
+
+        return connections.isConnected(clusterId)
     }
 
     public phaseOf(clusterId: string): TClusterEntryPhase {
@@ -80,7 +101,7 @@ export class ClusterEntryService {
         await connections.loadScope(clusterId)
 
         if (!connections.isConnected(clusterId)) {
-            await connections.connect(clusterId, catalog.sources)
+            await this.connectOnce(clusterId, catalog.sources, true)
         }
         if (!connections.isConnected(clusterId)) {
             return 'failed'
@@ -95,5 +116,20 @@ export class ClusterEntryService {
         ])
 
         return 'ready'
+    }
+
+    // The store drops a second connect while one is in flight, so a caller that must see the outcome joins the first.
+    private connectOnce(clusterId: string, sources: readonly string[], activate: boolean): Promise<void> {
+        const started = this.connecting.get(clusterId)
+        if (started) {
+            return started
+        }
+
+        const attempt = container.resolve(ClusterConnectionStore)
+            .connect(clusterId, sources, activate)
+            .finally(() => this.connecting.delete(clusterId))
+        this.connecting.set(clusterId, attempt)
+
+        return attempt
     }
 }

@@ -9,6 +9,7 @@ import type { TCronJobTriggerRequest } from '@/application/services/workloadActi
 import type { TWorkloadTarget } from '@/application/services/workloadAction/types/TWorkloadTarget'
 import { KubeObjectKey } from '@/domain/entities/kube'
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
+import { CronJobSuspendedEvent } from '@/domain/events/cluster/CronJobSuspendedEvent'
 import { CronJobTriggeredEvent } from '@/domain/events/cluster/CronJobTriggeredEvent'
 import { ResourceDeletedEvent } from '@/domain/events/cluster/ResourceDeletedEvent'
 import { WorkloadRestartedEvent } from '@/domain/events/cluster/WorkloadRestartedEvent'
@@ -175,7 +176,16 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
         return this.act(target, 'ClusterResourceStore.trigger', async () => {
             const jobName = await this.actionService.trigger(request)
             this.eventBus.emitEvent(
-                new CronJobTriggeredEvent(target.clusterId, target.name, target.namespace, jobName),
+                new CronJobTriggeredEvent(target.clusterId, target.name, target.namespace, jobName, request.jobKind),
+            )
+        })
+    }
+
+    public setSuspended(target: TWorkloadTarget, suspended: boolean): Promise<boolean> {
+        return this.act(target, 'ClusterResourceStore.setSuspended', async () => {
+            await this.actionService.setSuspended(target, suspended)
+            this.eventBus.emitEvent(
+                new CronJobSuspendedEvent(target.clusterId, target.name, target.namespace, suspended),
             )
         })
     }

@@ -1,6 +1,6 @@
 <template>
   <ui-modal
-      v-model="isOpen"
+      v-model:open="isOpen"
       :loading="isBusy"
       submit-label="Add"
       title="Add kubeconfig"

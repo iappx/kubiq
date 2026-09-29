@@ -1,4 +1,5 @@
 import { EntityContextBase, RepoEntitySet } from '@iappx/entity-repo'
+import { ClusterAppearanceEntity } from '@/domain/entities/catalog/ClusterAppearanceEntity'
 import { KubeconfigSourceEntity } from '@/domain/entities/catalog/KubeconfigSourceEntity'
 import { NamespaceSelectionEntity } from '@/domain/entities/catalog/NamespaceSelectionEntity'
 import { PinnedClusterEntity } from '@/domain/entities/catalog/PinnedClusterEntity'
@@ -16,4 +17,7 @@ export class ClusterCatalogEntityContext extends EntityContextBase<FileSystemTra
 
     @RepoEntitySet(() => KubeconfigSourceEntity, () => FileEntityQuery, { file: 'userdata:clusters/kubeconfigs.json' })
     public kubeconfigSources: FileEntityQuery<KubeconfigSourceEntity>
+
+    @RepoEntitySet(() => ClusterAppearanceEntity, () => FileEntityQuery, { file: 'userdata:clusters/appearance.json' })
+    public appearances: FileEntityQuery<ClusterAppearanceEntity>
 }

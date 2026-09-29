@@ -1,19 +1,29 @@
 <template>
   <ui-side-panel
-      :label="row ? `Cluster ${row.name}` : 'Cluster'"
+      :label="row ? `Cluster ${row.displayName}` : 'Cluster'"
       :open="!!row"
       :width="width"
       @close="$emit('close')"
       @update:width="$emit('update:width', $event)"
   >
-    <template #title>{{ row?.name }}</template>
+    <template #title>{{ row?.displayName }}</template>
     <template #subtitle>{{ row?.server }}</template>
 
     <template #actions>
       <button
           v-if="row"
-          :aria-label="row.isPinned ? `Unpin ${row.name}` : `Pin ${row.name}`"
-          :title="row.isPinned ? `Unpin ${row.name}` : `Pin ${row.name}`"
+          :aria-label="`Customize ${row.displayName}`"
+          :title="`Customize ${row.displayName}`"
+          class="btn-icon w-7 h-7"
+          type="button"
+          @click="$emit('customize', row.clusterId)"
+      >
+        <palette :size="14" />
+      </button>
+      <button
+          v-if="row"
+          :aria-label="row.isPinned ? `Unpin ${row.displayName}` : `Pin ${row.displayName}`"
+          :title="row.isPinned ? `Unpin ${row.displayName}` : `Pin ${row.displayName}`"
           class="btn-icon w-7 h-7"
           type="button"
           @click="$emit('toggle-pin', row.clusterId)"
@@ -32,6 +42,7 @@
       <p v-if="row.detail" :class="['text-xs leading-relaxed', detailClass]">{{ row.detail }}</p>
 
       <dl class="space-y-2">
+        <cluster-fact-row :value="row.name" label="Context" />
         <cluster-fact-row :value="row.clusterName" label="Cluster" />
         <cluster-fact-row :value="row.server" label="Server" />
         <cluster-fact-row :value="row.namespace" label="Default namespace" />
@@ -82,8 +93,8 @@
 
         <button
             v-if="canDelete"
-            :aria-label="`Delete ${row.name}`"
-            :title="`Delete ${row.name}`"
+            :aria-label="`Delete ${row.displayName}`"
+            :title="`Delete ${row.displayName}`"
             class="btn-icon ml-auto h-7 w-7 hover:text-destructive"
             type="button"
             @click="$emit('delete', row)"
@@ -97,7 +108,7 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
-import { ArrowRight, LoaderCircle, Pin, PinOff, Plug, Trash2, Unplug } from '@lucide/vue'
+import { ArrowRight, LoaderCircle, Palette, Pin, PinOff, Plug, Trash2, Unplug } from '@lucide/vue'
 import ClusterFactRow from '@/components/cluster/ClusterFactRow.vue'
 import UiMultiSelect from '@/components/common/select/UiMultiSelect.vue'
 import UiSidePanel from '@/components/common/panel/UiSidePanel.vue'
@@ -112,6 +123,7 @@ import type { TUiTone } from '@/components/common/status/types/TUiTone'
     ArrowRight,
     ClusterFactRow,
     LoaderCircle,
+    Palette,
     Pin,
     PinOff,
     Plug,
@@ -121,7 +133,7 @@ import type { TUiTone } from '@/components/common/status/types/TUiTone'
     UiStatusBadge,
     Unplug,
   },
-  emits: ['close', 'update:width', 'enter', 'disconnect', 'toggle-pin', 'delete', 'update:namespaces'],
+  emits: ['close', 'update:width', 'enter', 'disconnect', 'toggle-pin', 'customize', 'delete', 'update:namespaces'],
 })
 export default class ClusterDetailPanel extends VueBase {
   @Prop({ required: false, default: null })

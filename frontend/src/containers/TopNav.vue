@@ -27,6 +27,8 @@
     <div class="ml-auto flex items-center gap-2">
       <palette-trigger />
 
+      <port-forward-indicator />
+
       <a
           v-if="docsUrl"
           :href="docsUrl"
@@ -45,8 +47,6 @@
       >
         <settings :size="18" />
       </router-link>
-
-      <app-theme-switcher />
     </div>
   </header>
 </template>
@@ -56,14 +56,15 @@ import { Component, VueBase } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
 import { CircleHelp, Settings } from '@lucide/vue'
 import AppLogo from '@/components/app/AppLogo.vue'
-import AppThemeSwitcher from '@/components/app/AppThemeSwitcher.vue'
 import ClusterHealthPill from '@/components/clusterShell/ClusterHealthPill.vue'
 import ClusterSwitcher from '@/components/clusterShell/ClusterSwitcher.vue'
 import NamespaceScope from '@/components/clusterShell/NamespaceScope.vue'
 import PaletteTrigger from '@/components/clusterShell/PaletteTrigger.vue'
+import PortForwardIndicator from '@/components/terminal/PortForwardIndicator.vue'
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
 import { ClusterRowSource } from '@/components/cluster/ClusterRowSource'
 import { AppEnvironment } from '@/config/AppEnvironment'
+import { ClusterAppearanceStore } from '@/store/modules/clusterAppearance/ClusterAppearanceStore'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
@@ -73,12 +74,12 @@ import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 @Component({
   components: {
     AppLogo,
-    AppThemeSwitcher,
     CircleHelp,
     ClusterHealthPill,
     ClusterSwitcher,
     NamespaceScope,
     PaletteTrigger,
+    PortForwardIndicator,
     Settings,
   },
 })
@@ -88,12 +89,13 @@ export default class TopNav extends VueBase {
       @inject(ClusterConnectionStore) public readonly connectionStore: ClusterConnectionStore,
       @inject(ClusterHealthStore) public readonly healthStore: ClusterHealthStore,
       @inject(ClusterNamespaceStore) public readonly namespaceStore: ClusterNamespaceStore,
+      @inject(ClusterAppearanceStore) private readonly appearanceStore: ClusterAppearanceStore,
   ) {
     super()
   }
 
   public get clusterRows(): TClusterRow[] {
-    return ClusterRowSource.build(this.catalogStore, this.connectionStore, this.healthStore)
+    return ClusterRowSource.build(this.catalogStore, this.connectionStore, this.healthStore, this.appearanceStore)
   }
 
   public get docsUrl(): string {

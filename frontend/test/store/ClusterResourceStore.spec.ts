@@ -58,6 +58,11 @@ const fake = vi.hoisted(() => {
             }
             return state.triggeredJob
         }),
+        setSuspended: vi.fn(async () => {
+            if (state.actionFailure) {
+                throw state.actionFailure
+            }
+        }),
     }
 })
 
@@ -81,12 +86,14 @@ vi.mock('@/application/services/workloadAction/WorkloadActionService', () => ({
         public scale = fake.scale
         public restart = fake.restart
         public trigger = fake.trigger
+        public setSuspended = fake.setSuspended
     },
 }))
 
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { ApiError } from '@/domain/errors/ApiError'
 import { ClusterDisconnectedEvent } from '@/domain/events/cluster/ClusterDisconnectedEvent'
+import { CronJobSuspendedEvent } from '@/domain/events/cluster/CronJobSuspendedEvent'
 import { CronJobTriggeredEvent } from '@/domain/events/cluster/CronJobTriggeredEvent'
 import { ResourceDeletedEvent } from '@/domain/events/cluster/ResourceDeletedEvent'
 import { WorkloadRestartedEvent } from '@/domain/events/cluster/WorkloadRestartedEvent'
@@ -114,6 +121,7 @@ const record = (event: unknown): void => {
 eventBus.registerHandler(WorkloadScaledEvent, record)
 eventBus.registerHandler(WorkloadRestartedEvent, record)
 eventBus.registerHandler(CronJobTriggeredEvent, record)
+eventBus.registerHandler(CronJobSuspendedEvent, record)
 eventBus.registerHandler(ResourceDeletedEvent, record)
 
 const pods = KubeResourceRegistry.find('', 'pods')!
@@ -427,8 +435,41 @@ describe('ClusterResourceStore actions', () => {
         })).resolves.toBe(true)
 
         expect(announced).toEqual([
-            new CronJobTriggeredEvent('prod', 'nightly-report', 'payments', 'nightly-report-x7k2p'),
+            new CronJobTriggeredEvent('prod', 'nightly-report', 'payments', 'nightly-report-x7k2p', jobs),
         ])
+    })
+
+    it('passes an edited manifest through to the action service', async () => {
+        const cronJob = CronJobEntity.build({ uid: 'c1', metadata: { uid: 'c1', name: 'nightly-report', namespace: 'payments' } })
+        const manifest = { apiVersion: 'batch/v1', kind: 'Job', metadata: { generateName: 'nightly-report-manual-' } }
+        const request = { clusterId: 'prod', cronJob, jobKind: jobs, manifest }
+
+        await expect(store.trigger(target('nightly-report', cronJobs), request)).resolves.toBe(true)
+
+        expect(fake.trigger).toHaveBeenCalledWith(request)
+    })
+
+    it('suspends a cron job and announces it', async () => {
+        await expect(store.setSuspended(target('nightly-report', cronJobs), true)).resolves.toBe(true)
+
+        expect(fake.setSuspended).toHaveBeenCalledWith(target('nightly-report', cronJobs), true)
+        expect(announced).toEqual([new CronJobSuspendedEvent('prod', 'nightly-report', 'payments', true)])
+    })
+
+    it('resumes a cron job and announces it', async () => {
+        await expect(store.setSuspended(target('nightly-report', cronJobs), false)).resolves.toBe(true)
+
+        expect(announced).toEqual([new CronJobSuspendedEvent('prod', 'nightly-report', 'payments', false)])
+    })
+
+    it('reports a refused suspend and announces nothing', async () => {
+        fake.state.actionFailure = new ApiError('The cluster denied access to this resource', '', 403)
+
+        await expect(store.setSuspended(target('nightly-report', cronJobs), true)).resolves.toBe(false)
+
+        expect(announced).toEqual([])
+        expect(errors).toHaveLength(1)
+        expect(store.stateOf('prod', cronJobs).busyKeys).toEqual([])
     })
 
     it('announces nothing when an action failed', async () => {

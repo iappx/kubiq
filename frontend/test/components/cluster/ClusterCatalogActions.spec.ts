@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { ClusterCatalogActions } from '@/components/cluster/ClusterCatalogActions'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
+import { ClusterMonogram } from '@/domain/entities/catalog/ClusterMonogram'
 import type { TClusterStatus } from '@/domain/entities/catalog/types/TClusterStatus'
 
 const row = (status: TClusterStatus, overrides: Partial<TClusterRow> = {}): TClusterRow => ({
     clusterId: 'prod',
     name: 'prod',
+    displayName: 'prod',
+    icon: ClusterMonogram.iconFor('prod'),
     status,
     statusTitle: status,
     clusterName: 'prod-cluster',
@@ -38,8 +41,15 @@ describe('ClusterCatalogActions', () => {
             ClusterCatalogActions.detailsKey,
             ClusterCatalogActions.disconnectKey,
             ClusterCatalogActions.pinKey,
+            ClusterCatalogActions.customizeKey,
             ClusterCatalogActions.deleteKey,
         ])
+    })
+
+    it('offers customizing every cluster, whatever state it is in', () => {
+        for (const status of ['connected', 'available', 'connecting', 'unsupported', 'expired'] as TClusterStatus[]) {
+            expect(keys(row(status, { sourceOrigin: 'discovered' }))).toContain(ClusterCatalogActions.customizeKey)
+        }
     })
 
     it('offers connecting an available cluster and never both verbs at once', () => {
@@ -59,6 +69,7 @@ describe('ClusterCatalogActions', () => {
         expect(keys(row('connecting'))).toEqual([
             ClusterCatalogActions.detailsKey,
             ClusterCatalogActions.pinKey,
+            ClusterCatalogActions.customizeKey,
             ClusterCatalogActions.deleteKey,
         ])
     })
@@ -67,6 +78,7 @@ describe('ClusterCatalogActions', () => {
         expect(keys(row('unsupported'))).toEqual([
             ClusterCatalogActions.detailsKey,
             ClusterCatalogActions.pinKey,
+            ClusterCatalogActions.customizeKey,
             ClusterCatalogActions.deleteKey,
         ])
     })

@@ -1,7 +1,5 @@
-import type { TPortForward } from '@/application/services/portForward/types/TPortForward'
+import type { TPortForwardRuntime } from '@/application/services/portForward/types/TPortForwardRuntime'
 
 export interface IPortForwardSink {
-    onForwardChanged(forward: TPortForward): void
-
-    onForwardClosed(forwardId: string): void
+    onForwardChanged(id: string, runtime: TPortForwardRuntime): void
 }

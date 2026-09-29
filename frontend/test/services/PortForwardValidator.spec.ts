@@ -10,35 +10,64 @@ const draft = (changes: Partial<TPortForwardDraft> = {}): TPortForwardDraft => (
     name: 'api-0',
     remotePort: '8080',
     localPort: '',
+    restoreMode: 'onConnect',
     ...changes,
 })
 
 describe('PortForwardValidator', () => {
-    it('accepts a remote port with no local port', () => {
+    it('accepts a remote port with no local port, which means any free one', () => {
         const result = validator.validate(draft())
 
         expect(result.valid).toBe(true)
         expect(PortForwardValidator.parse(draft())).toEqual({
             remotePort: 8080,
             localPort: 0,
+            restoreMode: 'onConnect',
         })
     })
 
     it('accepts a chosen local port', () => {
         expect(validator.validate(draft({ localPort: '18080' })).valid).toBe(true)
-        expect(PortForwardValidator.parse(draft({ localPort: '18080' })).localPort).toBe(18080)
+        expect(PortForwardValidator.parse(draft({ localPort: ' 18080 ' })).localPort).toBe(18080)
     })
 
     it('asks for the port to forward', () => {
         expect(validator.validate(draft({ remotePort: '  ' })).errors.remotePort).toBeTruthy()
     })
 
-    it('refuses anything that is not a port number', () => {
-        expect(validator.validate(draft({ remotePort: 'http' })).errors.remotePort).toBeTruthy()
+    it('accepts a port typed by its name and keeps it a name', () => {
+        expect(validator.validate(draft({ remotePort: 'http' })).valid).toBe(true)
+        expect(validator.validate(draft({ remotePort: 'grpc-web' })).valid).toBe(true)
+        expect(PortForwardValidator.parse(draft({ remotePort: ' http ' })).remotePort).toBe('http')
+    })
+
+    it('refuses a port name Kubernetes would not accept', () => {
+        expect(validator.validate(draft({ remotePort: 'HTTP' })).errors.remotePort).toBeTruthy()
+        expect(validator.validate(draft({ remotePort: 'http-' })).errors.remotePort).toBeTruthy()
+        expect(validator.validate(draft({ remotePort: 'grpc--web' })).errors.remotePort).toBeTruthy()
+        expect(validator.validate(draft({ remotePort: 'a-very-long-port-name' })).errors.remotePort).toBeTruthy()
+        expect(validator.validate(draft({ remotePort: '80-80' })).errors.remotePort).toBeTruthy()
+    })
+
+    it('refuses a port number out of range', () => {
         expect(validator.validate(draft({ remotePort: '0' })).errors.remotePort).toBeTruthy()
         expect(validator.validate(draft({ remotePort: '70000' })).errors.remotePort).toBeTruthy()
         expect(validator.validate(draft({ localPort: '70000' })).errors.localPort).toBeTruthy()
         expect(validator.validate(draft({ localPort: '-1' })).errors.localPort).toBeTruthy()
+        expect(validator.validate(draft({ localPort: 'any' })).errors.localPort).toBeTruthy()
+    })
+
+    it('refuses a remote port another forward of the same target already uses', () => {
+        expect(validator.validate(draft({ remotePort: '8080' }), [8080]).errors.remotePort).toBeTruthy()
+        expect(validator.validate(draft({ remotePort: 'http' }), ['http']).errors.remotePort).toBeTruthy()
+        expect(validator.validate(draft({ remotePort: '9090' }), [8080, 'http']).valid).toBe(true)
+    })
+
+    it('takes every restore mode the catalogue knows and nothing else', () => {
+        expect(validator.validate(draft({ restoreMode: 'manual' })).valid).toBe(true)
+        expect(validator.validate(draft({ restoreMode: 'connectOnStart' })).valid).toBe(true)
+        expect(validator.validate(draft({ restoreMode: 'always' })).errors.restoreMode).toBeTruthy()
+        expect(PortForwardValidator.parse(draft({ restoreMode: 'manual' })).restoreMode).toBe('manual')
     })
 
     it('asks for the target before it asks for anything else', () => {
@@ -60,8 +89,14 @@ describe('PortForwardValidator', () => {
     })
 
     it('collects every problem in one pass', () => {
-        const result = validator.validate(draft({ namespace: '', name: '', remotePort: '', localPort: 'x' }))
+        const result = validator.validate(draft({
+            namespace: '',
+            name: '',
+            remotePort: '',
+            localPort: 'x',
+            restoreMode: '',
+        }))
 
-        expect(Object.keys(result.errors).sort()).toEqual(['localPort', 'name', 'namespace', 'remotePort'])
+        expect(Object.keys(result.errors).sort()).toEqual(['localPort', 'name', 'namespace', 'remotePort', 'restoreMode'])
     })
 })

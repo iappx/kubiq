@@ -166,6 +166,18 @@ func connectWithTimeout(t *testing.T, registry *kube.SessionRegistry, server *ht
 func newSocketServer(t *testing.T, subprotocols []string, serve func(*websocket.Conn)) *httptest.Server {
 	t.Helper()
 
+	return newRequestSocketServer(t, subprotocols, func(_ *http.Request, conn *websocket.Conn) {
+		serve(conn)
+	})
+}
+
+func newRequestSocketServer(
+	t *testing.T,
+	subprotocols []string,
+	serve func(*http.Request, *websocket.Conn),
+) *httptest.Server {
+	t.Helper()
+
 	// httptest forgets a hijacked connection, so closing the server would leave
 	// an open socket behind: every accepted one is kept for the teardown.
 	var (
@@ -185,7 +197,7 @@ func newSocketServer(t *testing.T, subprotocols []string, serve func(*websocket.
 
 		defer conn.CloseNow()
 
-		serve(conn)
+		serve(request, conn)
 	}))
 
 	t.Cleanup(func() {

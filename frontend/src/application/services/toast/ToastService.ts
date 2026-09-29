@@ -41,6 +41,16 @@ export class ToastService {
         }
     }
 
+    public runAction(id: string): void {
+        const toast = this.toastStore.items.find(item => item.id === id)
+        if (!toast?.action) {
+            return
+        }
+
+        this.toastStore.remove(id)
+        toast.action.run()
+    }
+
     private dismiss(signature: string, id: string): void {
         if (this.live.get(signature) === id) {
             this.live.delete(signature)

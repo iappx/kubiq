@@ -3,6 +3,7 @@ import { EntityRepo } from '@iappx/entity-repo'
 import { AppEntityContext } from '@/infrastructure/entityRepo/AppEntityContext'
 import { ClusterCatalogEntityContext } from '@/infrastructure/entityRepo/catalog/ClusterCatalogEntityContext'
 import { KubeconfigEntityContext } from '@/infrastructure/entityRepo/kubeconfig/KubeconfigEntityContext'
+import { PortForwardEntityContext } from '@/infrastructure/entityRepo/portForward/PortForwardEntityContext'
 import { SettingsEntityContext } from '@/infrastructure/entityRepo/settings/SettingsEntityContext'
 import { FileSystemTransport } from '@/infrastructure/entityRepo/transport/FileSystemTransport'
 
@@ -16,6 +17,8 @@ export class EntityRepoProvider {
 
     private readonly settingsContext: SettingsEntityContext
 
+    private readonly portForwardContext: PortForwardEntityContext
+
     constructor(
         @inject(FileSystemTransport) transport: FileSystemTransport,
     ) {
@@ -24,12 +27,14 @@ export class EntityRepoProvider {
             .use(KubeconfigEntityContext, transport)
             .use(ClusterCatalogEntityContext, transport)
             .use(SettingsEntityContext, transport)
+            .use(PortForwardEntityContext, transport)
 
         // getContext() builds a new context on every call, so each is built once here.
         this.appContext = repo.getContext(AppEntityContext)
         this.kubeconfigContext = repo.getContext(KubeconfigEntityContext)
         this.catalogContext = repo.getContext(ClusterCatalogEntityContext)
         this.settingsContext = repo.getContext(SettingsEntityContext)
+        this.portForwardContext = repo.getContext(PortForwardEntityContext)
     }
 
     public get context(): AppEntityContext {
@@ -46,5 +51,9 @@ export class EntityRepoProvider {
 
     public get settings(): SettingsEntityContext {
         return this.settingsContext
+    }
+
+    public get portForwards(): PortForwardEntityContext {
+        return this.portForwardContext
     }
 }

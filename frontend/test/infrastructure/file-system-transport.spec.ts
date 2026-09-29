@@ -6,6 +6,7 @@ const writeFile = vi.fn()
 const removeFile = vi.fn()
 const listDir = vi.fn()
 const stat = vi.fn()
+const copyFile = vi.fn()
 
 vi.mock('../../bindings/iappx_k8s_admin/core/services/io', () => ({
     IoService: {
@@ -14,6 +15,7 @@ vi.mock('../../bindings/iappx_k8s_admin/core/services/io', () => ({
         RemoveFile: (...args: unknown[]) => removeFile(...args),
         ListDir: (...args: unknown[]) => listDir(...args),
         Stat: (...args: unknown[]) => stat(...args),
+        CopyFile: (...args: unknown[]) => copyFile(...args),
     },
 }))
 
@@ -48,6 +50,7 @@ describe('FileSystemTransport', () => {
         removeFile.mockReset()
         listDir.mockReset()
         stat.mockReset()
+        copyFile.mockReset()
         ;(window as any).chrome = { webview: { postMessage: () => undefined } }
     })
 
@@ -149,6 +152,40 @@ describe('FileSystemTransport', () => {
         stat.mockResolvedValue({ success: true, exists: false, entry: configEntry, error: '' })
 
         await expect(transport.send({ path: configEntry.path, operation: 'stat' })).resolves.toBeNull()
+    })
+
+    it('reads a file as base64 in binary mode', async () => {
+        readFile.mockResolvedValue({ success: true, data: 'iVBORw0K' })
+
+        await expect(transport.send({ path: 'userdata:clusters/icons/prod.png', operation: 'readBinary' }))
+            .resolves.toBe('iVBORw0K')
+        expect(readFile.mock.calls[0][1]).toMatchObject({ Mode: 'Binary' })
+    })
+
+    it('treats a binary file that is not there as no content', async () => {
+        readFile.mockResolvedValue({ success: false, data: 'no such file' })
+
+        await expect(transport.send({ path: 'userdata:clusters/icons/prod.png', operation: 'readBinary' }))
+            .resolves.toBeNull()
+    })
+
+    it('copies from the source onto the path', async () => {
+        copyFile.mockResolvedValue({ success: true, data: '' })
+
+        await transport.send({ path: 'userdata:clusters/icons/prod.png', operation: 'copy', source: 'D:/logo.png' })
+
+        expect(copyFile.mock.calls[0]).toEqual(['D:/logo.png', 'userdata:clusters/icons/prod.png'])
+    })
+
+    it('raises an ApiError when the copy fails', async () => {
+        copyFile.mockResolvedValue({ success: false, data: 'access is denied' })
+
+        const error = await failure(
+            () => transport.send({ path: 'userdata:clusters/icons/prod.png', operation: 'copy', source: 'D:/logo.png' }),
+        )
+
+        expect(error.message).toBe('Could not copy the file')
+        expect(error.details).toBe('access is denied')
     })
 
     it('lists and describes nothing when the Wails runtime is absent', async () => {

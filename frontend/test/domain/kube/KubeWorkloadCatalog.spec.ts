@@ -29,6 +29,14 @@ describe('KubeWorkloadCatalog', () => {
         expect(KubeWorkloadCatalog.canTrigger(kind('batch', 'jobs'))).toBe(false)
     })
 
+    it('suspends cron jobs only, and only when the cluster lets the user patch them', () => {
+        const readOnly = kind('batch', 'cronjobs').withDefinition({ verbs: ['list', 'get', 'watch'] })
+
+        expect(KubeWorkloadCatalog.canSuspend(kind('batch', 'cronjobs'))).toBe(true)
+        expect(KubeWorkloadCatalog.canSuspend(kind('batch', 'jobs'))).toBe(false)
+        expect(KubeWorkloadCatalog.canSuspend(readOnly)).toBe(false)
+    })
+
     it('forwards a port to what listens on one', () => {
         expect(KubeWorkloadCatalog.canForwardPort(kind('', 'pods'))).toBe(true)
         expect(KubeWorkloadCatalog.canForwardPort(kind('', 'services'))).toBe(true)

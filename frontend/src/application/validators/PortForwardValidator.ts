@@ -1,10 +1,16 @@
 import { injectable } from 'tsyringe'
 import type { TPortForwardDraft } from '@/application/services/portForward/types/TPortForwardDraft'
+import { PortForwardRemotePort } from '@/domain/entities/portForward/PortForwardRemotePort'
+import { PortForwardRestoreModeCatalog } from '@/domain/entities/portForward/PortForwardRestoreModeCatalog'
+import type { TPortForwardRemotePort } from '@/domain/entities/portForward/types/TPortForwardRemotePort'
+import type { TPortForwardRestoreMode } from '@/domain/entities/portForward/types/TPortForwardRestoreMode'
 import type { TValidationResult } from '@/lib/validation/types/TValidationResult'
 
 @injectable()
 export class PortForwardValidator {
     public static readonly maxPort: number = 65535
+
+    public static readonly maxPortNameLength: number = 15
 
     private static readonly whole: RegExp = /^\d+$/
 
@@ -12,7 +18,9 @@ export class PortForwardValidator {
 
     private static readonly subdomain: RegExp = /^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$/
 
-    public validate(draft: TPortForwardDraft): TValidationResult {
+    private static readonly letter: RegExp = /[a-z]/
+
+    public validate(draft: TPortForwardDraft, taken: readonly TPortForwardRemotePort[] = []): TValidationResult {
         const errors: Record<string, string> = {}
 
         const namespace = draft.namespace.trim()
@@ -31,9 +39,17 @@ export class PortForwardValidator {
 
         const remote = draft.remotePort.trim()
         if (remote.length === 0) {
-            errors.remotePort = 'Choose the port to forward'
-        } else if (!PortForwardValidator.whole.test(remote) || !PortForwardValidator.inRange(Number(remote), 1)) {
-            errors.remotePort = `A port is a whole number between 1 and ${PortForwardValidator.maxPort}`
+            errors.remotePort = 'Choose the port to forward, or type its number or name'
+        } else if (PortForwardValidator.whole.test(remote)) {
+            if (!PortForwardValidator.inRange(Number(remote), 1)) {
+                errors.remotePort = `A port number is between 1 and ${PortForwardValidator.maxPort}`
+            }
+        } else if (!PortForwardValidator.isPortName(remote)) {
+            errors.remotePort = `A port name is up to ${PortForwardValidator.maxPortNameLength} lowercase letters, digits and dashes`
+        }
+
+        if (!errors.remotePort && taken.some(port => PortForwardRemotePort.same(port, remote))) {
+            errors.remotePort = 'Another port forward already uses this port — edit that one instead'
         }
 
         const local = draft.localPort.trim()
@@ -41,16 +57,32 @@ export class PortForwardValidator {
             errors.localPort = `Leave this empty to be given a free port, or enter one between 1 and ${PortForwardValidator.maxPort}`
         }
 
+        if (!PortForwardRestoreModeCatalog.has(draft.restoreMode)) {
+            errors.restoreMode = 'Choose when the forward starts'
+        }
+
         return { valid: Object.keys(errors).length === 0, errors }
     }
 
-    public static parse(draft: TPortForwardDraft): { remotePort: number, localPort: number } {
+    public static parse(draft: TPortForwardDraft): {
+        remotePort: TPortForwardRemotePort
+        localPort: number
+        restoreMode: TPortForwardRestoreMode
+    } {
         const local = draft.localPort.trim()
 
         return {
-            remotePort: Number.parseInt(draft.remotePort.trim(), 10),
+            remotePort: PortForwardRemotePort.of(draft.remotePort),
             localPort: local === '' ? 0 : Number.parseInt(local, 10),
+            restoreMode: PortForwardRestoreModeCatalog.of(draft.restoreMode),
         }
+    }
+
+    private static isPortName(value: string): boolean {
+        return value.length <= PortForwardValidator.maxPortNameLength
+            && PortForwardValidator.label.test(value)
+            && PortForwardValidator.letter.test(value)
+            && !value.includes('--')
     }
 
     private static inRange(value: number, lowest: number): boolean {

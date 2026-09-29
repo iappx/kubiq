@@ -11,6 +11,8 @@ import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 export class FileSystemTransport implements ITransport<TFileRequest> {
     private static readonly TEXT_OPTIONS = new IOOptions({ Mode: 'Text', Range: '' })
 
+    private static readonly BINARY_OPTIONS = new IOOptions({ Mode: 'Binary', Range: '' })
+
     constructor(
         @inject(WailsRuntimeService) private readonly runtime: WailsRuntimeService,
     ) {}
@@ -22,6 +24,14 @@ export class FileSystemTransport implements ITransport<TFileRequest> {
 
         if (params.operation === 'read') {
             return await this.read(params) as TRes
+        }
+
+        if (params.operation === 'readBinary') {
+            return await this.readBinary(params) as TRes
+        }
+
+        if (params.operation === 'copy') {
+            return await this.copy(params) as TRes
         }
 
         if (params.operation === 'remove') {
@@ -64,6 +74,27 @@ export class FileSystemTransport implements ITransport<TFileRequest> {
         }
 
         return result.data
+    }
+
+    private async readBinary(params: TFileRequest): Promise<string | null> {
+        const result = await this.call(
+            () => IoService.ReadFile(params.path, FileSystemTransport.BINARY_OPTIONS),
+            'Could not read the file',
+        )
+
+        return result.success && result.data ? result.data : null
+    }
+
+    private async copy(params: TFileRequest): Promise<null> {
+        const message = 'Could not copy the file'
+
+        const result = await this.call(() => IoService.CopyFile(params.source ?? '', params.path), message)
+
+        if (!result.success) {
+            throw new ApiError(message, result.data)
+        }
+
+        return null
     }
 
     private async write(params: TFileRequest): Promise<null> {

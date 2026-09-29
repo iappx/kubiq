@@ -48,6 +48,37 @@ describe('ResourceActions', () => {
         expect(keys('batch', 'cronjobs')).toContain(ResourceActions.triggerKey)
     })
 
+    it('offers a manual run with the job edited first, right after the plain one', () => {
+        const items = keys('batch', 'cronjobs')
+
+        expect(items.indexOf(ResourceActions.triggerEditKey)).toBe(items.indexOf(ResourceActions.triggerKey) + 1)
+        expect(keys('batch', 'jobs')).not.toContain(ResourceActions.triggerEditKey)
+    })
+
+    it('offers suspend and resume on a cron job the user may patch', () => {
+        const readOnly = kind('batch', 'cronjobs').withDefinition({ verbs: ['list', 'get', 'watch'] })
+
+        expect(keys('batch', 'cronjobs')).toContain(ResourceActions.suspendKey)
+        expect(keys('batch', 'cronjobs')).toContain(ResourceActions.resumeKey)
+        expect(ResourceActions.of(readOnly).map(item => item.key)).not.toContain(ResourceActions.suspendKey)
+        expect(keys('apps', 'deployments')).not.toContain(ResourceActions.suspendKey)
+    })
+
+    it('offers resume on a suspended cron job and suspend on a running one, never both', () => {
+        const items = ResourceActions.of(kind('batch', 'cronjobs'))
+        const row = (isSuspended: boolean) => ({
+            key: 'uid', name: 'nightly', namespace: 'payments', createdAt: '', tone: 'ok' as const, statusTitle: 'Ready', isSuspended,
+        })
+
+        const onSuspended = ResourceActions.forRow(items, row(true)).map(item => item.key)
+        const onRunning = ResourceActions.forRow(items, row(false)).map(item => item.key)
+
+        expect(onSuspended).toContain(ResourceActions.resumeKey)
+        expect(onSuspended).not.toContain(ResourceActions.suspendKey)
+        expect(onRunning).toContain(ResourceActions.suspendKey)
+        expect(onRunning).not.toContain(ResourceActions.resumeKey)
+    })
+
     it('offers cordon, uncordon and drain on a node and on nothing else', () => {
         const items = keys('', 'nodes')
 

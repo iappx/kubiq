@@ -4,4 +4,5 @@ export type TPortForwardDraft = {
     name: string
     remotePort: string
     localPort: string
+    restoreMode: string
 }

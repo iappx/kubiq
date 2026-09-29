@@ -56,7 +56,7 @@ export default class TerminalLauncher extends VueBase {
     return [
       { key: TerminalLauncher.localKey, label: 'Local shell', icon: SquareTerminal },
       { key: TerminalLauncher.nodeKey, label: 'Node shell', icon: Server },
-      { key: TerminalLauncher.forwardKey, label: 'Port forwards', icon: Cable, separatorBefore: true },
+      { key: TerminalLauncher.forwardKey, label: 'Forward a port', icon: Cable, separatorBefore: true },
     ]
   }
 
@@ -70,7 +70,7 @@ export default class TerminalLauncher extends VueBase {
       return
     }
 
-    this.eventBus.emitEvent(new OpenPortForwardEvent(this.clusterId, this.namespace, 'pods', '', 0))
+    this.eventBus.emitEvent(new OpenPortForwardEvent(this.clusterId, this.namespace))
   }
 
   public openNodeShell(nodeName: string): void {

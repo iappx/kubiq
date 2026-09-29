@@ -39,6 +39,12 @@ export function Resize(channelId: string, cols: number, rows: number): $Cancella
     });
 }
 
+export function RetargetForward(spec: $models.ForwardTargetSpec): $CancellablePromise<$models.ChannelActionResult> {
+    return $Call.ByID(3040251520, spec).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 export function StartForward(spec: $models.PortForwardSpec): $CancellablePromise<$models.PortForwardResult> {
     return $Call.ByID(1835621046, spec).then(($result: any) => {
         return $$createType4($result);

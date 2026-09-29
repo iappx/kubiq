@@ -176,6 +176,7 @@ export class KubeResourceRegistry {
                     KubeColumns.objectName(),
                     KubeColumns.namespace(),
                     { key: 'schedule', title: 'Schedule' },
+                    { key: 'isSuspended', title: 'Suspend' },
                     { key: 'lastScheduleTime', title: 'Last Schedule' },
                     { key: 'activeCount', title: 'Active', align: 'right' },
                     KubeColumns.state(),

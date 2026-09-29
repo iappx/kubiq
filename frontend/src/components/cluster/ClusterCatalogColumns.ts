@@ -4,7 +4,7 @@ import type { TUiTableColumn } from '@/components/common/table/types/TUiTableCol
 export class ClusterCatalogColumns {
     public static all(): TUiTableColumn[] {
         return [
-            { key: 'name', title: 'Name', locked: true, width: '22%' },
+            { key: 'displayName', title: 'Name', locked: true, width: '22%' },
             { key: 'status', title: 'Status', locked: true, width: '12%' },
             { key: 'clusterName', title: 'Cluster', width: '16%' },
             { key: 'server', title: 'Server', width: '24%' },
