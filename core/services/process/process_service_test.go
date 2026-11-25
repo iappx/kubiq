@@ -508,9 +508,7 @@ func TestLaunchRunsTheFileDetachedWithItsArgumentsAndDirectory(t *testing.T) {
 	for {
 		written, err := os.ReadFile(marker)
 		if err == nil && len(written) > 0 {
-			if filepath.Clean(string(written)) != filepath.Clean(dir) {
-				t.Fatalf("launched in %q, want %q", written, dir)
-			}
+			assertSameDirectory(t, string(written), dir)
 			return
 		}
 		if time.Now().After(deadline) {
@@ -545,15 +543,31 @@ func TestLaunchAppliesSpecEnvAndResolvesPathExecutables(t *testing.T) {
 	for {
 		written, err := os.ReadFile(marker)
 		if err == nil && len(written) > 0 {
-			if filepath.Clean(string(written)) != filepath.Clean(dir) {
-				t.Fatalf("launched in %q, want %q", written, dir)
-			}
+			assertSameDirectory(t, string(written), dir)
 			return
 		}
 		if time.Now().After(deadline) {
 			t.Fatal("the launched process never wrote its marker")
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func assertSameDirectory(t *testing.T, actual string, expected string) {
+	t.Helper()
+
+	resolvedActual, err := filepath.EvalSymlinks(strings.TrimSpace(actual))
+	if err != nil {
+		t.Fatalf("cannot resolve the reported directory %q: %v", actual, err)
+	}
+
+	resolvedExpected, err := filepath.EvalSymlinks(expected)
+	if err != nil {
+		t.Fatalf("cannot resolve the expected directory %q: %v", expected, err)
+	}
+
+	if !strings.EqualFold(filepath.Clean(resolvedActual), filepath.Clean(resolvedExpected)) {
+		t.Fatalf("launched in %q, want %q", resolvedActual, resolvedExpected)
 	}
 }
 
