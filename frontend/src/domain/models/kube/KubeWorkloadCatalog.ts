@@ -49,6 +49,24 @@ export class KubeWorkloadCatalog {
         KubeResourceKind.registryKeyOf('apps', 'daemonsets'),
     ]
 
+    private static readonly overviewKinds: string[] = [
+        KubeResourceKind.registryKeyOf('', 'nodes'),
+        KubeResourceKind.registryKeyOf('', 'persistentvolumes'),
+        KubeWorkloadCatalog.podsKey,
+        KubeResourceKind.registryKeyOf('apps', 'deployments'),
+        KubeResourceKind.registryKeyOf('apps', 'daemonsets'),
+        KubeResourceKind.registryKeyOf('apps', 'statefulsets'),
+        KubeWorkloadCatalog.cronJobsKey,
+        KubeWorkloadCatalog.jobsKey,
+        KubeResourceKind.registryKeyOf('autoscaling', 'horizontalpodautoscalers'),
+        KubeResourceKind.registryKeyOf('', 'resourcequotas'),
+        KubeResourceKind.registryKeyOf('policy', 'poddisruptionbudgets'),
+        KubeResourceKind.registryKeyOf('', 'persistentvolumeclaims'),
+        KubeResourceKind.registryKeyOf('cert-manager.io', 'certificates'),
+        KubeResourceKind.registryKeyOf('kustomize.toolkit.fluxcd.io', 'kustomizations'),
+        KubeResourceKind.registryKeyOf('helm.toolkit.fluxcd.io', 'helmreleases'),
+    ]
+
     public static canScale(kind: KubeResourceKind): boolean {
         return kind.canPatch && KubeWorkloadCatalog.scalable.includes(kind.registryKey)
     }
@@ -88,5 +106,13 @@ export class KubeWorkloadCatalog {
 
     public static summaryOrder(kind: KubeResourceKind): number {
         return KubeWorkloadCatalog.summarised.indexOf(kind.registryKey)
+    }
+
+    public static isOverviewSummarised(kind: KubeResourceKind): boolean {
+        return KubeWorkloadCatalog.overviewKinds.includes(kind.registryKey)
+    }
+
+    public static overviewOrder(kind: KubeResourceKind): number {
+        return KubeWorkloadCatalog.overviewKinds.indexOf(kind.registryKey)
     }
 }

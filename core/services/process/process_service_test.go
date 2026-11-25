@@ -488,6 +488,43 @@ func TestLaunchRunsTheFileDetachedWithItsArgumentsAndDirectory(t *testing.T) {
 	}
 }
 
+func TestLaunchAppliesSpecEnvAndResolvesPathExecutables(t *testing.T) {
+	service := NewProcessService()
+	defer service.CloseAll()
+
+	binaryDir := filepath.Dir(os.Args[0])
+	binaryName := filepath.Base(os.Args[0])
+	t.Setenv("PATH", binaryDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "launched-from-path")
+
+	result := service.Launch(LaunchSpec{
+		Path: binaryName,
+		Args: []string{marker},
+		Env:  map[string]string{childModeEnv: "marker"},
+		Dir:  dir,
+	})
+	if !result.Success {
+		t.Fatalf("launch failed: %s", result.Error)
+	}
+
+	deadline := time.Now().Add(eventTimeout)
+	for {
+		written, err := os.ReadFile(marker)
+		if err == nil && len(written) > 0 {
+			if filepath.Clean(string(written)) != filepath.Clean(dir) {
+				t.Fatalf("launched in %q, want %q", written, dir)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the launched process never wrote its marker")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 func TestLaunchRejectsAnEmptyPath(t *testing.T) {
 	service := NewProcessService()
 

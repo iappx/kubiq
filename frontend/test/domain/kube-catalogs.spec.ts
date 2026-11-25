@@ -103,12 +103,14 @@ describe('AccessModeCatalog', () => {
 })
 
 describe('KubeSectionCatalog', () => {
-    it('orders the sections and puts custom resources last', () => {
+    it('orders the sections with GitOps after Cluster and custom resources last', () => {
         const sections = KubeSectionCatalog.all()
 
         expect(sections[0]).toBe('cluster')
+        expect(sections[1]).toBe(KubeSectionCatalog.gitops)
         expect(sections[sections.length - 1]).toBe(KubeSectionCatalog.custom)
-        expect(KubeSectionCatalog.orderOf('cluster')).toBeLessThan(KubeSectionCatalog.orderOf('workloads'))
+        expect(KubeSectionCatalog.orderOf('cluster')).toBeLessThan(KubeSectionCatalog.orderOf('gitops'))
+        expect(KubeSectionCatalog.orderOf('gitops')).toBeLessThan(KubeSectionCatalog.orderOf('workloads'))
         expect(KubeSectionCatalog.orderOf('custom')).toBe(sections.length - 1)
     })
 

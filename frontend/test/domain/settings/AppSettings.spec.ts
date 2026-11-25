@@ -7,6 +7,8 @@ describe('AppSettings', () => {
             kubectlPath: '',
             helmPath: '',
             nodeShellImage: '',
+            terminalMode: 'in-app',
+            externalTerminalCommand: '',
             terminalShell: '',
             terminalFontFamily: '',
             checkForUpdates: true,
@@ -19,6 +21,8 @@ describe('AppSettings', () => {
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: 'C:/tools/helm.exe',
             nodeShellImage: 'registry.internal/shell:1',
+            terminalMode: 'custom',
+            externalTerminalCommand: 'Ghostty',
             terminalShell: '/bin/zsh',
             terminalFontFamily: 'JetBrainsMono Nerd Font',
             checkForUpdates: false,
@@ -29,6 +33,8 @@ describe('AppSettings', () => {
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: 'C:/tools/helm.exe',
             nodeShellImage: 'registry.internal/shell:1',
+            terminalMode: 'custom',
+            externalTerminalCommand: 'Ghostty',
             terminalShell: '/bin/zsh',
             terminalFontFamily: 'JetBrainsMono Nerd Font',
             checkForUpdates: false,
@@ -44,11 +50,13 @@ describe('AppSettings', () => {
     it('trims the paths it was handed', () => {
         const parsed = AppSettings.parse({
             kubectlPath: '  C:/tools/kubectl.exe  ',
+            externalTerminalCommand: '  iTerm  ',
             terminalShell: '  pwsh.exe  ',
             terminalFontFamily: '  JetBrainsMono Nerd Font  ',
         })
 
         expect(parsed.kubectlPath).toBe('C:/tools/kubectl.exe')
+        expect(parsed.externalTerminalCommand).toBe('iTerm')
         expect(parsed.terminalShell).toBe('pwsh.exe')
         expect(parsed.terminalFontFamily).toBe('JetBrainsMono Nerd Font')
     })
@@ -67,6 +75,8 @@ describe('AppSettings', () => {
             kubectlPath: 42,
             nodeShellImage: true,
             helmPath: null,
+            terminalMode: 'bogus',
+            externalTerminalCommand: 99,
             terminalShell: 7,
             terminalFontFamily: [],
         })
@@ -74,6 +84,8 @@ describe('AppSettings', () => {
         expect(parsed.kubectlPath).toBe('')
         expect(parsed.helmPath).toBe('')
         expect(parsed.nodeShellImage).toBe('')
+        expect(parsed.terminalMode).toBe('in-app')
+        expect(parsed.externalTerminalCommand).toBe('')
         expect(parsed.terminalShell).toBe('')
         expect(parsed.terminalFontFamily).toBe('')
     })
@@ -86,11 +98,13 @@ describe('AppSettings', () => {
 
         expect(Object.keys(document).sort()).toEqual([
             'checkForUpdates',
+            'externalTerminalCommand',
             'helmPath',
             'kubectlPath',
             'nodeShellImage',
             'skippedVersion',
             'terminalFontFamily',
+            'terminalMode',
             'terminalShell',
         ])
     })

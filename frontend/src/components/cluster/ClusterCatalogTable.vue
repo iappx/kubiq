@@ -94,7 +94,19 @@ import type { TUiTone } from '@/components/common/status/types/TUiTone'
 
 @Component({
   components: { ClusterAvatar, LoaderCircle, Pin, UiDataTable, UiStatusBadge },
-  emits: ['open', 'details', 'connect', 'disconnect', 'toggle-pin', 'customize', 'delete', 'update:sort', 'update:cursor'],
+  emits: [
+    'open',
+    'details',
+    'terminal',
+    'copy-name',
+    'connect',
+    'disconnect',
+    'toggle-pin',
+    'customize',
+    'delete',
+    'update:sort',
+    'update:cursor',
+  ],
 })
 export default class ClusterCatalogTable extends VueBase {
   @Prop({ required: true })
@@ -149,6 +161,12 @@ export default class ClusterCatalogTable extends VueBase {
         return
       case ClusterCatalogActions.detailsKey:
         this.$emit('details', event.row)
+        return
+      case ClusterCatalogActions.terminalKey:
+        this.$emit('terminal', event.row)
+        return
+      case ClusterCatalogActions.copyNameKey:
+        this.$emit('copy-name', event.row)
         return
       case ClusterCatalogActions.connectKey:
         this.$emit('connect', event.row.clusterId)

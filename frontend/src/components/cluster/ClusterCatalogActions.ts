@@ -1,4 +1,4 @@
-import { ArrowRight, Palette, PanelRight, Pin, PinOff, Plug, Trash2, Unplug } from '@lucide/vue'
+import { ArrowRight, Copy, Palette, PanelRight, Pin, PinOff, Plug, SquareTerminal, Trash2, Unplug } from '@lucide/vue'
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 
@@ -7,11 +7,15 @@ export class ClusterCatalogActions {
 
     public static readonly detailsKey: string = 'details'
 
+    public static readonly terminalKey: string = 'terminal'
+
     public static readonly connectKey: string = 'connect'
 
     public static readonly disconnectKey: string = 'disconnect'
 
     public static readonly pinKey: string = 'pin'
+
+    public static readonly copyNameKey: string = 'copy-name'
 
     public static readonly customizeKey: string = 'customize'
 
@@ -28,6 +32,10 @@ export class ClusterCatalogActions {
 
         if (!row) {
             return items
+        }
+
+        if (row.status !== 'unsupported') {
+            items.push({ key: ClusterCatalogActions.terminalKey, label: 'Open in terminal', icon: SquareTerminal })
         }
 
         if (row.status === 'connected') {
@@ -52,6 +60,8 @@ export class ClusterCatalogActions {
             icon: row.isPinned ? PinOff : Pin,
             separatorBefore: true,
         })
+
+        items.push({ key: ClusterCatalogActions.copyNameKey, label: 'Copy name', icon: Copy })
 
         items.push({ key: ClusterCatalogActions.customizeKey, label: 'Customize…', icon: Palette })
 

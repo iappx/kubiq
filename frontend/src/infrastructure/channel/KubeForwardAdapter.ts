@@ -6,6 +6,7 @@ import type { IKubeForwardHandler } from '@/infrastructure/channel/types/IKubeFo
 import type { TKubeForwardHandle } from '@/infrastructure/channel/types/TKubeForwardHandle'
 import type { TKubeForwardSpec } from '@/infrastructure/channel/types/TKubeForwardSpec'
 import type { TKubeForwardTarget } from '@/infrastructure/channel/types/TKubeForwardTarget'
+import type { TPortCheckResult } from '@/infrastructure/channel/types/TPortCheckResult'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 
 @singleton()
@@ -99,6 +100,20 @@ export class KubeForwardAdapter {
             await ChannelService.StopForward(forwardId)
         } catch {
             return
+        }
+    }
+
+    public async checkPort(port: number, address: string = KubeForwardAdapter.loopback): Promise<TPortCheckResult> {
+        if (!this.isAvailable) {
+            return { checked: false, available: false, error: '' }
+        }
+
+        try {
+            const result = await ChannelService.CheckPort(address, port)
+
+            return { checked: true, available: result.available, error: result.error }
+        } catch (err) {
+            return { checked: false, available: false, error: err instanceof Error ? err.message : String(err) }
         }
     }
 }

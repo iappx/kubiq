@@ -33,6 +33,8 @@ const fake = vi.hoisted(() => ({
     slowPorts: {} as Record<string, Promise<void> | undefined>,
     portCalls: [] as string[],
     namesOf: {} as Record<string, string[]>,
+    portChecks: {} as Record<number, { checked: boolean, available: boolean, error: string }>,
+    savedCalls: [] as { id: string, restoreMode: string }[],
 }))
 
 vi.mock('@/application/services/portForward/PortForwardService', () => ({
@@ -43,6 +45,7 @@ vi.mock('@/application/services/portForward/PortForwardService', () => ({
 
         public async create(request: any, now: number): Promise<any> {
             fake.sequence += 1
+            const isSaved = request.save !== false
             const record = {
                 id: `pf-${fake.sequence}`,
                 clusterId: request.clusterId,
@@ -52,8 +55,9 @@ vi.mock('@/application/services/portForward/PortForwardService', () => ({
                 remotePort: request.remotePort,
                 localPort: request.localPort,
                 lastLocalPort: 0,
-                restoreMode: request.restoreMode ?? 'onConnect',
+                restoreMode: isSaved ? (request.restoreMode ?? 'onConnect') : 'manual',
                 isStoppedByUser: false,
+                saved: isSaved,
                 createdAt: now,
                 label: `pod/${request.name}:${request.remotePort}`,
                 status: 'stopped',
@@ -62,13 +66,30 @@ vi.mock('@/application/services/portForward/PortForwardService', () => ({
                 podName: '',
                 targetPort: 0,
             }
-            fake.records.push(record)
+            if (isSaved) {
+                fake.records.push(record)
+            }
 
             return { ...record }
         }
 
+        public async save(forward: any, restoreMode: string = 'onConnect'): Promise<any> {
+            fake.savedCalls.push({ id: forward.id, restoreMode })
+            const saved = { ...forward, saved: true, restoreMode }
+            fake.records.push(saved)
+
+            return { ...saved }
+        }
+
+        public async checkPort(port: number): Promise<any> {
+            return fake.portChecks[port] ?? { checked: true, available: true, error: '' }
+        }
+
         public async update(id: string, change: any): Promise<any> {
             const record = fake.records.find(open => open.id === id)
+            if (!record) {
+                return { id, ...change, status: 'stopped', error: '', boundPort: 0, podName: '', targetPort: 0 }
+            }
             Object.keys(change).forEach((key) => {
                 if (change[key] !== undefined) {
                     record[key] = change[key]
@@ -247,6 +268,8 @@ describe('PortForwardStore', () => {
         fake.slowPorts = {}
         fake.portCalls.length = 0
         fake.namesOf = {}
+        fake.portChecks = {}
+        fake.savedCalls.length = 0
         store.clearPorts()
         store.names = []
     })
@@ -411,6 +434,55 @@ describe('PortForwardStore', () => {
             expect(created?.status).toBe('error')
             expect(created?.error).toBe('Could not start the port forward: address in use')
             expect(errors).toHaveLength(1)
+        })
+
+        it('creates an ephemeral forward without persisting it to disk', async () => {
+            const created = await store.create(request({ save: false, localPort: 9879 }))
+
+            expect(created?.saved).toBe(false)
+            expect(created?.restoreMode).toBe('manual')
+            expect(created?.status).toBe('active')
+            expect(created?.boundPort).toBe(9879)
+            expect(fake.records).toHaveLength(0)
+            expect(fake.remembered).toHaveLength(0)
+            expect(fake.rememberedStops).toHaveLength(0)
+
+            await store.stop('pf-1')
+            expect(fake.rememberedStops).toHaveLength(0)
+        })
+
+        it('opens the browser automatically when openInBrowser is requested and the forward binds', async () => {
+            await store.create(request({ save: false, openInBrowser: true }))
+
+            expect(fake.opened).toEqual(['pf-1'])
+        })
+
+        it('does not open the browser when the forward fails to start', async () => {
+            fake.refusal = new ApiError('Could not start the port forward', 'address in use')
+
+            await store.create(request({ save: false, openInBrowser: true }))
+
+            expect(fake.opened).toEqual([])
+        })
+
+        it('promotes an ephemeral forward when saved', async () => {
+            const messages = seen(SuccessMessageEvent)
+            await store.create(request({ save: false }))
+
+            expect(await store.save('pf-1')).toBe(true)
+
+            expect(fake.savedCalls).toEqual([{ id: 'pf-1', restoreMode: 'onConnect' }])
+            expect(store.find('pf-1')?.saved).toBe(true)
+            expect(store.find('pf-1')?.status).toBe('active')
+            expect(messages).toHaveLength(1)
+            expect(await store.save('pf-1')).toBe(false)
+        })
+
+        it('delegates port availability checks to the service', async () => {
+            fake.portChecks[9879] = { checked: true, available: false, error: 'in use' }
+
+            await expect(store.checkPort(9879)).resolves.toEqual({ checked: true, available: false, error: 'in use' })
+            await expect(store.checkPort(9880)).resolves.toEqual({ checked: true, available: true, error: '' })
         })
     })
 

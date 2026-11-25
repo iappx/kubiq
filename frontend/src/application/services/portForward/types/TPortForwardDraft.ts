@@ -5,4 +5,6 @@ export type TPortForwardDraft = {
     remotePort: string
     localPort: string
     restoreMode: string
+    save?: boolean
+    openInBrowser?: boolean
 }

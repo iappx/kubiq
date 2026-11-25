@@ -15,57 +15,64 @@ export function Channels(): $CancellablePromise<$models.ChannelsResult> {
     });
 }
 
+export function CheckPort(address: string, port: number): $CancellablePromise<$models.PortCheckResult> {
+    return $Call.ByID(2172932078, address, port).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 export function Close(channelId: string): $CancellablePromise<$models.ChannelActionResult> {
     return $Call.ByID(3657710993, channelId).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function Forwards(): $CancellablePromise<$models.ForwardsResult> {
     return $Call.ByID(202857977).then(($result: any) => {
-        return $$createType2($result);
+        return $$createType3($result);
     });
 }
 
 export function Open(spec: $models.ChannelSpec): $CancellablePromise<$models.ChannelResult> {
     return $Call.ByID(3186609911, spec).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType4($result);
     });
 }
 
 export function Resize(channelId: string, cols: number, rows: number): $CancellablePromise<$models.ChannelActionResult> {
     return $Call.ByID(1566925091, channelId, cols, rows).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function RetargetForward(spec: $models.ForwardTargetSpec): $CancellablePromise<$models.ChannelActionResult> {
     return $Call.ByID(3040251520, spec).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function StartForward(spec: $models.PortForwardSpec): $CancellablePromise<$models.PortForwardResult> {
     return $Call.ByID(1835621046, spec).then(($result: any) => {
-        return $$createType4($result);
+        return $$createType5($result);
     });
 }
 
 export function StopForward(forwardId: string): $CancellablePromise<$models.ChannelActionResult> {
     return $Call.ByID(586285448, forwardId).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 export function Write(channelId: string, data: string): $CancellablePromise<$models.ChannelActionResult> {
     return $Call.ByID(419169726, channelId, data).then(($result: any) => {
-        return $$createType1($result);
+        return $$createType2($result);
     });
 }
 
 // Private type creation functions
 const $$createType0 = $models.ChannelsResult.createFrom;
-const $$createType1 = $models.ChannelActionResult.createFrom;
-const $$createType2 = $models.ForwardsResult.createFrom;
-const $$createType3 = $models.ChannelResult.createFrom;
-const $$createType4 = $models.PortForwardResult.createFrom;
+const $$createType1 = $models.PortCheckResult.createFrom;
+const $$createType2 = $models.ChannelActionResult.createFrom;
+const $$createType3 = $models.ForwardsResult.createFrom;
+const $$createType4 = $models.ChannelResult.createFrom;
+const $$createType5 = $models.PortForwardResult.createFrom;

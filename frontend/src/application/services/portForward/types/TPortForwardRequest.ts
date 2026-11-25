@@ -8,4 +8,6 @@ export type TPortForwardRequest = {
     remotePort: TPortForwardRemotePort
     localPort: number
     restoreMode?: TPortForwardRestoreMode
+    save?: boolean
+    openInBrowser?: boolean
 }

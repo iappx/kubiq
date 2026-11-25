@@ -4,10 +4,22 @@ import { container } from 'tsyringe'
 const fake = vi.hoisted(() => {
     const state = {
         overview: {
-            workloads: [{ kindKey: '/v1/pods', title: 'Pods', icon: 'Box', slug: 'pods', section: 'workloads', total: 4, problems: 1, error: '' }],
+            workloads: [{ kindKey: '/v1/pods', title: 'Pods', icon: 'Box', slug: 'pods', section: 'workloads', total: 4, healthy: 3, problems: 1, error: '' }],
             nodes: { total: 2, ready: 2, issues: [], error: '' },
             events: [],
             eventsError: '',
+            capacity: {
+                nodeCount: 2,
+                cpuCapacityCores: 8,
+                memoryCapacityBytes: 16 * 1024 ** 3,
+                cpuAllocatableCores: 7.6,
+                memoryAllocatableBytes: 14 * 1024 ** 3,
+                podsAllocatable: 220,
+                cpuRequestedCores: 1.2,
+                memoryRequestedBytes: 2 * 1024 ** 3,
+                podsAllocated: 4,
+            },
+            pods: [],
         },
         failure: undefined as Error | undefined,
     }

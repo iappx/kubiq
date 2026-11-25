@@ -258,4 +258,39 @@ describe('ClusterSectionBuilder sub-groups', () => {
 
         expect(ClusterSectionBuilder.groupOf(section, 'deployments.apps')).toBeUndefined()
     })
+
+    it('groups Flux toolkit resources under GitOps right after Cluster and before Workloads in Flux order', () => {
+        const fluxLists: TApiResourceListDocument[] = [
+            {
+                groupVersion: 'source.toolkit.fluxcd.io/v1',
+                resources: [
+                    { name: 'ocirepositories', kind: 'OCIRepository', namespaced: true, verbs: ['get', 'list'] },
+                    { name: 'gitrepositories', kind: 'GitRepository', namespaced: true, verbs: ['get', 'list'] },
+                ],
+            },
+            {
+                groupVersion: 'helm.toolkit.fluxcd.io/v2',
+                resources: [
+                    { name: 'helmreleases', kind: 'HelmRelease', namespaced: true, verbs: ['get', 'list'] },
+                ],
+            },
+            {
+                groupVersion: 'kustomize.toolkit.fluxcd.io/v1',
+                resources: [
+                    { name: 'kustomizations', kind: 'Kustomization', namespaced: true, verbs: ['get', 'list'] },
+                ],
+            },
+        ]
+
+        const sections = ClusterSectionBuilder.build(discover([coreList, appsList, ...fluxLists, customList]))
+
+        expect(sections.map(section => section.title)).toEqual(['Cluster', 'GitOps', 'Workloads', 'Custom Resources'])
+        expect(sections[1].groups).toEqual([])
+        expect(sections[1].items.map(item => item.title)).toEqual([
+            'Kustomization',
+            'HelmRelease',
+            'GitRepository',
+            'OCIRepository',
+        ])
+    })
 })

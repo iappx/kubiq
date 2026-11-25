@@ -1,3 +1,4 @@
+import { TerminalModeCatalog } from '@/domain/models/settings/TerminalModeCatalog'
 import type { TAppSettings } from '@/domain/models/settings/types/TAppSettings'
 
 export class AppSettings {
@@ -8,6 +9,8 @@ export class AppSettings {
             kubectlPath: '',
             helmPath: '',
             nodeShellImage: '',
+            terminalMode: TerminalModeCatalog.Default,
+            externalTerminalCommand: '',
             terminalShell: '',
             terminalFontFamily: '',
             checkForUpdates: true,
@@ -22,6 +25,8 @@ export class AppSettings {
             kubectlPath: AppSettings.text(source.kubectlPath),
             helmPath: AppSettings.text(source.helmPath),
             nodeShellImage: AppSettings.text(source.nodeShellImage),
+            terminalMode: TerminalModeCatalog.parse(source.terminalMode),
+            externalTerminalCommand: AppSettings.text(source.externalTerminalCommand),
             terminalShell: AppSettings.text(source.terminalShell),
             terminalFontFamily: AppSettings.text(source.terminalFontFamily),
             checkForUpdates: typeof source.checkForUpdates === 'boolean' ? source.checkForUpdates : true,

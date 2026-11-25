@@ -12,6 +12,16 @@
     <template #actions>
       <button
           v-if="row"
+          :aria-label="`Copy name ${row.name}`"
+          :title="`Copy name ${row.name}`"
+          class="btn-icon w-7 h-7"
+          type="button"
+          @click="$emit('copy-name', row)"
+      >
+        <copy :size="14" />
+      </button>
+      <button
+          v-if="row"
           :aria-label="`Customize ${row.displayName}`"
           :title="`Customize ${row.displayName}`"
           class="btn-icon w-7 h-7"
@@ -67,7 +77,7 @@
     </template>
 
     <template #footer>
-      <div v-if="row" class="flex w-full items-center gap-2">
+      <div v-if="row" class="flex w-full flex-wrap items-center gap-2">
         <template v-if="row.status === 'connected'">
           <button class="btn-primary" type="button" @click="$emit('enter', row.clusterId)">
             <arrow-right :size="14" />
@@ -92,6 +102,16 @@
         </button>
 
         <button
+            v-if="row.status !== 'unsupported'"
+            class="btn-secondary"
+            type="button"
+            @click="$emit('terminal', row)"
+        >
+          <square-terminal :size="14" />
+          Open in terminal
+        </button>
+
+        <button
             v-if="canDelete"
             :aria-label="`Delete ${row.displayName}`"
             :title="`Delete ${row.displayName}`"
@@ -108,7 +128,7 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
-import { ArrowRight, LoaderCircle, Palette, Pin, PinOff, Plug, Trash2, Unplug } from '@lucide/vue'
+import { ArrowRight, Copy, LoaderCircle, Palette, Pin, PinOff, Plug, SquareTerminal, Trash2, Unplug } from '@lucide/vue'
 import ClusterFactRow from '@/components/cluster/ClusterFactRow.vue'
 import UiMultiSelect from '@/components/common/select/UiMultiSelect.vue'
 import UiSidePanel from '@/components/common/panel/UiSidePanel.vue'
@@ -122,18 +142,31 @@ import type { TUiTone } from '@/components/common/status/types/TUiTone'
   components: {
     ArrowRight,
     ClusterFactRow,
+    Copy,
     LoaderCircle,
     Palette,
     Pin,
     PinOff,
     Plug,
+    SquareTerminal,
     Trash2,
     UiMultiSelect,
     UiSidePanel,
     UiStatusBadge,
     Unplug,
   },
-  emits: ['close', 'update:width', 'enter', 'disconnect', 'toggle-pin', 'customize', 'delete', 'update:namespaces'],
+  emits: [
+    'close',
+    'update:width',
+    'enter',
+    'terminal',
+    'copy-name',
+    'disconnect',
+    'toggle-pin',
+    'customize',
+    'delete',
+    'update:namespaces',
+  ],
 })
 export default class ClusterDetailPanel extends VueBase {
   @Prop({ required: false, default: null })

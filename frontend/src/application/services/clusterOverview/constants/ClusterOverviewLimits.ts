@@ -5,5 +5,5 @@ export class ClusterOverviewLimits {
 
     public static readonly eventPageSize: number = 100
 
-    public static readonly eventsShown: number = 12
+    public static readonly eventsShown: number = 30
 }

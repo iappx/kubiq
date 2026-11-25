@@ -176,6 +176,24 @@ describe('ProcessAdapter', () => {
             expect(launch.mock.calls[0][0]).toMatchObject({
                 path: 'userdata:updates/setup.exe',
                 args: ['/S', '/relaunch'],
+                env: {},
+                dir: '',
+            })
+        })
+
+        it('forwards environment variables to the Go side', async () => {
+            launch.mockResolvedValue({ success: true, error: '' })
+
+            await adapter.launch({
+                path: 'wt.exe',
+                args: ['new-tab', 'pwsh.exe'],
+                env: { KUBECONFIG: 'C:\\shell\\prod.kubeconfig' },
+            })
+
+            expect(launch.mock.calls[0][0]).toMatchObject({
+                path: 'wt.exe',
+                args: ['new-tab', 'pwsh.exe'],
+                env: { KUBECONFIG: 'C:\\shell\\prod.kubeconfig' },
                 dir: '',
             })
         })

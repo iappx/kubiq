@@ -8,6 +8,7 @@ import { Create as $Create } from "@wailsio/runtime";
 export class LaunchSpec {
     "path": string;
     "args": string[];
+    "env": { [_ in string]?: string };
     "dir": string;
 
     /** Creates a new LaunchSpec instance. */
@@ -17,6 +18,9 @@ export class LaunchSpec {
         }
         if (!("args" in $$source)) {
             this["args"] = [];
+        }
+        if (!("env" in $$source)) {
+            this["env"] = {};
         }
         if (!("dir" in $$source)) {
             this["dir"] = "";
@@ -30,9 +34,13 @@ export class LaunchSpec {
      */
     static createFrom($$source: any = {}): LaunchSpec {
         const $$createField1_0 = $$createType0;
+        const $$createField2_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("args" in $$parsedSource) {
             $$parsedSource["args"] = $$createField1_0($$parsedSource["args"]);
+        }
+        if ("env" in $$parsedSource) {
+            $$parsedSource["env"] = $$createField2_0($$parsedSource["env"]);
         }
         return new LaunchSpec($$parsedSource as Partial<LaunchSpec>);
     }
@@ -99,7 +107,7 @@ export class ProcessListResult {
      * Creates a new ProcessListResult instance from a string or object.
      */
     static createFrom($$source: any = {}): ProcessListResult {
-        const $$createField1_0 = $$createType2;
+        const $$createField1_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("processes" in $$parsedSource) {
             $$parsedSource["processes"] = $$createField1_0($$parsedSource["processes"]);
@@ -207,7 +215,7 @@ export class StartSpec {
      */
     static createFrom($$source: any = {}): StartSpec {
         const $$createField1_0 = $$createType0;
-        const $$createField2_0 = $$createType3;
+        const $$createField2_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("args" in $$parsedSource) {
             $$parsedSource["args"] = $$createField1_0($$parsedSource["args"]);
@@ -221,6 +229,6 @@ export class StartSpec {
 
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = ProcessInfo.createFrom;
-const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = $Create.Map($Create.Any, $Create.Any);
+const $$createType1 = $Create.Map($Create.Any, $Create.Any);
+const $$createType2 = ProcessInfo.createFrom;
+const $$createType3 = $Create.Array($$createType2);

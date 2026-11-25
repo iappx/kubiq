@@ -10,6 +10,7 @@ export type TPortForwardRow = {
     statusTitle: string
     modeTitle: string
     modeHint: string
+    saved: boolean
     error: string
     isListening: boolean
     canOpen: boolean

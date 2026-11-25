@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -141,13 +142,16 @@ func (s *ProcessService) Launch(spec LaunchSpec) ProcessResult {
 		return ProcessResult{Error: "path is empty"}
 	}
 
-	path, err := utils.ResolvePath(spec.Path)
+	path, err := resolveLaunchPath(spec.Path)
 	if err != nil {
 		return ProcessResult{Error: err.Error()}
 	}
 
 	launched := exec.Command(path, spec.Args...)
 	launched.SysProcAttr = detachedProcAttr()
+	if len(spec.Env) > 0 {
+		launched.Env = mergeEnvironment(os.Environ(), spec.Env)
+	}
 	if spec.Dir != "" {
 		launched.Dir = utils.GetPath(spec.Dir)
 	}
@@ -161,6 +165,16 @@ func (s *ProcessService) Launch(spec LaunchSpec) ProcessResult {
 	go launched.Wait()
 
 	return ProcessResult{Success: true}
+}
+
+func resolveLaunchPath(raw string) (string, error) {
+	if !strings.ContainsAny(raw, "/\\") && !strings.HasPrefix(raw, utils.UserDataScheme) {
+		if found, err := exec.LookPath(raw); err == nil {
+			return found, nil
+		}
+	}
+
+	return utils.ResolvePath(raw)
 }
 
 func (s *ProcessService) CloseAll() {

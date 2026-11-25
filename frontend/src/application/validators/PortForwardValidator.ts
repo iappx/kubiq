@@ -57,7 +57,7 @@ export class PortForwardValidator {
             errors.localPort = `Leave this empty to be given a free port, or enter one between 1 and ${PortForwardValidator.maxPort}`
         }
 
-        if (!PortForwardRestoreModeCatalog.has(draft.restoreMode)) {
+        if (draft.save !== false && !PortForwardRestoreModeCatalog.has(draft.restoreMode)) {
             errors.restoreMode = 'Choose when the forward starts'
         }
 

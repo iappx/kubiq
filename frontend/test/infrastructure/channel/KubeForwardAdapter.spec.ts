@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const retarget = vi.fn()
+const checkPort = vi.fn()
 
 vi.mock('../../../bindings/iappx_k8s_admin/core/services/channel', () => ({
     ChannelService: {
         RetargetForward: (...args: unknown[]) => retarget(...args),
+        CheckPort: (...args: unknown[]) => checkPort(...args),
     },
     ForwardTargetSpec: class {
         constructor(source: Record<string, unknown>) {
@@ -24,6 +26,7 @@ const adapter = new KubeForwardAdapter({ isAvailable: () => available } as Wails
 describe('KubeForwardAdapter', () => {
     beforeEach(() => {
         retarget.mockReset()
+        checkPort.mockReset()
         available = true
     })
 
@@ -55,6 +58,43 @@ describe('KubeForwardAdapter', () => {
             await expect(adapter.retarget('forward-1', { path: '/p', remotePort: 9090 }))
                 .rejects.toThrow(KubeForwardAdapter.unavailable)
             expect(retarget).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('checking ports', () => {
+        it('reports a free port on the default loopback address', async () => {
+            checkPort.mockResolvedValue({ available: true, error: '' })
+
+            await expect(adapter.checkPort(9879)).resolves.toEqual({ checked: true, available: true, error: '' })
+            expect(checkPort).toHaveBeenCalledWith(KubeForwardAdapter.loopback, 9879)
+        })
+
+        it('reports an occupied port and passes an explicit address through', async () => {
+            checkPort.mockResolvedValue({ available: false, error: 'address already in use' })
+
+            await expect(adapter.checkPort(9879, '0.0.0.0')).resolves.toEqual({
+                checked: true,
+                available: false,
+                error: 'address already in use',
+            })
+            expect(checkPort).toHaveBeenCalledWith('0.0.0.0', 9879)
+        })
+
+        it('degrades quietly outside the desktop runtime', async () => {
+            available = false
+
+            await expect(adapter.checkPort(9879)).resolves.toEqual({ checked: false, available: false, error: '' })
+            expect(checkPort).not.toHaveBeenCalled()
+        })
+
+        it('degrades quietly when the native check rejects', async () => {
+            checkPort.mockRejectedValue(new Error('bridge closed'))
+
+            await expect(adapter.checkPort(9879)).resolves.toEqual({
+                checked: false,
+                available: false,
+                error: 'bridge closed',
+            })
         })
     })
 })

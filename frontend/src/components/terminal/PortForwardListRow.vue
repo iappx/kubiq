@@ -41,6 +41,17 @@
         </button>
 
         <button
+            v-if="!row.saved"
+            :aria-label="`Save the forward to ${row.target} for later`"
+            class="btn-icon w-7 h-7"
+            title="Save for later"
+            type="button"
+            @click="save"
+        >
+          <bookmark :size="14" />
+        </button>
+
+        <button
             :aria-label="`Edit the forward to ${row.target}`"
             class="btn-icon w-7 h-7"
             title="Edit"
@@ -78,7 +89,10 @@
       <span aria-hidden="true">·</span>
       <span :class="statusClass" class="shrink-0">{{ row.statusTitle }}</span>
       <span aria-hidden="true">·</span>
-      <span :title="row.modeHint" class="shrink-0">{{ row.modeTitle }}</span>
+      <span
+          :class="row.saved ? 'shrink-0' : 'shrink-0 rounded-sm border border-border bg-muted px-1 text-muted-foreground'"
+          :title="row.modeHint"
+      >{{ row.modeTitle }}</span>
     </p>
 
     <p v-if="row.error" :class="statusClass" class="mt-1 pl-4 break-words">{{ row.error }}</p>
@@ -88,7 +102,7 @@
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
-import { Copy, ExternalLink, Pencil, Play, Square, Trash2 } from '@lucide/vue'
+import { Bookmark, Copy, ExternalLink, Pencil, Play, Square, Trash2 } from '@lucide/vue'
 import UiStatusDot from '@/components/common/status/UiStatusDot.vue'
 import type { TPortForwardRow } from '@/components/terminal/types/TPortForwardRow'
 import { OpenPortForwardEvent } from '@/domain/events/terminal/OpenPortForwardEvent'
@@ -96,7 +110,7 @@ import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { PortForwardStore } from '@/store/modules/portForward/PortForwardStore'
 
 @Component({
-  components: { Copy, ExternalLink, Pencil, Play, Square, Trash2, UiStatusDot },
+  components: { Bookmark, Copy, ExternalLink, Pencil, Play, Square, Trash2, UiStatusDot },
   emits: ['dismiss'],
 })
 export default class PortForwardListRow extends VueBase {
@@ -132,6 +146,10 @@ export default class PortForwardListRow extends VueBase {
 
   public copy(): void {
     void this.portForwardStore.copyAddress(this.row.id)
+  }
+
+  public save(): void {
+    void this.portForwardStore.save(this.row.id)
   }
 
   public toggle(): void {

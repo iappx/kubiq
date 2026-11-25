@@ -59,6 +59,8 @@ describe('SettingsService', () => {
                 kubectlPath: 'C:/tools/kubectl.exe',
                 helmPath: 'C:/tools/helm.exe',
                 nodeShellImage: 'registry.internal/shell:1',
+                terminalMode: 'custom',
+                externalTerminalCommand: 'Ghostty',
                 terminalShell: '/opt/homebrew/bin/zsh',
                 terminalFontFamily: 'JetBrainsMono Nerd Font',
                 checkForUpdates: false,
@@ -70,6 +72,8 @@ describe('SettingsService', () => {
             expect(stored.kubectlPath).toBe('C:/tools/kubectl.exe')
             expect(stored.helmPath).toBe('C:/tools/helm.exe')
             expect(stored.nodeShellImage).toBe('registry.internal/shell:1')
+            expect(stored.terminalMode).toBe('custom')
+            expect(stored.externalTerminalCommand).toBe('Ghostty')
             expect(stored.terminalShell).toBe('/opt/homebrew/bin/zsh')
             expect(stored.terminalFontFamily).toBe('JetBrainsMono Nerd Font')
             expect(stored.checkForUpdates).toBe(false)
@@ -123,6 +127,20 @@ describe('SettingsService', () => {
 
             await expect(service.terminalShell()).resolves.toBe('pwsh.exe')
             await expect(service.terminalFontFamily()).resolves.toBe('FiraCode Nerd Font')
+        })
+
+        it('reports terminal mode and external terminal command once stored', async () => {
+            await expect(service.terminalMode()).resolves.toBe('in-app')
+            await expect(service.externalTerminalCommand()).resolves.toBe('')
+
+            await service.save({
+                ...AppSettings.defaults(),
+                terminalMode: 'custom',
+                externalTerminalCommand: 'alacritty',
+            })
+
+            await expect(service.terminalMode()).resolves.toBe('custom')
+            await expect(service.externalTerminalCommand()).resolves.toBe('alacritty')
         })
 
     })

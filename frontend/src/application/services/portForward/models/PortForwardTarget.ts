@@ -46,9 +46,15 @@ export class PortForwardTarget {
     }
 
     public static podPorts(pod: PodEntity): TPortForwardPort[] {
-        const ports = PortForwardTarget.declaredPorts(pod)
-            .filter(port => typeof port.containerPort === 'number' && port.containerPort > 0)
-            .map(port => PortForwardTarget.portOf(port.containerPort as number, port.name, port.protocol))
+        const ports = [...(pod.spec?.initContainers ?? []), ...(pod.spec?.containers ?? [])]
+            .flatMap(container => (container.ports ?? [])
+                .filter(port => typeof port.containerPort === 'number' && port.containerPort > 0)
+                .map(port => PortForwardTarget.portOf(
+                    port.containerPort as number,
+                    port.name,
+                    port.protocol,
+                    container.name,
+                )))
 
         return ports.filter((port, index) => ports.findIndex(other => PortForwardTarget.sameDeclaration(port, other)) === index)
     }
@@ -59,8 +65,19 @@ export class PortForwardTarget {
             .map(port => PortForwardTarget.portOf(port.port, port.name, port.protocol))
     }
 
-    private static portOf(port: number, name: string | undefined, protocol: string | undefined): TPortForwardPort {
-        return { port, name: name ?? '', protocol: protocol || PortForwardTarget.defaultProtocol }
+    private static portOf(
+        port: number,
+        name: string | undefined,
+        protocol: string | undefined,
+        container?: string,
+    ): TPortForwardPort {
+        const base: TPortForwardPort = {
+            port,
+            name: name ?? '',
+            protocol: protocol || PortForwardTarget.defaultProtocol,
+        }
+
+        return container ? { ...base, container } : base
     }
 
     private static sameDeclaration(left: TPortForwardPort, right: TPortForwardPort): boolean {

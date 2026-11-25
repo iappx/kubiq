@@ -29,6 +29,7 @@ export class PortForwardListBuilder {
     public static row(forward: TPortForward): TPortForwardRow {
         const address = PortForwardRecord.addressOf(forward)
         const isListening = PortForwardStatusCatalog.isListening(forward.status)
+        const saved = PortForwardRecord.isSaved(forward)
 
         return {
             id: forward.id,
@@ -38,8 +39,11 @@ export class PortForwardListBuilder {
             path: PortForwardListBuilder.pathOf(forward),
             tone: PortForwardTone.of(forward.status),
             statusTitle: PortForwardStatusCatalog.title(forward.status),
-            modeTitle: PortForwardRestoreModeCatalog.title(forward.restoreMode),
-            modeHint: PortForwardRestoreModeCatalog.description(forward.restoreMode),
+            modeTitle: saved ? PortForwardRestoreModeCatalog.title(forward.restoreMode) : 'Session',
+            modeHint: saved
+                ? PortForwardRestoreModeCatalog.description(forward.restoreMode)
+                : 'Session only — not saved across restarts',
+            saved,
             error: forward.status === 'error' || forward.status === 'reconnecting' ? forward.error : '',
             isListening,
             canOpen: isListening && address !== '',

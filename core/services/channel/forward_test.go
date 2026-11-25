@@ -527,6 +527,57 @@ func TestServiceShutdownStopsEveryForward(t *testing.T) {
 	waitForGoroutines(t, baseline)
 }
 
+func TestCheckPortReportsAFreePort(t *testing.T) {
+	service, _, _ := newTestService(t)
+
+	probe, err := net.Listen("tcp", net.JoinHostPort(defaultLocalAddress, "0"))
+	if err != nil {
+		t.Fatalf("pick a free port: %v", err)
+	}
+	port := probe.Addr().(*net.TCPAddr).Port
+	_ = probe.Close()
+
+	result := service.CheckPort("", port)
+	if !result.Available || result.Error != "" {
+		t.Fatalf("expected port %d to be available, got %+v", port, result)
+	}
+
+	explicit := service.CheckPort(defaultLocalAddress, port)
+	if !explicit.Available || explicit.Error != "" {
+		t.Fatalf("expected explicit address check on port %d to succeed, got %+v", port, explicit)
+	}
+}
+
+func TestCheckPortReportsAnOccupiedPort(t *testing.T) {
+	service, _, _ := newTestService(t)
+
+	taken, err := net.Listen("tcp", net.JoinHostPort(defaultLocalAddress, "0"))
+	if err != nil {
+		t.Fatalf("take a port: %v", err)
+	}
+	defer taken.Close()
+
+	port := taken.Addr().(*net.TCPAddr).Port
+	result := service.CheckPort("", port)
+	if result.Available {
+		t.Fatalf("expected occupied port %d to be unavailable", port)
+	}
+	if result.Error == "" {
+		t.Fatalf("expected an error message for occupied port %d", port)
+	}
+}
+
+func TestCheckPortRejectsPortsOutsideTheProtocolRange(t *testing.T) {
+	service, _, _ := newTestService(t)
+
+	for _, port := range []int{-1, 0, maxPortNumber + 1} {
+		result := service.CheckPort("", port)
+		if result.Available || result.Error == "" {
+			t.Fatalf("expected port %d to be rejected, got %+v", port, result)
+		}
+	}
+}
+
 func dialLocal(t *testing.T, port int) net.Conn {
 	t.Helper()
 

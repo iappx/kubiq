@@ -46,6 +46,25 @@ type forwardHandle struct {
 	group        sync.WaitGroup
 }
 
+func (s *ChannelService) CheckPort(address string, port int) PortCheckResult {
+	if port <= 0 || port > maxPortNumber {
+		return PortCheckResult{Error: fmt.Sprintf("local port is out of range: %d", port)}
+	}
+
+	host := strings.TrimSpace(address)
+	if host == "" {
+		host = defaultLocalAddress
+	}
+
+	listener, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
+	if err != nil {
+		return PortCheckResult{Error: err.Error()}
+	}
+	_ = listener.Close()
+
+	return PortCheckResult{Available: true}
+}
+
 func (s *ChannelService) StartForward(spec PortForwardSpec) (result PortForwardResult) {
 	defer func() {
 		if recovered := recover(); recovered != nil {

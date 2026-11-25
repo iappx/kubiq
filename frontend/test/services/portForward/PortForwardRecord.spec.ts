@@ -75,4 +75,29 @@ describe('PortForwardRecord', () => {
         expect(PortForwardRecord.changesPorts(forward(), { remotePort: '8080' })).toBe(false)
         expect(PortForwardRecord.changesPorts(forward(), { restoreMode: 'manual' })).toBe(false)
     })
+
+    it('builds an ephemeral record marked unsaved with manual restore mode', () => {
+        const temp = PortForwardRecord.ephemeral('pf-tmp', {
+            clusterId: 'prod',
+            namespace: 'payments',
+            resource: 'pods',
+            name: 'api-0',
+            remotePort: '9879',
+            localPort: 9879,
+            restoreMode: 'onConnect',
+            save: false,
+        }, 42, PortForwardRecord.idle('stopped'))
+
+        expect(temp).toMatchObject({
+            id: 'pf-tmp',
+            remotePort: 9879,
+            localPort: 9879,
+            restoreMode: 'manual',
+            saved: false,
+            label: 'pod/api-0:9879',
+        })
+        expect(PortForwardRecord.isSaved(temp)).toBe(false)
+        expect(PortForwardRecord.isSaved(forward())).toBe(true)
+        expect(PortForwardRecord.isSaved(forward({ saved: true }))).toBe(true)
+    })
 })

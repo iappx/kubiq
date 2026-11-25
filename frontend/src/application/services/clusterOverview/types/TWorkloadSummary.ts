@@ -7,6 +7,10 @@ export type TWorkloadSummary = {
     slug: string
     section: TKubeSection
     total: number
+    healthy?: number
     problems: number
+    warnings?: number
+    errors?: number
+    note?: string
     error: string
 }

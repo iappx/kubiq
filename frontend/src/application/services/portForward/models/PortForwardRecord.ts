@@ -1,6 +1,7 @@
 import { PortForwardLabel } from '@/application/services/portForward/models/PortForwardLabel'
 import type { TPortForward } from '@/application/services/portForward/types/TPortForward'
 import type { TPortForwardChange } from '@/application/services/portForward/types/TPortForwardChange'
+import type { TPortForwardRequest } from '@/application/services/portForward/types/TPortForwardRequest'
 import type { TPortForwardRuntime } from '@/application/services/portForward/types/TPortForwardRuntime'
 import type { PortForwardEntity } from '@/domain/entities/portForward/PortForwardEntity'
 import { PortForwardRemotePort } from '@/domain/entities/portForward/PortForwardRemotePort'
@@ -26,10 +27,42 @@ export class PortForwardRecord {
             lastLocalPort: entity.lastLocalPort ?? 0,
             restoreMode: PortForwardRestoreModeCatalog.of(entity.restoreMode),
             isStoppedByUser: entity.isStoppedByUser === true,
+            saved: true,
             createdAt: entity.createdAt ?? 0,
             label: PortForwardLabel.of(entity.resource, entity.name ?? '', remotePort),
             ...runtime,
         }
+    }
+
+    public static ephemeral(
+        id: string,
+        request: TPortForwardRequest,
+        now: number,
+        runtime: TPortForwardRuntime,
+    ): TPortForward {
+        const remotePort = PortForwardRemotePort.of(request.remotePort)
+        const resource = request.resource === 'services' ? 'services' : 'pods'
+
+        return {
+            id,
+            clusterId: request.clusterId,
+            namespace: request.namespace,
+            resource,
+            name: request.name,
+            remotePort,
+            localPort: request.localPort,
+            lastLocalPort: 0,
+            restoreMode: 'manual',
+            isStoppedByUser: false,
+            saved: false,
+            createdAt: now,
+            label: PortForwardLabel.of(resource, request.name, remotePort),
+            ...runtime,
+        }
+    }
+
+    public static isSaved(forward: TPortForward): boolean {
+        return forward.saved !== false
     }
 
     public static idle(status: TPortForwardStatus, error: string = ''): TPortForwardRuntime {

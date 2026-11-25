@@ -13,6 +13,7 @@
 import { Component, VueBase } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
 import PortForwardForm from '@/components/terminal/PortForwardForm.vue'
+import { PortForwardRecord } from '@/application/services/portForward/models/PortForwardRecord'
 import type { TPortForward } from '@/application/services/portForward/types/TPortForward'
 import type { TPortForwardRequest } from '@/application/services/portForward/types/TPortForwardRequest'
 import { OpenPortForwardEvent } from '@/domain/events/terminal/OpenPortForwardEvent'
@@ -64,13 +65,20 @@ export default class PortForwardModal extends VueBase {
   public async save(request: TPortForwardRequest): Promise<void> {
     this.saving = true
     try {
-      const saved = this.forwardId === ''
-        ? await this.portForwardStore.create(request) !== null
-        : await this.portForwardStore.update(this.forwardId, {
+      let saved = false
+      if (this.forwardId === '') {
+        saved = await this.portForwardStore.create(request) !== null
+      } else {
+        const current = this.forward
+        saved = await this.portForwardStore.update(this.forwardId, {
           remotePort: request.remotePort,
           localPort: request.localPort,
           restoreMode: request.restoreMode,
         })
+        if (saved && current && !PortForwardRecord.isSaved(current) && request.save) {
+          await this.portForwardStore.save(this.forwardId, request.restoreMode)
+        }
+      }
 
       if (saved) {
         this.open = false

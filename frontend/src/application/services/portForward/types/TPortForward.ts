@@ -16,6 +16,7 @@ export type TPortForward = {
     lastLocalPort: number
     restoreMode: TPortForwardRestoreMode
     isStoppedByUser: boolean
+    saved?: boolean
     createdAt: number
     label: string
     status: TPortForwardStatus

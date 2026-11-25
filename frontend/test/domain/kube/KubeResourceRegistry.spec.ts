@@ -9,10 +9,13 @@ describe('KubeResourceRegistry', () => {
         expect(KubeResourceRegistry.has('example.test', 'widgets')).toBe(false)
     })
 
-    it('covers every section', () => {
+    it('covers every built-in section', () => {
         const sections = new Set(KubeResourceRegistry.all().map(p => p.section))
 
         for (const section of KubeSectionCatalog.all()) {
+            if (section === KubeSectionCatalog.gitops) {
+                continue
+            }
             expect(sections.has(section)).toBe(true)
         }
     })

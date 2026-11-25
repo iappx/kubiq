@@ -1,6 +1,7 @@
 export { KubeClusterCatalog } from '@/domain/models/kube/KubeClusterCatalog'
 export { KubeColumns } from '@/domain/models/kube/KubeColumns'
 export { KubeDefaultClassCatalog } from '@/domain/models/kube/KubeDefaultClassCatalog'
+export { KubeFluxCatalog } from '@/domain/models/kube/KubeFluxCatalog'
 export { KubeJsonPath } from '@/domain/models/kube/KubeJsonPath'
 export { KubeKindLocator } from '@/domain/models/kube/KubeKindLocator'
 export { KubeManifest } from '@/domain/models/kube/KubeManifest'

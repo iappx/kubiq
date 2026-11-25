@@ -6,6 +6,7 @@ import { ApiError } from '@/domain/errors/ApiError'
 import { AppSettings } from '@/domain/models/settings/AppSettings'
 import type { TAppSettings } from '@/domain/models/settings/types/TAppSettings'
 import type { TStorageInfo } from '@/domain/models/settings/types/TStorageInfo'
+import type { TTerminalMode } from '@/domain/models/settings/types/TTerminalMode'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { InjectableStore, StoreBase } from '@/lib/vue-store'
 
@@ -80,6 +81,14 @@ export class AppSettingsStore extends StoreBase<AppSettingsStore> {
 
     public setNodeShellImage(image: string): Promise<void> {
         return this.write({ ...this.settings, nodeShellImage: image })
+    }
+
+    public setTerminalMode(mode: TTerminalMode): Promise<void> {
+        return this.write({ ...this.settings, terminalMode: mode })
+    }
+
+    public setExternalTerminalCommand(command: string): Promise<void> {
+        return this.write({ ...this.settings, externalTerminalCommand: command })
     }
 
     public setTerminalShell(shell: string): Promise<void> {

@@ -1,4 +1,4 @@
-import { KubeSectionCatalog } from '@/domain/models/kube'
+import { KubeCrdReader, KubeFluxCatalog, KubeSectionCatalog } from '@/domain/models/kube'
 import type { KubeResourceKind, TKubeSection } from '@/domain/models/kube'
 import type { TClusterMenuItem } from '@/components/clusterShell/types/TClusterMenuItem'
 import type { TClusterSection } from '@/components/clusterShell/types/TClusterSection'
@@ -16,14 +16,16 @@ export class ClusterSectionBuilder {
     }
 
     public static toItem(kind: KubeResourceKind): TClusterMenuItem {
+        const isFlux = KubeFluxCatalog.isFlux(kind.group)
+
         return {
             key: kind.key,
             title: kind.title,
-            icon: kind.icon,
+            icon: isFlux && kind.icon === KubeCrdReader.icon ? KubeFluxCatalog.iconOf(kind.group, kind.resource) : kind.icon,
             slug: kind.slug,
             group: kind.group,
-            section: kind.section,
-            order: kind.order,
+            section: isFlux ? KubeSectionCatalog.gitops : kind.section,
+            order: isFlux ? (kind.order ?? KubeFluxCatalog.orderOf(kind.group, kind.resource)) : kind.order,
             namespaced: kind.namespaced,
         }
     }
@@ -92,9 +94,10 @@ export class ClusterSectionBuilder {
         const bySection = new Map<TKubeSection, TClusterMenuItem[]>()
 
         kinds.forEach((kind) => {
-            const section = KubeSectionCatalog.has(kind.section) ? kind.section : KubeSectionCatalog.custom
+            const item = ClusterSectionBuilder.toItem(kind)
+            const section = KubeSectionCatalog.has(item.section) ? item.section : KubeSectionCatalog.custom
             const items = bySection.get(section) ?? []
-            items.push(ClusterSectionBuilder.toItem(kind))
+            items.push(item)
             bySection.set(section, items)
         })
 

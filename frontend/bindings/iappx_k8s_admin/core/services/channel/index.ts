@@ -15,6 +15,7 @@ export {
     ForwardInfo,
     ForwardTargetSpec,
     ForwardsResult,
+    PortCheckResult,
     PortForwardResult,
     PortForwardSpec
 } from "./models.js";

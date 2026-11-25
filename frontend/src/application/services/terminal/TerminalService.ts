@@ -140,6 +140,10 @@ export class TerminalService {
         })
     }
 
+    public openExternalLocalShell(request: TLocalTerminalRequest): Promise<void> {
+        return this.localShellService.launchExternal(request.clusterId, request.namespace)
+    }
+
     public async write(key: string, data: Uint8Array): Promise<void> {
         await this.sessions.get(key)?.write(data)
     }

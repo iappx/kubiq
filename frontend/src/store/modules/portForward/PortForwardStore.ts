@@ -11,11 +11,13 @@ import type { TPortForwardRuntime } from '@/application/services/portForward/typ
 import { PortForwardRestoreModeCatalog } from '@/domain/entities/portForward/PortForwardRestoreModeCatalog'
 import { PortForwardStatusCatalog } from '@/domain/entities/portForward/PortForwardStatusCatalog'
 import type { TPortForwardRemotePort } from '@/domain/entities/portForward/types/TPortForwardRemotePort'
+import type { TPortForwardRestoreMode } from '@/domain/entities/portForward/types/TPortForwardRestoreMode'
 import { ApiError } from '@/domain/errors/ApiError'
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { SuccessMessageEvent } from '@/domain/events/app/SuccessMessageEvent'
 import { PortForwardStartedEvent } from '@/domain/events/terminal/PortForwardStartedEvent'
 import { PortForwardStoppedEvent } from '@/domain/events/terminal/PortForwardStoppedEvent'
+import type { TPortCheckResult } from '@/infrastructure/channel/types/TPortCheckResult'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { InjectableStore, StoreBase } from '@/lib/vue-store'
 
@@ -135,14 +137,27 @@ export class PortForwardStore extends StoreBase<PortForwardStore> implements IPo
         await Promise.all(clusters.map(clusterId => this.connect(clusterId)))
     }
 
+    public checkPort(port: number): Promise<TPortCheckResult> {
+        return this.portForwardService.checkPort(port)
+    }
+
     public async create(request: TPortForwardRequest): Promise<TPortForward | null> {
         await this.load()
 
         const existing = this.findFor(request.clusterId, request.namespace, request.resource, request.name, request.remotePort)
         if (existing) {
-            await this.update(existing.id, { localPort: request.localPort, restoreMode: request.restoreMode })
+            if (!PortForwardRecord.isSaved(existing) && request.save !== false) {
+                await this.save(existing.id, request.restoreMode)
+            }
+            await this.update(existing.id, {
+                localPort: request.localPort,
+                restoreMode: request.save === false ? undefined : request.restoreMode,
+            })
             if (!PortForwardStatusCatalog.isRunning(this.find(existing.id)?.status ?? 'stopped')) {
                 await this.start(existing.id)
+            }
+            if (request.openInBrowser) {
+                await this.openIfListening(existing.id)
             }
 
             return this.find(existing.id) ?? null
@@ -153,6 +168,9 @@ export class PortForwardStore extends StoreBase<PortForwardStore> implements IPo
             const created = await this.portForwardService.create(request, Date.now())
             this.forwards = [...this.forwards, created]
             await this.start(created.id)
+            if (request.openInBrowser) {
+                await this.openIfListening(created.id)
+            }
 
             return this.find(created.id) ?? null
         } catch (err) {
@@ -160,6 +178,33 @@ export class PortForwardStore extends StoreBase<PortForwardStore> implements IPo
             return null
         } finally {
             this.starting = false
+        }
+    }
+
+    public async save(
+        id: string,
+        restoreMode: TPortForwardRestoreMode = PortForwardRestoreModeCatalog.defaultMode,
+    ): Promise<boolean> {
+        const current = this.find(id)
+        if (!current || PortForwardRecord.isSaved(current)) {
+            return false
+        }
+
+        try {
+            const saved = await this.portForwardService.save(current, restoreMode)
+            const latest = this.find(id) ?? current
+            this.replace(id, {
+                ...saved,
+                isStoppedByUser: latest.isStoppedByUser,
+                ...PortForwardRecord.runtimeOf(latest),
+            })
+            this.eventBus.emitEvent(new SuccessMessageEvent(`Saved ${saved.label}`))
+
+            return true
+        } catch (err) {
+            this.eventBus.emitEvent(new AppErrorEvent(err, 'PortForwardStore.save'))
+
+            return false
         }
     }
 
@@ -433,6 +478,11 @@ export class PortForwardStore extends StoreBase<PortForwardStore> implements IPo
             return
         }
 
+        if (!PortForwardRecord.isSaved(forward)) {
+            this.replace(id, { ...forward, lastLocalPort: port })
+            return
+        }
+
         try {
             await this.portForwardService.rememberPort(id, port)
             this.replace(id, { ...(this.find(id) ?? forward), lastLocalPort: port })
@@ -449,11 +499,24 @@ export class PortForwardStore extends StoreBase<PortForwardStore> implements IPo
 
         // Flipped before the write, so a stop pressed while a start is still saving is not undone by it.
         this.replace(id, { ...forward, isStoppedByUser })
+        if (!PortForwardRecord.isSaved(forward)) {
+            return
+        }
+
         try {
             await this.portForwardService.rememberStopped(id, isStoppedByUser)
         } catch (err) {
             this.eventBus.emitEvent(new AppErrorEvent(err, 'PortForwardStore.rememberStopped'))
         }
+    }
+
+    private async openIfListening(id: string): Promise<void> {
+        const active = this.find(id)
+        if (!active || !PortForwardStatusCatalog.isListening(active.status) || active.boundPort <= 0) {
+            return
+        }
+
+        await this.open(id)
     }
 
     private async connect(clusterId: string): Promise<void> {

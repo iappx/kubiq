@@ -1,9 +1,13 @@
 import { inject, singleton } from 'tsyringe'
+import { SettingsService } from '@/application/services/settings/SettingsService'
+import { TerminalService } from '@/application/services/terminal/TerminalService'
+import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { ClusterDisconnectedEvent } from '@/domain/events/cluster/ClusterDisconnectedEvent'
 import { DockTabClosedEvent } from '@/domain/events/dock/DockTabClosedEvent'
 import { OpenLocalShellEvent } from '@/domain/events/terminal/OpenLocalShellEvent'
 import { OpenNodeShellEvent } from '@/domain/events/terminal/OpenNodeShellEvent'
 import { OpenPodShellEvent } from '@/domain/events/terminal/OpenPodShellEvent'
+import { TerminalModeCatalog } from '@/domain/models/settings/TerminalModeCatalog'
 import { TerminalKey } from '@/domain/models/terminal'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
@@ -17,10 +21,14 @@ export class TerminalHandler {
         @inject(AppUiStore) private readonly uiStore: AppUiStore,
         @inject(DockStore) private readonly dockStore: DockStore,
         @inject(TerminalStore) private readonly terminalStore: TerminalStore,
+        @inject(SettingsService) private readonly settingsService: SettingsService,
+        @inject(TerminalService) private readonly terminalService: TerminalService,
     ) {
         this.eventBus.registerHandler(OpenPodShellEvent, e => this.openExec(e))
         this.eventBus.registerHandler(OpenNodeShellEvent, e => this.openNodeShell(e))
-        this.eventBus.registerHandler(OpenLocalShellEvent, e => this.openLocalShell(e))
+        this.eventBus.registerHandler(OpenLocalShellEvent, (e) => {
+            void this.openLocalShell(e)
+        })
         this.eventBus.registerHandler(DockTabClosedEvent, e => this.closeTab(e.key))
         this.eventBus.registerHandler(ClusterDisconnectedEvent, e => this.forget(e.clusterId))
 
@@ -39,7 +47,21 @@ export class TerminalHandler {
         this.show(key, event.clusterId)
     }
 
-    private openLocalShell(event: OpenLocalShellEvent): void {
+    private async openLocalShell(event: OpenLocalShellEvent): Promise<void> {
+        try {
+            const mode = await this.settingsService.terminalMode()
+            if (TerminalModeCatalog.isExternal(mode)) {
+                await this.terminalService.openExternalLocalShell({
+                    clusterId: event.clusterId,
+                    namespace: event.namespace,
+                })
+                return
+            }
+        } catch (err) {
+            this.eventBus.emitEvent(new AppErrorEvent(err, 'TerminalHandler.openLocalShell'))
+            return
+        }
+
         const key = this.terminalStore.openLocalShell(event.clusterId, event.namespace)
 
         this.show(key, event.clusterId)

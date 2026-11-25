@@ -18,6 +18,7 @@ import type { ServiceEntity } from '@/domain/entities/network'
 import { PortForwardEntity } from '@/domain/entities/portForward/PortForwardEntity'
 import { PortForwardRemotePort } from '@/domain/entities/portForward/PortForwardRemotePort'
 import { PortForwardRestoreModeCatalog } from '@/domain/entities/portForward/PortForwardRestoreModeCatalog'
+import type { TPortForwardRestoreMode } from '@/domain/entities/portForward/types/TPortForwardRestoreMode'
 import type { PodEntity } from '@/domain/entities/workloads'
 import { ApiError } from '@/domain/errors/ApiError'
 import { KubeApiParams } from '@/infrastructure/entityRepo/kube/KubeApiParams'
@@ -26,6 +27,7 @@ import { KubeStatusReader } from '@/infrastructure/entityRepo/kube/transport/Kub
 import { EntityRepoProvider } from '@/infrastructure/entityRepo/EntityRepoProvider'
 import { KubeForwardAdapter } from '@/infrastructure/channel/KubeForwardAdapter'
 import type { TKubeForwardHandle } from '@/infrastructure/channel/types/TKubeForwardHandle'
+import type { TPortCheckResult } from '@/infrastructure/channel/types/TPortCheckResult'
 import { PodChannelPath } from '@/infrastructure/channel/PodChannelPath'
 import { HostShellAdapter } from '@/infrastructure/process/HostShellAdapter'
 
@@ -49,6 +51,8 @@ export class PortForwardService implements IPortForwardSessionOwner {
 
     private readonly sessions = new Map<string, PortForwardSession>()
 
+    private readonly ephemeral = new Map<string, TPortForward>()
+
     constructor(
         @inject(EntityRepoProvider) private readonly repoProvider: EntityRepoProvider,
         @inject(IdService) private readonly idService: IdService,
@@ -65,6 +69,18 @@ export class PortForwardService implements IPortForwardSessionOwner {
     }
 
     public async create(request: TPortForwardRequest, now: number): Promise<TPortForward> {
+        if (request.save === false) {
+            const record = PortForwardRecord.ephemeral(
+                this.idService.next(),
+                request,
+                now,
+                PortForwardRecord.idle('stopped'),
+            )
+            this.ephemeral.set(record.id, record)
+
+            return { ...record }
+        }
+
         const entity = PortForwardEntity.build({
             id: this.idService.next(),
             clusterId: request.clusterId,
@@ -79,12 +95,58 @@ export class PortForwardService implements IPortForwardSessionOwner {
             createdAt: now,
         })
 
+        this.ephemeral.delete(entity.id)
         await this.repoProvider.portForwards.forwards.create(entity)
 
         return PortForwardRecord.of(entity, PortForwardRecord.idle('stopped'))
     }
 
+    public async save(
+        forward: TPortForward,
+        restoreMode: TPortForwardRestoreMode = PortForwardRestoreModeCatalog.defaultMode,
+    ): Promise<TPortForward> {
+        const entity = PortForwardEntity.build({
+            id: forward.id,
+            clusterId: forward.clusterId,
+            namespace: forward.namespace,
+            resource: forward.resource,
+            name: forward.name,
+            remotePort: PortForwardRemotePort.of(forward.remotePort),
+            localPort: forward.localPort,
+            lastLocalPort: forward.boundPort || forward.lastLocalPort,
+            restoreMode: PortForwardRestoreModeCatalog.of(restoreMode),
+            isStoppedByUser: forward.isStoppedByUser,
+            createdAt: forward.createdAt,
+        })
+
+        this.ephemeral.delete(forward.id)
+        await this.repoProvider.portForwards.forwards.create(entity)
+
+        return PortForwardRecord.of(entity, this.runtimeOf(entity))
+    }
+
     public async update(id: string, change: TPortForwardChange): Promise<TPortForward> {
+        const temporary = this.ephemeral.get(id)
+        if (temporary) {
+            const remotePort = change.remotePort !== undefined
+                ? PortForwardRemotePort.of(change.remotePort)
+                : temporary.remotePort
+            const updated: TPortForward = {
+                ...temporary,
+                remotePort,
+                localPort: change.localPort !== undefined ? change.localPort : temporary.localPort,
+                label: PortForwardLabel.of(temporary.resource, temporary.name, remotePort),
+            }
+            this.ephemeral.set(id, updated)
+
+            const session = this.sessions.get(id)
+            const runtime = session && !session.isStopped
+                ? { ...session.runtime }
+                : PortForwardRecord.idle('stopped')
+
+            return { ...updated, ...runtime }
+        }
+
         const entity = await this.require(id)
 
         if (change.remotePort !== undefined) {
@@ -104,12 +166,25 @@ export class PortForwardService implements IPortForwardSessionOwner {
 
     public async remove(id: string): Promise<void> {
         await this.stop(id)
+        if (this.ephemeral.delete(id)) {
+            return
+        }
         await this.repoProvider.portForwards.forwards.remove(id)
     }
 
     public async rememberPort(id: string, port: number): Promise<void> {
+        if (port <= 0) {
+            return
+        }
+
+        const temporary = this.ephemeral.get(id)
+        if (temporary) {
+            temporary.lastLocalPort = port
+            return
+        }
+
         const entity = await this.repoProvider.portForwards.forwards.getById(id)
-        if (!entity || port <= 0 || entity.lastLocalPort === port) {
+        if (!entity || entity.lastLocalPort === port) {
             return
         }
 
@@ -118,6 +193,12 @@ export class PortForwardService implements IPortForwardSessionOwner {
     }
 
     public async rememberStopped(id: string, isStoppedByUser: boolean): Promise<void> {
+        const temporary = this.ephemeral.get(id)
+        if (temporary) {
+            temporary.isStoppedByUser = isStoppedByUser
+            return
+        }
+
         const entity = await this.repoProvider.portForwards.forwards.getById(id)
         if (!entity) {
             return
@@ -125,6 +206,10 @@ export class PortForwardService implements IPortForwardSessionOwner {
 
         entity.isStoppedByUser = isStoppedByUser
         await this.repoProvider.portForwards.forwards.update(entity)
+    }
+
+    public checkPort(port: number, address?: string): Promise<TPortCheckResult> {
+        return this.forwards.checkPort(port, address)
     }
 
     public isConnected(clusterId: string): boolean {
@@ -194,6 +279,7 @@ export class PortForwardService implements IPortForwardSessionOwner {
 
     public async stopAll(): Promise<void> {
         const ids = [...this.sessions.keys()]
+        this.ephemeral.clear()
         await Promise.allSettled(ids.map(id => this.stop(id)))
     }
 

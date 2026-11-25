@@ -2,6 +2,13 @@
   <div class="space-y-4">
     <resource-metrics-section v-if="hasMetrics" :object="state.object" :target="target" />
 
+    <resource-cert-manager-section
+        v-if="isCertManagerCertificate"
+        :state="state"
+        :target="target"
+        @open="$emit('open', $event)"
+    />
+
     <resource-section v-if="containers.length > 0" :hint="containerHint" title="Containers">
       <resource-container-list :containers="containers" />
     </resource-section>
@@ -37,6 +44,7 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
+import ResourceCertManagerSection from '@/components/resource/detail/ResourceCertManagerSection.vue'
 import ResourceConditionList from '@/components/resource/detail/ResourceConditionList.vue'
 import ResourceContainerList from '@/components/resource/detail/ResourceContainerList.vue'
 import ResourceDataSection from '@/components/resource/detail/ResourceDataSection.vue'
@@ -61,6 +69,7 @@ import type { TResourceObjectState } from '@/store/modules/resourceObject/types/
 
 @Component({
   components: {
+    ResourceCertManagerSection,
     ResourceConditionList,
     ResourceContainerList,
     ResourceDataSection,
@@ -83,6 +92,10 @@ export default class ResourceOverviewTab extends VueBase {
 
   public get hasMetrics(): boolean {
     return DetailTabs.hasMetrics(this.target.kind)
+  }
+
+  public get isCertManagerCertificate(): boolean {
+    return this.target.kind.group === 'cert-manager.io' && this.target.kind.kind === 'Certificate'
   }
 
   public get hasPorts(): boolean {

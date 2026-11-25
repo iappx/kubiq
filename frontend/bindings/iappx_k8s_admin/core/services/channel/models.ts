@@ -285,6 +285,31 @@ export class ForwardsResult {
     }
 }
 
+export class PortCheckResult {
+    "available": boolean;
+    "error": string;
+
+    /** Creates a new PortCheckResult instance. */
+    constructor($$source: Partial<PortCheckResult> = {}) {
+        if (!("available" in $$source)) {
+            this["available"] = false;
+        }
+        if (!("error" in $$source)) {
+            this["error"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PortCheckResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PortCheckResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PortCheckResult($$parsedSource as Partial<PortCheckResult>);
+    }
+}
+
 export class PortForwardResult {
     "success": boolean;
     "forwardId": string;

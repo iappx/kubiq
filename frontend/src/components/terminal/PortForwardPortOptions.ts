@@ -6,6 +6,14 @@ import type { TPortForwardRemotePort } from '@/domain/entities/portForward/types
 export class PortForwardPortOptions {
     public static readonly forwardableProtocol: string = 'TCP'
 
+    public static readonly minUnprivilegedPort: number = 1024
+
+    public static readonly maxPort: number = 65535
+
+    public static readonly customChoice: string = '__custom__'
+
+    private static readonly whole: RegExp = /^\d+$/
+
     public static of(ports: readonly TPortForwardPort[]): TUiComboOption[] {
         return ports.map(port => ({
             value: String(port.port),
@@ -30,8 +38,47 @@ export class PortForwardPortOptions {
         return port.protocol.toUpperCase() === PortForwardPortOptions.forwardableProtocol
     }
 
+    public static labelOf(port: TPortForwardPort): string {
+        return port.name !== '' ? `${port.name} · ${port.port}` : String(port.port)
+    }
+
+    public static matchingValue(ports: readonly TPortForwardPort[], remotePort: string): string {
+        const trimmed = remotePort.trim()
+        if (trimmed === '') {
+            return ''
+        }
+
+        const matched = ports.find(port => PortForwardPortOptions.isForwardable(port)
+            && (String(port.port) === trimmed || (port.name !== '' && port.name === trimmed)))
+
+        return matched ? String(matched.port) : ''
+    }
+
+    public static suggestedLocalPort(remotePort: string): string {
+        const parsed = PortForwardPortOptions.parseLocalPort(remotePort)
+        if (parsed === null || parsed < PortForwardPortOptions.minUnprivilegedPort) {
+            return ''
+        }
+
+        return String(parsed)
+    }
+
+    public static parseLocalPort(value: string): number | null {
+        const trimmed = value.trim()
+        if (!PortForwardPortOptions.whole.test(trimmed)) {
+            return null
+        }
+
+        const parsed = Number.parseInt(trimmed, 10)
+        if (!Number.isInteger(parsed) || parsed < 1 || parsed > PortForwardPortOptions.maxPort) {
+            return null
+        }
+
+        return parsed
+    }
+
     private static detailOf(port: TPortForwardPort): string {
-        const detail = [port.name, port.protocol].filter(part => part !== '').join(' · ')
+        const detail = [port.name, port.container ?? '', port.protocol].filter(part => part !== '').join(' · ')
 
         return PortForwardPortOptions.isForwardable(port) ? detail : `${detail}, cannot be forwarded`
     }

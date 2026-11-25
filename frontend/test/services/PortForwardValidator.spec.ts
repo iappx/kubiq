@@ -99,4 +99,8 @@ describe('PortForwardValidator', () => {
 
         expect(Object.keys(result.errors).sort()).toEqual(['localPort', 'name', 'namespace', 'remotePort', 'restoreMode'])
     })
+
+    it('skips restore mode validation for session-only forwards', () => {
+        expect(validator.validate(draft({ restoreMode: '', save: false })).valid).toBe(true)
+    })
 })

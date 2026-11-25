@@ -43,4 +43,38 @@ describe('PortForwardPortOptions', () => {
     it('treats the protocol without regard to case', () => {
         expect(PortForwardPortOptions.isForwardable({ ...http, protocol: 'tcp' })).toBe(true)
     })
+
+    it('formats labels and details including the container name when present', () => {
+        const health = { port: 9879, name: 'health', protocol: 'TCP', container: 'cilium-agent' }
+
+        expect(PortForwardPortOptions.labelOf(health)).toBe('health · 9879')
+        expect(PortForwardPortOptions.labelOf(metrics)).toBe('9100')
+        expect(PortForwardPortOptions.of([health])[0].detail).toBe('health · cilium-agent · TCP')
+    })
+
+    it('matches a declared forwardable port by number or by name', () => {
+        expect(PortForwardPortOptions.matchingValue([http, metrics, dns], '8080')).toBe('8080')
+        expect(PortForwardPortOptions.matchingValue([http, metrics, dns], 'http')).toBe('8080')
+        expect(PortForwardPortOptions.matchingValue([http, metrics, dns], '53')).toBe('')
+        expect(PortForwardPortOptions.matchingValue([http, metrics, dns], '9999')).toBe('')
+    })
+
+    it('suggests the same local port only for unprivileged numeric ports', () => {
+        expect(PortForwardPortOptions.suggestedLocalPort('9879')).toBe('9879')
+        expect(PortForwardPortOptions.suggestedLocalPort('1024')).toBe('1024')
+        expect(PortForwardPortOptions.suggestedLocalPort('80')).toBe('')
+        expect(PortForwardPortOptions.suggestedLocalPort('1023')).toBe('')
+        expect(PortForwardPortOptions.suggestedLocalPort('http')).toBe('')
+        expect(PortForwardPortOptions.suggestedLocalPort('70000')).toBe('')
+    })
+
+    it('parses valid local port numbers and rejects anything else', () => {
+        expect(PortForwardPortOptions.parseLocalPort(' 8080 ')).toBe(8080)
+        expect(PortForwardPortOptions.parseLocalPort('1')).toBe(1)
+        expect(PortForwardPortOptions.parseLocalPort('65535')).toBe(65535)
+        expect(PortForwardPortOptions.parseLocalPort('0')).toBeNull()
+        expect(PortForwardPortOptions.parseLocalPort('65536')).toBeNull()
+        expect(PortForwardPortOptions.parseLocalPort('abc')).toBeNull()
+        expect(PortForwardPortOptions.parseLocalPort('')).toBeNull()
+    })
 })

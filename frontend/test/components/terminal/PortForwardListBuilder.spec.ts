@@ -114,6 +114,14 @@ describe('PortForwardListBuilder', () => {
             expect(PortForwardListBuilder.row(forward({ clusterId: 'stage', resource: 'pods', name: 'api-0' })).path)
                 .toBe('/cluster/stage/workloads/pods?ns=payments&name=api-0')
         })
+
+        it('labels an unsaved forward as session-only', () => {
+            const row = PortForwardListBuilder.row(forward({ saved: false, restoreMode: 'manual' }))
+
+            expect(row.saved).toBe(false)
+            expect(row.modeTitle).toBe('Session')
+            expect(row.modeHint).toContain('not saved')
+        })
     })
 
     describe('summary', () => {

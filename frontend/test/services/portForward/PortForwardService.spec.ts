@@ -291,6 +291,77 @@ describe('PortForwardService', () => {
             expect(fileTransport.read(FORWARDS_FILE)).toEqual([])
             expect(service.isRunning('pf-1')).toBe(false)
         })
+
+        it('keeps an ephemeral forward out of disk storage and cleans it up on remove', async () => {
+            const temp = await service.create({
+                clusterId: 'prod',
+                namespace: 'payments',
+                resource: 'pods',
+                name: 'api-0',
+                remotePort: 9879,
+                localPort: 9879,
+                restoreMode: 'onConnect',
+                save: false,
+            }, 10)
+
+            expect(temp.saved).toBe(false)
+            expect(temp.restoreMode).toBe('manual')
+            expect(fileTransport.files.has(FORWARDS_FILE)).toBe(false)
+
+            const updated = await service.update(temp.id, { localPort: 19879 })
+            expect(updated.localPort).toBe(19879)
+            expect(updated.saved).toBe(false)
+
+            await service.rememberPort(temp.id, 19879)
+            await service.rememberStopped(temp.id, true)
+            expect(fileTransport.files.has(FORWARDS_FILE)).toBe(false)
+
+            restTransport.answerWith(pod('api-0'))
+            await service.start(updated, sink)
+            await service.remove(temp.id)
+
+            expect(forwards.last.stopped).toBe(true)
+            expect(fileTransport.files.has(FORWARDS_FILE)).toBe(false)
+        })
+
+        it('promotes an ephemeral forward into disk storage when saved', async () => {
+            const temp = await service.create({
+                clusterId: 'prod',
+                namespace: 'payments',
+                resource: 'pods',
+                name: 'api-0',
+                remotePort: 9879,
+                localPort: 9879,
+                save: false,
+            }, 10)
+
+            const saved = await service.save({ ...temp, boundPort: 9879 }, 'onConnect')
+
+            expect(saved.saved).toBe(true)
+            expect(saved.restoreMode).toBe('onConnect')
+            expect(fileTransport.read(FORWARDS_FILE)).toEqual([expect.objectContaining({
+                id: temp.id,
+                remotePort: 9879,
+                localPort: 9879,
+                lastLocalPort: 9879,
+                restoreMode: 'onConnect',
+            })])
+        })
+    })
+
+    describe('checking local ports', () => {
+        it('checks free and occupied ports through the forward adapter', async () => {
+            forwards.takenPorts.add(9879)
+
+            await expect(service.checkPort(9879)).resolves.toMatchObject({ checked: true, available: false })
+            await expect(service.checkPort(9880)).resolves.toEqual({ checked: true, available: true, error: '' })
+        })
+
+        it('reports unchecked when the native forward bridge is unavailable', async () => {
+            forwards.available = false
+
+            await expect(service.checkPort(9880)).resolves.toEqual({ checked: false, available: false, error: '' })
+        })
     })
 
     describe('the ports it offers', () => {
@@ -307,9 +378,9 @@ describe('PortForwardService', () => {
             })
 
             expect(await service.ports('prod', 'payments', 'pods', 'api-0')).toEqual([
-                { port: 5000, name: '', protocol: 'TCP' },
-                { port: 8080, name: 'http', protocol: 'TCP' },
-                { port: 53, name: 'dns', protocol: 'UDP' },
+                { port: 5000, name: '', protocol: 'TCP', container: 'init' },
+                { port: 8080, name: 'http', protocol: 'TCP', container: 'app' },
+                { port: 53, name: 'dns', protocol: 'UDP', container: 'app' },
             ])
         })
 
@@ -694,7 +765,7 @@ describe('PortForwardService', () => {
 
         const ports = await service.ports('prod', 'payments', 'pods', 'api-0')
 
-        expect(ports).toEqual([{ port: 8080, name: 'http', protocol: 'TCP' }])
+        expect(ports).toEqual([{ port: 8080, name: 'http', protocol: 'TCP', container: 'app' }])
     })
 
     it('reads the ports a service declares', async () => {

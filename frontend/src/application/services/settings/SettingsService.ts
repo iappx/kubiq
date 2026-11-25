@@ -9,6 +9,7 @@ import { PrometheusLayoutCatalog } from '@/domain/models/metrics'
 import { AppSettings } from '@/domain/models/settings/AppSettings'
 import type { TAppSettings } from '@/domain/models/settings/types/TAppSettings'
 import type { TStorageInfo } from '@/domain/models/settings/types/TStorageInfo'
+import type { TTerminalMode } from '@/domain/models/settings/types/TTerminalMode'
 import { EntityRepoProvider } from '@/infrastructure/entityRepo/EntityRepoProvider'
 import { AppSettingsAdapter } from '@/infrastructure/settings/AppSettingsAdapter'
 import { SettingsSchemaAdapter } from '@/infrastructure/settings/SettingsSchemaAdapter'
@@ -44,6 +45,14 @@ export class SettingsService {
 
     public async nodeShellImage(): Promise<string> {
         return AppSettings.nodeShellImageOf(await this.read())
+    }
+
+    public async terminalMode(): Promise<TTerminalMode> {
+        return (await this.read()).terminalMode
+    }
+
+    public async externalTerminalCommand(): Promise<string> {
+        return (await this.read()).externalTerminalCommand
     }
 
     public async terminalShell(): Promise<string> {

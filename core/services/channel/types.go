@@ -71,6 +71,11 @@ type PortForwardResult struct {
 	Error     string `json:"error"`
 }
 
+type PortCheckResult struct {
+	Available bool   `json:"available"`
+	Error     string `json:"error"`
+}
+
 type ForwardTargetSpec struct {
 	ForwardId  string `json:"forwardId"`
 	Path       string `json:"path"`

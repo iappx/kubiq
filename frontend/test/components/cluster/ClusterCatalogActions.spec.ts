@@ -39,11 +39,26 @@ describe('ClusterCatalogActions', () => {
         expect(keys(row('connected'))).toEqual([
             ClusterCatalogActions.enterKey,
             ClusterCatalogActions.detailsKey,
+            ClusterCatalogActions.terminalKey,
             ClusterCatalogActions.disconnectKey,
             ClusterCatalogActions.pinKey,
+            ClusterCatalogActions.copyNameKey,
             ClusterCatalogActions.customizeKey,
             ClusterCatalogActions.deleteKey,
         ])
+    })
+
+    it('offers opening a terminal for every supported cluster, even when disconnected', () => {
+        for (const status of ['connected', 'available', 'connecting', 'unreachable', 'expired'] as TClusterStatus[]) {
+            expect(keys(row(status))).toContain(ClusterCatalogActions.terminalKey)
+        }
+        expect(keys(row('unsupported'))).not.toContain(ClusterCatalogActions.terminalKey)
+    })
+
+    it('offers copying the context name for every cluster', () => {
+        for (const status of ['connected', 'available', 'connecting', 'unsupported', 'expired'] as TClusterStatus[]) {
+            expect(keys(row(status))).toContain(ClusterCatalogActions.copyNameKey)
+        }
     })
 
     it('offers customizing every cluster, whatever state it is in', () => {
@@ -68,7 +83,9 @@ describe('ClusterCatalogActions', () => {
     it('leaves out connecting while a connection is already in flight', () => {
         expect(keys(row('connecting'))).toEqual([
             ClusterCatalogActions.detailsKey,
+            ClusterCatalogActions.terminalKey,
             ClusterCatalogActions.pinKey,
+            ClusterCatalogActions.copyNameKey,
             ClusterCatalogActions.customizeKey,
             ClusterCatalogActions.deleteKey,
         ])
@@ -78,6 +95,7 @@ describe('ClusterCatalogActions', () => {
         expect(keys(row('unsupported'))).toEqual([
             ClusterCatalogActions.detailsKey,
             ClusterCatalogActions.pinKey,
+            ClusterCatalogActions.copyNameKey,
             ClusterCatalogActions.customizeKey,
             ClusterCatalogActions.deleteKey,
         ])

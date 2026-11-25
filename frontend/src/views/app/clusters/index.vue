@@ -71,11 +71,13 @@
           :sort="sort"
           :total-count="allRows.length"
           @connect="connect"
+          @copy-name="copyName"
           @customize="customize"
           @delete="askDelete"
           @details="select"
           @disconnect="connectionStore.disconnect($event)"
           @open="enter"
+          @terminal="openTerminal"
           @toggle-pin="togglePin"
           @update:cursor="cursor = $event"
           @update:sort="sort = $event"
@@ -107,10 +109,12 @@
         :row="selectedRow"
         :width="panelWidth"
         @close="selectedId = ''"
+        @copy-name="copyName"
         @customize="customize"
         @delete="askDelete"
         @disconnect="connectionStore.disconnect($event)"
         @enter="enterById"
+        @terminal="openTerminal"
         @toggle-pin="togglePin"
         @update:namespaces="setNamespaces"
         @update:width="panelWidth = $event"
@@ -143,11 +147,18 @@ import UiDeferredLoader from '@/components/common/feedback/UiDeferredLoader.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
 import UiSkeletons from '@/components/common/UiSkeletons.vue'
 import UiTableToolbar from '@/components/common/table/UiTableToolbar.vue'
+import { ClipboardService } from '@/application/services/clipboard/ClipboardService'
+import { SettingsService } from '@/application/services/settings/SettingsService'
+import { ToastService } from '@/application/services/toast/ToastService'
 import { ClusterCatalogColumns } from '@/components/cluster/ClusterCatalogColumns'
 import { ClusterRowBuilder } from '@/components/cluster/ClusterRowBuilder'
 import { ClusterRowSource } from '@/components/cluster/ClusterRowSource'
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
+import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { OpenClusterCustomizeEvent } from '@/domain/events/cluster/OpenClusterCustomizeEvent'
+import { OpenLocalShellEvent } from '@/domain/events/terminal/OpenLocalShellEvent'
+import { TerminalModeCatalog } from '@/domain/models/settings/TerminalModeCatalog'
+import type { TTerminalMode } from '@/domain/models/settings/types/TTerminalMode'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { ClusterAppearanceStore } from '@/store/modules/clusterAppearance/ClusterAppearanceStore'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
@@ -207,6 +218,9 @@ export default class ClustersPage extends VueBase {
       @inject(ClusterHealthStore) public readonly healthStore: ClusterHealthStore,
       @inject(ClusterNamespaceStore) public readonly namespaceStore: ClusterNamespaceStore,
       @inject(ClusterAppearanceStore) private readonly appearanceStore: ClusterAppearanceStore,
+      @inject(SettingsService) private readonly settingsService: SettingsService,
+      @inject(ClipboardService) private readonly clipboardService: ClipboardService,
+      @inject(ToastService) private readonly toastService: ToastService,
       @inject(EventBus) private readonly eventBus: EventBus,
   ) {
     super()
@@ -283,18 +297,53 @@ export default class ClustersPage extends VueBase {
     void this.enterById(row.clusterId)
   }
 
-  public async enterById(clusterId: string): Promise<void> {
+  public async enterById(clusterId: string): Promise<boolean> {
     if (!this.connectionStore.isConnected(clusterId)) {
       await this.connectionStore.connect(clusterId, this.catalogStore.sources)
 
       if (!this.connectionStore.isConnected(clusterId)) {
-        return
+        return false
       }
     }
 
     this.connectionStore.activate(clusterId)
     void this.namespaceStore.loadFor(clusterId)
     await this.$router.push(ClusterRoutes.overview(clusterId))
+
+    return true
+  }
+
+  public async openTerminal(row: TClusterRow): Promise<void> {
+    if (row.status === 'unsupported') {
+      return
+    }
+
+    const namespace = this.connectionStore.namespacesOf(row.clusterId)[0] || row.namespace
+    let mode: TTerminalMode
+    try {
+      mode = await this.settingsService.terminalMode()
+    } catch (err) {
+      this.eventBus.emitEvent(new AppErrorEvent(err, 'ClustersPage.openTerminal'))
+      return
+    }
+
+    if (TerminalModeCatalog.isExternal(mode)) {
+      this.eventBus.emitEvent(new OpenLocalShellEvent(row.clusterId, namespace))
+      return
+    }
+
+    if (await this.enterById(row.clusterId)) {
+      this.eventBus.emitEvent(new OpenLocalShellEvent(row.clusterId, namespace))
+    }
+  }
+
+  public async copyName(row: TClusterRow): Promise<void> {
+    try {
+      await this.clipboardService.write(row.name)
+      this.toastService.success(`Copied "${row.name}"`)
+    } catch (err) {
+      this.eventBus.emitEvent(new AppErrorEvent(err, 'ClustersPage.copyName'))
+    }
   }
 
   public async connect(clusterId: string): Promise<void> {

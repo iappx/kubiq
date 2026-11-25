@@ -1,10 +1,13 @@
 import type { TKubeSection } from '@/domain/models/kube/types/TKubeSection'
 
 export class KubeSectionCatalog {
+    public static readonly gitops: TKubeSection = 'gitops'
+
     public static readonly custom: TKubeSection = 'custom'
 
     public static readonly values: Record<TKubeSection, string> = {
         cluster: 'Cluster',
+        gitops: 'GitOps',
         workloads: 'Workloads',
         config: 'Config',
         network: 'Network',
@@ -15,6 +18,7 @@ export class KubeSectionCatalog {
 
     private static readonly sequence: TKubeSection[] = [
         'cluster',
+        'gitops',
         'workloads',
         'config',
         'network',

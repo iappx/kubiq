@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { KubeCrdReader } from '@/domain/models/kube'
+import { KubeCrdReader, KubeFluxCatalog, KubeSectionCatalog } from '@/domain/models/kube'
 import { KubeDiscoveryFixtures } from '../../support/fixtures/KubeDiscoveryFixtures'
 
 describe('KubeCrdReader', () => {
@@ -89,5 +89,32 @@ describe('KubeCrdReader', () => {
     it('returns nothing for a document that names no group, plural or kind', () => {
         expect(KubeCrdReader.read({})).toEqual([])
         expect(KubeCrdReader.read({ spec: { group: 'example.test' } })).toEqual([])
+    })
+
+    it('files Flux toolkit CRDs under the GitOps section with Flux icons and ordering', () => {
+        const kustomization = KubeCrdReader.read({
+            spec: {
+                group: 'kustomize.toolkit.fluxcd.io',
+                scope: 'Namespaced',
+                names: { plural: 'kustomizations', kind: 'Kustomization' },
+                versions: [{ name: 'v1', served: true }],
+            },
+        })[0]
+        const helmRelease = KubeCrdReader.read({
+            spec: {
+                group: 'helm.toolkit.fluxcd.io',
+                scope: 'Namespaced',
+                names: { plural: 'helmreleases', kind: 'HelmRelease' },
+                versions: [{ name: 'v2', served: true }],
+            },
+        })[0]
+
+        expect(kustomization.section).toBe(KubeSectionCatalog.gitops)
+        expect(kustomization.icon).toBe(KubeFluxCatalog.iconOf('kustomize.toolkit.fluxcd.io', 'kustomizations'))
+        expect(kustomization.order).toBe(KubeFluxCatalog.orderOf('kustomize.toolkit.fluxcd.io', 'kustomizations'))
+        expect(kustomization.isCustom).toBe(true)
+
+        expect(helmRelease.section).toBe(KubeSectionCatalog.gitops)
+        expect(helmRelease.order!).toBeGreaterThan(kustomization.order!)
     })
 })

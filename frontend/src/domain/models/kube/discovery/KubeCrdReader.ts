@@ -1,4 +1,5 @@
 import { KubeColumns } from '@/domain/models/kube/KubeColumns'
+import { KubeFluxCatalog } from '@/domain/models/kube/KubeFluxCatalog'
 import { KubeResourceKind } from '@/domain/models/kube/KubeResourceKind'
 import { KubeSectionCatalog } from '@/domain/models/kube/KubeSectionCatalog'
 import { KubeVerbCatalog } from '@/domain/models/kube/KubeVerbCatalog'
@@ -18,6 +19,10 @@ export class KubeCrdReader {
             return []
         }
         const namespaced = spec?.scope === 'Namespaced'
+        const isFlux = KubeFluxCatalog.isFlux(group)
+        const section = isFlux ? KubeSectionCatalog.gitops : KubeSectionCatalog.custom
+        const icon = isFlux ? KubeFluxCatalog.iconOf(group, resource) : KubeCrdReader.icon
+        const order = isFlux ? KubeFluxCatalog.orderOf(group, resource) : undefined
         const result: KubeResourceKind[] = []
         const versions = spec?.versions ?? []
         for (let i = 0; i < versions.length; i++) {
@@ -32,8 +37,9 @@ export class KubeCrdReader {
                 kind,
                 title: kind,
                 namespaced,
-                section: KubeSectionCatalog.custom,
-                icon: KubeCrdReader.icon,
+                section,
+                order,
+                icon,
                 columns: KubeCrdReader.columns(namespaced, version.additionalPrinterColumns),
                 verbs: KubeVerbCatalog.all(),
                 isCustom: true,

@@ -207,6 +207,14 @@ describe('AppSettingsStore', () => {
             expect(store.settings.terminalFontFamily).toBe('JetBrainsMono Nerd Font')
         })
 
+        it('stores the terminal mode and external terminal command', async () => {
+            await store.setTerminalMode('custom')
+            await store.setExternalTerminalCommand('iTerm')
+
+            expect(store.settings.terminalMode).toBe('custom')
+            expect(store.settings.externalTerminalCommand).toBe('iTerm')
+        })
+
         it('raises a failed write and leaves the flag down', async () => {
             fake.state.saveFails = new ApiError('Could not save the changes')
 

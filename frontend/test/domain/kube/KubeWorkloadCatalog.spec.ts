@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { KubeResourceRegistry, KubeWorkloadCatalog } from '@/domain/models/kube'
+import { KubeResourceKind, KubeResourceRegistry, KubeWorkloadCatalog } from '@/domain/models/kube'
 
 const kind = (group: string, resource: string) => KubeResourceRegistry.find(group, resource)!
 
@@ -77,5 +77,44 @@ describe('KubeWorkloadCatalog', () => {
             .sort((a, b) => KubeWorkloadCatalog.summaryOrder(a) - KubeWorkloadCatalog.summaryOrder(b))
 
         expect(summarised.map(candidate => candidate.kind)).toEqual(['Pod', 'Deployment', 'StatefulSet', 'DaemonSet'])
+    })
+
+    it('expands overview health summaries to cluster, workload, policy, storage, cert-manager and Flux kinds', () => {
+        const customKinds = [
+            new KubeResourceKind({
+                group: 'cert-manager.io', version: 'v1', resource: 'certificates', kind: 'Certificate',
+                title: 'Certificate', namespaced: true, section: 'custom', icon: 'Puzzle', columns: [], verbs: ['list'], isCustom: true,
+            }),
+            new KubeResourceKind({
+                group: 'kustomize.toolkit.fluxcd.io', version: 'v1', resource: 'kustomizations', kind: 'Kustomization',
+                title: 'Kustomization', namespaced: true, section: 'gitops', icon: 'Layers', columns: [], verbs: ['list'], isCustom: true,
+            }),
+            new KubeResourceKind({
+                group: 'helm.toolkit.fluxcd.io', version: 'v2', resource: 'helmreleases', kind: 'HelmRelease',
+                title: 'HelmRelease', namespaced: true, section: 'gitops', icon: 'Blocks', columns: [], verbs: ['list'], isCustom: true,
+            }),
+        ]
+
+        const overview = [...KubeResourceRegistry.all(), ...customKinds]
+            .filter(candidate => KubeWorkloadCatalog.isOverviewSummarised(candidate))
+            .sort((a, b) => KubeWorkloadCatalog.overviewOrder(a) - KubeWorkloadCatalog.overviewOrder(b))
+
+        expect(overview.map(candidate => candidate.kind)).toEqual([
+            'Node',
+            'PersistentVolume',
+            'Pod',
+            'Deployment',
+            'DaemonSet',
+            'StatefulSet',
+            'CronJob',
+            'Job',
+            'HorizontalPodAutoscaler',
+            'ResourceQuota',
+            'PodDisruptionBudget',
+            'PersistentVolumeClaim',
+            'Certificate',
+            'Kustomization',
+            'HelmRelease',
+        ])
     })
 })

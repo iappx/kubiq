@@ -80,7 +80,12 @@ export class ProcessAdapter {
 
         let result
         try {
-            result = await ProcessService.Launch(new LaunchSpec({ path: spec.path, args: [...spec.args], dir: spec.dir ?? '' }))
+            result = await ProcessService.Launch(new LaunchSpec({
+                path: spec.path,
+                args: [...spec.args],
+                env: { ...(spec.env ?? {}) },
+                dir: spec.dir ?? '',
+            }))
         } catch (err) {
             throw new ApiError(message, err instanceof Error ? err.message : String(err))
         }

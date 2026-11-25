@@ -39,9 +39,13 @@
       />
 
       <settings-terminal-section
+          :external-terminal-command="settingsStore.settings.externalTerminalCommand"
           :terminal-font-family="settingsStore.settings.terminalFontFamily"
+          :terminal-mode="settingsStore.settings.terminalMode"
           :terminal-shell="settingsStore.settings.terminalShell"
+          @update:external-terminal-command="settingsStore.setExternalTerminalCommand($event)"
           @update:terminal-font-family="settingsStore.setTerminalFontFamily($event)"
+          @update:terminal-mode="settingsStore.setTerminalMode($event)"
           @update:terminal-shell="settingsStore.setTerminalShell($event)"
       />
 

@@ -18,9 +18,10 @@ type StartSpec struct {
 }
 
 type LaunchSpec struct {
-	Path string   `json:"path"`
-	Args []string `json:"args"`
-	Dir  string   `json:"dir"`
+	Path string            `json:"path"`
+	Args []string          `json:"args"`
+	Env  map[string]string `json:"env"`
+	Dir  string            `json:"dir"`
 }
 
 type StartResult struct {

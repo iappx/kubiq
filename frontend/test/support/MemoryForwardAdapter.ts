@@ -2,6 +2,7 @@ import type { IKubeForwardHandler } from '@/infrastructure/channel/types/IKubeFo
 import type { TKubeForwardHandle } from '@/infrastructure/channel/types/TKubeForwardHandle'
 import type { TKubeForwardSpec } from '@/infrastructure/channel/types/TKubeForwardSpec'
 import type { TKubeForwardTarget } from '@/infrastructure/channel/types/TKubeForwardTarget'
+import type { TPortCheckResult } from '@/infrastructure/channel/types/TPortCheckResult'
 
 export class MemoryForward {
     public stopped = false
@@ -76,6 +77,20 @@ export class MemoryForwardAdapter {
         if (forward) {
             forward.stopped = true
         }
+    }
+
+    public async checkPort(port: number, address: string = MemoryForwardAdapter.loopback): Promise<TPortCheckResult> {
+        if (!this.available) {
+            return { checked: false, available: false, error: '' }
+        }
+        if (port <= 0 || port > 65535) {
+            return { checked: true, available: false, error: `local port is out of range: ${port}` }
+        }
+        if (this.takenPorts.has(port)) {
+            return { checked: true, available: false, error: `listen tcp ${address}:${port}: address already in use` }
+        }
+
+        return { checked: true, available: true, error: '' }
     }
 
     public get last(): MemoryForward {

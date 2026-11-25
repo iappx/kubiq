@@ -57,8 +57,13 @@ let plan: TLocalShellPlan = {
     kubectl: { name: 'kubectl', path: 'C:\\tools\\kubectl.exe', source: 'path' },
 }
 
+const externalLaunched: { clusterId: string, namespace: string }[] = []
+
 const localShellService = {
     prepare: async () => plan,
+    launchExternal: async (clusterId: string, namespace: string) => {
+        externalLaunched.push({ clusterId, namespace })
+    },
 } as unknown as LocalShellService
 
 const nodeShell = {
@@ -131,6 +136,7 @@ describe('TerminalService', () => {
         nodeShell.swept.length = 0
         nodeShell.kept.length = 0
         nodeShell.readyFailure = null
+        externalLaunched.length = 0
         plan = {
             command: 'powershell.exe',
             args: ['-NoLogo'],
@@ -435,6 +441,13 @@ describe('TerminalService', () => {
             await service.close('term|prod|1')
 
             expect(ptys.last.killed).toBe(true)
+        })
+
+        it('delegates external local shell launches to LocalShellService', async () => {
+            await service.openExternalLocalShell({ clusterId: 'prod', namespace: 'payments' })
+
+            expect(externalLaunched).toEqual([{ clusterId: 'prod', namespace: 'payments' }])
+            expect(ptys.processes).toHaveLength(0)
         })
     })
 

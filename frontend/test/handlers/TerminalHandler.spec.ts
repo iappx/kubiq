@@ -3,8 +3,19 @@ import { container } from 'tsyringe'
 
 const fake = vi.hoisted(() => ({
     opened: [] as { kind: string, key: string }[],
+    external: [] as { clusterId: string, namespace: string }[],
+    externalFailure: null as Error | null,
+    terminalMode: 'in-app' as 'in-app' | 'system' | 'custom',
     closed: [] as string[],
     clusters: [] as string[],
+}))
+
+vi.mock('@/application/services/settings/SettingsService', () => ({
+    SettingsService: class {
+        public async terminalMode(): Promise<'in-app' | 'system' | 'custom'> {
+            return fake.terminalMode
+        }
+    },
 }))
 
 vi.mock('@/application/services/terminal/TerminalService', () => ({
@@ -19,6 +30,13 @@ vi.mock('@/application/services/terminal/TerminalService', () => ({
 
         public async openLocalShell(key: string): Promise<void> {
             fake.opened.push({ kind: 'local', key })
+        }
+
+        public async openExternalLocalShell(request: { clusterId: string, namespace: string }): Promise<void> {
+            if (fake.externalFailure) {
+                throw fake.externalFailure
+            }
+            fake.external.push(request)
         }
 
         public async close(key: string): Promise<void> {
@@ -46,6 +64,8 @@ vi.mock('@/application/services/terminal/TerminalService', () => ({
 }))
 
 import { TerminalHandler } from '@/application/handlers/terminal/TerminalHandler'
+import { ApiError } from '@/domain/errors/ApiError'
+import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { ClusterDisconnectedEvent } from '@/domain/events/cluster/ClusterDisconnectedEvent'
 import { DockTabClosedEvent } from '@/domain/events/dock/DockTabClosedEvent'
 import { OpenLocalShellEvent } from '@/domain/events/terminal/OpenLocalShellEvent'
@@ -66,6 +86,11 @@ const dockStore = container.resolve(DockStore)
 const uiStore = container.resolve(AppUiStore)
 const terminalStore = container.resolve(TerminalStore)
 
+const errors: AppErrorEvent[] = []
+eventBus.registerHandler(AppErrorEvent, (event) => {
+    errors.push(event)
+})
+
 const settle = (): Promise<unknown> => new Promise(resolve => setTimeout(resolve, 0))
 
 describe('TerminalHandler', () => {
@@ -75,8 +100,12 @@ describe('TerminalHandler', () => {
         terminalStore.views = {}
         uiStore.dockCollapsed = true
         fake.opened.length = 0
+        fake.external.length = 0
+        fake.externalFailure = null
+        fake.terminalMode = 'in-app'
         fake.closed.length = 0
         fake.clusters.length = 0
+        errors.length = 0
     })
 
     it('opens a dock tab labelled for the container being entered', async () => {
@@ -97,6 +126,31 @@ describe('TerminalHandler', () => {
 
         expect(uiStore.dockCollapsed).toBe(false)
         expect(fake.opened[0].kind).toBe('local')
+    })
+
+    it.each(['system', 'custom'] as const)('launches an external terminal without opening the dock in %s mode', async (mode) => {
+        fake.terminalMode = mode
+
+        eventBus.emitEvent(new OpenLocalShellEvent('prod', 'payments'))
+        await settle()
+
+        expect(fake.external).toEqual([{ clusterId: 'prod', namespace: 'payments' }])
+        expect(fake.opened).toHaveLength(0)
+        expect(dockStore.tabs).toHaveLength(0)
+        expect(uiStore.dockCollapsed).toBe(true)
+    })
+
+    it('emits AppErrorEvent and leaves the dock closed when external launch fails', async () => {
+        fake.terminalMode = 'custom'
+        fake.externalFailure = new ApiError('Custom terminal is not configured')
+
+        eventBus.emitEvent(new OpenLocalShellEvent('prod', 'payments'))
+        await settle()
+
+        expect(errors).toHaveLength(1)
+        expect(errors[0].error).toBe(fake.externalFailure)
+        expect(dockStore.tabs).toHaveLength(0)
+        expect(uiStore.dockCollapsed).toBe(true)
     })
 
     it('opens a node shell tab', async () => {
