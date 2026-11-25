@@ -1,6 +1,8 @@
 import { inject, injectable } from 'tsyringe'
 import { UiStateDefaults } from '@/application/services/uiState/constants/UiStateDefaults'
 import { UiStateKeys } from '@/application/services/uiState/constants/UiStateKeys'
+import { TablePrefsCodec } from '@/application/services/uiState/models/TablePrefsCodec'
+import type { TTablePrefs } from '@/application/services/uiState/types/TTablePrefs'
 import type { TUiState } from '@/application/services/uiState/types/TUiState'
 import type { TAppDensity } from '@/domain/models/ui'
 import { UiPreferenceAdapter } from '@/infrastructure/ui/UiPreferenceAdapter'
@@ -19,6 +21,7 @@ export class UiStateService {
             dockHeight: this.dockHeight(),
             dockCollapsed: this.preferences.readFlag(UiStateKeys.dockCollapsed) ?? UiStateDefaults.dockCollapsed,
             lastClusterId: this.preferences.readText(UiStateKeys.lastClusterId) ?? '',
+            tablePrefs: TablePrefsCodec.parse(this.preferences.readText(UiStateKeys.tablePrefs)),
         }
     }
 
@@ -44,6 +47,10 @@ export class UiStateService {
 
     public writeLastClusterId(clusterId: string): void {
         this.preferences.write(UiStateKeys.lastClusterId, clusterId)
+    }
+
+    public writeTablePrefs(tablePrefs: Record<string, TTablePrefs>): void {
+        this.preferences.write(UiStateKeys.tablePrefs, TablePrefsCodec.serialize(tablePrefs))
     }
 
     public static clampPanelWidth(width: number): number {

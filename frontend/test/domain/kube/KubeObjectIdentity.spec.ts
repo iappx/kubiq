@@ -62,8 +62,19 @@ describe('KubeObjectHealth', () => {
             type: 'kubernetes.io/tls',
         })
 
+        const readyCrd = entity({
+            metadata: { name: 'web-tls' },
+            status: { conditions: [{ type: 'Ready', status: 'True' }] },
+        })
+        const statelessCrd = entity({ metadata: { name: 'ingress-route' } })
+        const deletingCrd = entity({
+            metadata: { name: 'ingress-route', deletionTimestamp: '2026-10-01T12:00:00Z' },
+        })
+
         expect(KubeObjectHealth.hasState(node)).toBe(true)
-        expect(KubeObjectHealth.hasState(entity({ metadata: { name: 'x' } }))).toBe(true)
+        expect(KubeObjectHealth.hasState(readyCrd)).toBe(true)
+        expect(KubeObjectHealth.hasState(deletingCrd)).toBe(true)
+        expect(KubeObjectHealth.hasState(statelessCrd)).toBe(false)
         expect(KubeObjectHealth.hasState(secret)).toBe(false)
     })
 

@@ -40,6 +40,28 @@
       >
         <copy :size="14" />
       </button>
+
+      <button
+          v-if="canEdit"
+          :aria-label="editLabel"
+          class="btn-icon h-7 w-7 shrink-0"
+          title="Edit value"
+          type="button"
+          @click="$emit('edit', entry)"
+      >
+        <pencil :size="14" />
+      </button>
+
+      <button
+          v-if="canEdit"
+          :aria-label="deleteLabel"
+          class="btn-icon h-7 w-7 shrink-0 text-destructive"
+          title="Delete key"
+          type="button"
+          @click="$emit('delete', entry)"
+      >
+        <trash2 :size="14" />
+      </button>
     </div>
 
     <template v-if="parsedChain !== null">
@@ -65,7 +87,7 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase, Watch } from '@iappx/vue-facing-di'
-import { Copy, Eye, EyeOff } from '@lucide/vue'
+import { Copy, Eye, EyeOff, Pencil, Trash2 } from '@lucide/vue'
 import ResourceCertificateChain from '@/components/resource/detail/ResourceCertificateChain.vue'
 import { DetailDataEntries } from '@/components/resource/detail/DetailDataEntries'
 import type { TDetailDataEntry } from '@/components/resource/detail/types/TDetailDataEntry'
@@ -73,8 +95,8 @@ import { X509CertificateParser } from '@/domain/models/certificate'
 import type { TX509Chain } from '@/domain/models/certificate'
 
 @Component({
-  components: { Copy, Eye, EyeOff, ResourceCertificateChain },
-  emits: ['copy'],
+  components: { Copy, Eye, EyeOff, Pencil, ResourceCertificateChain, Trash2 },
+  emits: ['copy', 'edit', 'delete'],
 })
 export default class ResourceDataRow extends VueBase {
   @Prop({ required: true })
@@ -82,6 +104,9 @@ export default class ResourceDataRow extends VueBase {
 
   @Prop({ required: true })
   public readonly object: Record<string, unknown>
+
+  @Prop({ required: false, default: false })
+  public readonly editable?: boolean
 
   public revealed = false
 
@@ -122,6 +147,18 @@ export default class ResourceDataRow extends VueBase {
 
   public get copyable(): boolean {
     return DetailDataEntries.isCopyable(this.object, this.entry)
+  }
+
+  public get canEdit(): boolean {
+    return Boolean(this.editable) && !this.entry.binary && this.entry.field === DetailDataEntries.dataField
+  }
+
+  public get editLabel(): string {
+    return `Edit ${this.entry.key}`
+  }
+
+  public get deleteLabel(): string {
+    return `Delete ${this.entry.key}`
   }
 
   public get copyLabel(): string {

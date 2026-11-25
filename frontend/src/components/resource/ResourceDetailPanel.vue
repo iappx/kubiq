@@ -11,6 +11,17 @@
 
     <template #actions>
       <button
+          v-if="canViewLogs"
+          :aria-label="`View logs of ${row?.name}`"
+          class="btn-icon w-7 h-7"
+          title="View logs"
+          type="button"
+          @click="$emit('logs')"
+      >
+        <scroll-text :size="14" />
+      </button>
+
+      <button
           v-if="canShell"
           :aria-label="`Open a shell in ${row?.name}`"
           class="btn-icon w-7 h-7"
@@ -19,6 +30,17 @@
           @click="$emit('shell')"
       >
         <square-terminal :size="14" />
+      </button>
+
+      <button
+          v-if="canDebug"
+          :aria-label="`Attach debug container to ${row?.name}`"
+          class="btn-icon w-7 h-7"
+          title="Debug container…"
+          type="button"
+          @click="$emit('debug')"
+      >
+        <bug :size="14" />
       </button>
 
       <button
@@ -83,6 +105,28 @@
       </button>
 
       <button
+          v-if="row"
+          :aria-label="`Copy name ${row.name}`"
+          class="btn-icon w-7 h-7"
+          title="Copy name"
+          type="button"
+          @click="$emit('copy-name')"
+      >
+        <copy :size="14" />
+      </button>
+
+      <button
+          v-if="row"
+          :aria-label="`Copy YAML of ${row.name}`"
+          class="btn-icon w-7 h-7"
+          title="Copy YAML"
+          type="button"
+          @click="$emit('copy-yaml')"
+      >
+        <file-code2 :size="14" />
+      </button>
+
+      <button
           v-if="canDelete"
           :aria-label="`Delete ${row?.name}`"
           class="btn-icon w-7 h-7 text-destructive"
@@ -118,7 +162,7 @@
 
 <script lang="ts">
 import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
-import { Cable, CirclePause, CirclePlay, FilePlay, Play, SquareTerminal, Star, StarOff, Trash2 } from '@lucide/vue'
+import { Bug, Cable, CirclePause, CirclePlay, Copy, FileCode2, FilePlay, Play, ScrollText, SquareTerminal, Star, StarOff, Trash2 } from '@lucide/vue'
 import UiSidePanel from '@/components/common/panel/UiSidePanel.vue'
 import UiStatusBadge from '@/components/common/status/UiStatusBadge.vue'
 import UiTabBar from '@/components/common/tabBar/UiTabBar.vue'
@@ -129,10 +173,10 @@ import { KubeDefaultClassCatalog, KubeWorkloadCatalog } from '@/domain/models/ku
 
 @Component({
   components: {
-    Cable, CirclePause, CirclePlay, FilePlay, Play, SquareTerminal, Star, StarOff, Trash2, UiSidePanel, UiStatusBadge, UiTabBar,
+    Bug, Cable, CirclePause, CirclePlay, Copy, FileCode2, FilePlay, Play, ScrollText, SquareTerminal, Star, StarOff, Trash2, UiSidePanel, UiStatusBadge, UiTabBar,
   },
   emits: [
-    'close', 'delete', 'forward', 'shell', 'set-default', 'unset-default', 'trigger', 'trigger-edit', 'suspend', 'resume',
+    'close', 'copy-name', 'copy-yaml', 'debug', 'delete', 'forward', 'logs', 'shell', 'set-default', 'unset-default', 'trigger', 'trigger-edit', 'suspend', 'resume',
     'update:width', 'update:active-tab',
   ],
 })
@@ -184,8 +228,16 @@ export default class ResourceDetailPanel extends VueBase {
     return !!this.row && this.kind?.canDelete === true
   }
 
+  public get canViewLogs(): boolean {
+    return !!this.row && !!this.kind && KubeWorkloadCatalog.canViewLogs(this.kind)
+  }
+
   public get canShell(): boolean {
     return !!this.row && !!this.kind && KubeWorkloadCatalog.isPod(this.kind)
+  }
+
+  public get canDebug(): boolean {
+    return !!this.row && !!this.kind && KubeWorkloadCatalog.canDebug(this.kind)
   }
 
   public get canForward(): boolean {

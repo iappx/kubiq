@@ -10,9 +10,16 @@ describe('ResourceActions', () => {
         expect(ResourceActions.of(null)).toEqual([])
     })
 
-    it('offers logs on pods and on nothing else', () => {
+    it('offers logs on pods and loggable workloads, and not on unrelated kinds', () => {
         expect(keys('', 'pods')).toContain(ResourceActions.logsKey)
-        expect(keys('apps', 'deployments')).not.toContain(ResourceActions.logsKey)
+        expect(keys('apps', 'deployments')).toContain(ResourceActions.logsKey)
+        expect(keys('apps', 'statefulsets')).toContain(ResourceActions.logsKey)
+        expect(keys('apps', 'daemonsets')).toContain(ResourceActions.logsKey)
+        expect(keys('apps', 'replicasets')).toContain(ResourceActions.logsKey)
+        expect(keys('batch', 'jobs')).toContain(ResourceActions.logsKey)
+        expect(keys('batch', 'cronjobs')).not.toContain(ResourceActions.logsKey)
+        expect(keys('', 'services')).not.toContain(ResourceActions.logsKey)
+        expect(keys('', 'configmaps')).not.toContain(ResourceActions.logsKey)
     })
 
     it('offers a shell on pods and on nothing else', () => {
@@ -21,18 +28,29 @@ describe('ResourceActions', () => {
         expect(keys('apps', 'deployments')).not.toContain(ResourceActions.shellKey)
     })
 
+    it('offers debug container on writable pods and on nothing else', () => {
+        const readOnlyPod = kind('', 'pods').withDefinition({ verbs: ['list', 'get', 'watch'] })
+
+        expect(keys('', 'pods')).toContain(ResourceActions.debugKey)
+        expect(ResourceActions.of(readOnlyPod).map(item => item.key)).not.toContain(ResourceActions.debugKey)
+        expect(keys('apps', 'deployments')).not.toContain(ResourceActions.debugKey)
+    })
+
     it('offers a port forward on pods and services', () => {
         expect(keys('', 'pods')).toContain(ResourceActions.forwardKey)
         expect(keys('', 'services')).toContain(ResourceActions.forwardKey)
         expect(keys('apps', 'deployments')).not.toContain(ResourceActions.forwardKey)
     })
 
-    it('offers scale and restart on a deployment', () => {
+    it('offers logs, scale, restart, copy actions and delete on a deployment', () => {
         expect(keys('apps', 'deployments')).toEqual([
             ResourceActions.openKey,
             ResourceActions.editYamlKey,
+            ResourceActions.logsKey,
             ResourceActions.scaleKey,
             ResourceActions.restartKey,
+            ResourceActions.copyNameKey,
+            ResourceActions.copyYamlKey,
             ResourceActions.deleteKey,
         ])
     })
@@ -117,10 +135,27 @@ describe('ResourceActions', () => {
         expect(last).toMatchObject({ key: ResourceActions.deleteKey, danger: true, separatorBefore: true })
     })
 
+    it('groups copy name and copy YAML with a separator before delete', () => {
+        const items = ResourceActions.of(kind('apps', 'deployments'))
+        const copyName = items.find(item => item.key === ResourceActions.copyNameKey)
+        const copyNameIndex = items.findIndex(item => item.key === ResourceActions.copyNameKey)
+        const copyYamlIndex = items.findIndex(item => item.key === ResourceActions.copyYamlKey)
+        const deleteIndex = items.findIndex(item => item.key === ResourceActions.deleteKey)
+
+        expect(copyName).toMatchObject({ key: ResourceActions.copyNameKey, separatorBefore: true })
+        expect(copyYamlIndex).toBe(copyNameIndex + 1)
+        expect(deleteIndex).toBe(copyYamlIndex + 1)
+    })
+
     it('leaves out what this cluster does not let the user do', () => {
         const readOnly = kind('apps', 'deployments').withDefinition({ verbs: ['list', 'get', 'watch'] })
 
-        expect(ResourceActions.of(readOnly).map(item => item.key)).toEqual([ResourceActions.openKey])
+        expect(ResourceActions.of(readOnly).map(item => item.key)).toEqual([
+            ResourceActions.openKey,
+            ResourceActions.logsKey,
+            ResourceActions.copyNameKey,
+            ResourceActions.copyYamlKey,
+        ])
     })
 
     it('offers the default flag on storage and ingress classes and on nothing else', () => {

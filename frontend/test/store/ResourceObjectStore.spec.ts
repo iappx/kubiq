@@ -516,3 +516,167 @@ describe('ResourceObjectStore data copying', () => {
         expect(captured[0]).toBeInstanceOf(AppErrorEvent)
     })
 })
+
+describe('ResourceObjectStore data editing', () => {
+    const configMaps = KubeResourceRegistry.find('', 'configmaps')!
+    const secrets = KubeResourceRegistry.find('', 'secrets')!
+    const configMapTarget = {
+        clusterId: 'prod',
+        kind: configMaps,
+        name: 'app-config',
+        namespace: 'payments',
+        served: [configMaps, secrets],
+    }
+    const secretTarget = {
+        clusterId: 'prod',
+        kind: secrets,
+        name: 'app-creds',
+        namespace: 'payments',
+        served: [configMaps, secrets],
+    }
+
+    const configMapDoc = (resourceVersion: string, data: Record<string, string>) => ({
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: { name: 'app-config', namespace: 'payments', uid: 'cm-1', resourceVersion },
+        data,
+    })
+
+    const secretDoc = (resourceVersion: string, data: Record<string, string>) => ({
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: { name: 'app-creds', namespace: 'payments', uid: 'sec-1', resourceVersion },
+        type: 'Opaque',
+        data,
+    })
+
+    beforeEach(() => {
+        transport.reset()
+        store.objects = {}
+        captured.length = 0
+    })
+
+    it('saves a ConfigMap key via patch and emits ResourceAppliedEvent', async () => {
+        eventBus.registerHandler(ResourceAppliedEvent, record)
+
+        transport.answerWith(configMapDoc('10', { level: 'info' }))
+        await store.load(configMapTarget)
+        transport.reset()
+
+        transport.answerWith({})
+        transport.answerWith(configMapDoc('11', { level: 'debug', mode: 'fast' }))
+        const saved = await store.saveDataEntry(configMapTarget, { key: 'mode', value: 'fast' })
+
+        eventBus.unregisterHandler(ResourceAppliedEvent, record)
+        expect(saved).toBe(true)
+        expect(transport.requests[0].method).toBe('PATCH')
+        expect(transport.requests[0].body).toMatchObject({ data: { level: 'info', mode: 'fast' } })
+        expect(store.stateOf(configMapTarget).object).toMatchObject({ data: { level: 'debug', mode: 'fast' } })
+        expect(captured).toHaveLength(1)
+        expect(captured[0]).toMatchObject({ kindName: 'ConfigMap', name: 'app-config', replaced: false })
+    })
+
+    it('encodes Secret values as UTF-8 base64 and never emits the value in events', async () => {
+        eventBus.registerHandler(ResourceAppliedEvent, record)
+
+        transport.answerWith(secretDoc('20', { existing: 'a2VlcA==' }))
+        await store.load(secretTarget)
+        transport.reset()
+
+        const sampleText = 'utf8-пример'
+        const encoded = 'dXRmOC3Qv9GA0LjQvNC10YA='
+        transport.answerWith({})
+        transport.answerWith(secretDoc('21', { existing: 'a2VlcA==', greeting: encoded }))
+
+        const saved = await store.saveDataEntry(secretTarget, { key: 'greeting', value: sampleText })
+
+        eventBus.unregisterHandler(ResourceAppliedEvent, record)
+        expect(saved).toBe(true)
+        expect(transport.requests[0].method).toBe('PATCH')
+        expect(transport.requests[0].body).toMatchObject({ data: { existing: 'a2VlcA==', greeting: encoded } })
+        expect(captured).toHaveLength(1)
+        expect(JSON.stringify(captured)).not.toContain(sampleText)
+        expect(JSON.stringify(captured)).not.toContain(encoded)
+    })
+
+    it('renames a Secret key via replace and drops the old key', async () => {
+        eventBus.registerHandler(ResourceAppliedEvent, record)
+
+        transport.answerWith(secretDoc('25', { oldKey: 'b2xk', keep: 'a2VlcA==' }))
+        await store.load(secretTarget)
+        transport.reset()
+
+        transport.answerWith({})
+        transport.answerWith(secretDoc('26', { keep: 'a2VlcA==', newKey: 'bmV3' }))
+
+        const saved = await store.saveDataEntry(secretTarget, {
+            key: 'newKey',
+            value: 'new',
+            originalKey: 'oldKey',
+        })
+
+        eventBus.unregisterHandler(ResourceAppliedEvent, record)
+        expect(saved).toBe(true)
+        expect(transport.requests[0].method).toBe('PUT')
+        expect((transport.requests[0].body as Record<string, unknown>).data).toEqual({
+            keep: 'a2VlcA==',
+            newKey: 'bmV3',
+        })
+        expect(captured[0]).toMatchObject({ kindName: 'Secret', name: 'app-creds', replaced: true })
+    })
+
+    it('removes a key via replace and updates the stored object', async () => {
+        eventBus.registerHandler(ResourceAppliedEvent, record)
+
+        transport.answerWith(configMapDoc('30', { a: '1', b: '2' }))
+        await store.load(configMapTarget)
+        transport.reset()
+
+        transport.answerWith({})
+        transport.answerWith(configMapDoc('31', { b: '2' }))
+
+        const removed = await store.removeDataEntry(configMapTarget, 'a')
+
+        eventBus.unregisterHandler(ResourceAppliedEvent, record)
+        expect(removed).toBe(true)
+        expect(transport.requests[0].method).toBe('PUT')
+        expect((transport.requests[0].body as Record<string, unknown>).data).toEqual({ b: '2' })
+        expect(store.stateOf(configMapTarget).object).toMatchObject({ data: { b: '2' } })
+        expect(captured[0]).toMatchObject({ kindName: 'ConfigMap', name: 'app-config', replaced: true })
+    })
+
+    it('returns false and captures conflict on 409 during saveDataEntry', async () => {
+        eventBus.registerHandler(AppErrorEvent, record)
+
+        transport.answerWith(configMapDoc('40', { a: '1' }))
+        await store.load(configMapTarget)
+        transport.reset()
+
+        transport.failWith(new ApiError('Conflict', 'Conflict', 409))
+        transport.answerWith(configMapDoc('41', { a: '2' }))
+
+        const saved = await store.saveDataEntry(configMapTarget, { key: 'a', value: '3', originalKey: 'a' })
+
+        eventBus.unregisterHandler(AppErrorEvent, record)
+        expect(saved).toBe(false)
+        expect(KubeManifest.resourceVersionOf(store.stateOf(configMapTarget).conflict)).toBe('41')
+        expect(captured).toEqual([])
+    })
+
+    it('returns false and raises AppErrorEvent when removeDataEntry fails', async () => {
+        eventBus.registerHandler(AppErrorEvent, record)
+
+        transport.answerWith(configMapDoc('50', { a: '1' }))
+        await store.load(configMapTarget)
+        transport.reset()
+
+        transport.failWith(new ApiError('Forbidden', 'Forbidden', 403))
+
+        const removed = await store.removeDataEntry(configMapTarget, 'a')
+
+        eventBus.unregisterHandler(AppErrorEvent, record)
+        expect(removed).toBe(false)
+        expect(captured).toHaveLength(1)
+        expect(captured[0]).toBeInstanceOf(AppErrorEvent)
+    })
+})

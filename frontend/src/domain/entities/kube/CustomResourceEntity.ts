@@ -40,6 +40,10 @@ export class CustomResourceEntity extends RepoEntityBase<CustomResourceEntity> {
         return Array.isArray(conditions) ? conditions as TKubeCondition[] : []
     }
 
+    get hasHealthState(): boolean {
+        return this.metadata?.isDeleting === true || KubeConditions.find(this.conditions, 'Ready') !== undefined
+    }
+
     // A CRD author may omit status.conditions or spell readiness their own way, so a missing Ready is unknown, not an error.
     get state(): TKubeObjectState {
         if (this.metadata?.isDeleting) {

@@ -13,7 +13,7 @@
           :total-count="state.total"
           @update:density="uiStore.setDensity($event)"
           @update:filter="setFilter"
-          @update:hidden-keys="hiddenKeys = $event"
+          @update:hidden-keys="setHiddenKeys($event)"
       >
         <template #status>
           <span v-if="labelSelector" class="pill pill-active">{{ labelSelector }}</span>
@@ -128,7 +128,7 @@
             @open="openDetails"
             @update:cursor="cursor = $event"
             @update:selected="selected = $event"
-            @update:sort="sort = $event"
+            @update:sort="setSort($event)"
         >
           <template #empty>
             <empty-state
@@ -168,8 +168,12 @@
         :tabs="detailTabs"
         :width="uiStore.panelWidth"
         @close="closeDetail"
+        @copy-name="onDetailAction(actionKeys.copyNameKey)"
+        @copy-yaml="onDetailAction(actionKeys.copyYamlKey)"
+        @debug="onDetailAction(actionKeys.debugKey)"
         @delete="onDetailAction(actionKeys.deleteKey)"
         @forward="onDetailAction(actionKeys.forwardKey)"
+        @logs="onDetailAction(actionKeys.logsKey)"
         @resume="onDetailAction(actionKeys.resumeKey)"
         @set-default="onDetailAction(actionKeys.setDefaultKey)"
         @shell="onDetailAction(actionKeys.shellKey)"
@@ -243,6 +247,7 @@ import type { TRelatedObject } from '@/application/services/resourceDetail/types
 import type { TResourceListRequest } from '@/application/services/resourceList/types/TResourceListRequest'
 import type { TResourceUsage } from '@/application/services/metrics/types/TResourceUsage'
 import { EventScopeService } from '@/application/services/eventScope/EventScopeService'
+import { TablePrefsCodec } from '@/application/services/uiState/models/TablePrefsCodec'
 import type { TEventScope } from '@/domain/entities/cluster'
 import { AppConnectivityEvent } from '@/domain/events/app/AppConnectivityEvent'
 import { AppResumedEvent } from '@/domain/events/app/AppResumedEvent'
@@ -361,6 +366,10 @@ export default class ResourcePage extends VueBase {
   // Discovery may replace the registry entry with a different API version, so reloads key off the kind, not the slug.
   public get kindKey(): string {
     return this.kind?.key ?? ''
+  }
+
+  public get tableKey(): string {
+    return this.kindKey === '' ? '' : `resource:${this.kindKey}`
   }
 
   public get title(): string {
@@ -561,7 +570,7 @@ export default class ResourcePage extends VueBase {
         && row.namespace === this.uiStore.detailNamespace) ?? null
   }
 
-  private get dialogs(): InstanceType<typeof ResourceActionDialogs> | undefined {
+  private dialogs(): InstanceType<typeof ResourceActionDialogs> | undefined {
     return this.$refs.dialogs as InstanceType<typeof ResourceActionDialogs> | undefined
   }
 
@@ -605,13 +614,14 @@ export default class ResourcePage extends VueBase {
   @Watch('kindKey')
   async kindChanged(): Promise<void> {
     this.dropUnaddressable()
+    this.restoreTablePrefs()
     await this.resolveCustomColumns()
     await this.reload()
   }
 
   @Watch('columnSignature')
   columnsChanged(): void {
-    this.hiddenKeys = ResourceColumns.defaultHidden(this.columns)
+    this.restoreTablePrefs()
   }
 
   @Watch('namespaces')
@@ -650,6 +660,20 @@ export default class ResourcePage extends VueBase {
 
   public clearSelection(): void {
     this.selected = []
+  }
+
+  public setHiddenKeys(keys: string[]): void {
+    this.hiddenKeys = keys
+    if (this.tableKey !== '') {
+      this.uiStore.setTableHiddenKeys(this.tableKey, keys)
+    }
+  }
+
+  public setSort(sort: TUiTableSort | null): void {
+    this.sort = sort
+    if (this.tableKey !== '') {
+      this.uiStore.setTableSort(this.tableKey, sort)
+    }
   }
 
   public async setEventScope(scope: TEventScope): Promise<void> {
@@ -705,12 +729,12 @@ export default class ResourcePage extends VueBase {
   public openCreate(): void {
     this.leave(() => {
       this.uiStore.closeDetail()
-      this.dialogs?.openCreate()
+      this.dialogs()?.openCreate()
     })
   }
 
   public openCreateNamespace(): void {
-    this.dialogs?.openCreateNamespace()
+    this.dialogs()?.openCreateNamespace()
   }
 
   public async onCreated(created: { kind: KubeResourceKind; name: string; namespace: string }): Promise<void> {
@@ -775,29 +799,29 @@ export default class ResourcePage extends VueBase {
       return
     }
 
-    this.dialogs?.handleAction(event.action, event.row)
+    this.dialogs()?.handleAction(event.action, event.row)
   }
 
   public onDetailAction(action: string): void {
     if (this.selectedRow) {
-      this.dialogs?.handleAction(action, this.selectedRow)
+      this.dialogs()?.handleAction(action, this.selectedRow)
     }
   }
 
   public askBulkDelete(): void {
-    this.dialogs?.askBulkDelete(this.selectedRows)
+    this.dialogs()?.askBulkDelete(this.selectedRows)
   }
 
   public bulkRestart(): void {
-    void this.dialogs?.bulkRestart(this.selectedRows)
+    void this.dialogs()?.bulkRestart(this.selectedRows)
   }
 
   public bulkCordon(): void {
-    void this.dialogs?.bulkCordon(this.selectedRows)
+    void this.dialogs()?.bulkCordon(this.selectedRows)
   }
 
   public bulkUncordon(): void {
-    void this.dialogs?.bulkUncordon(this.selectedRows)
+    void this.dialogs()?.bulkUncordon(this.selectedRows)
   }
 
   private editYaml(row: TResourceRow): void {
@@ -828,7 +852,7 @@ export default class ResourcePage extends VueBase {
   }
 
   private showDetails(row: TResourceRow): void {
-    this.dialogs?.closeCreate()
+    this.dialogs()?.closeCreate()
     this.uiStore.openDetail(row.namespace, row.name)
   }
 
@@ -933,11 +957,32 @@ export default class ResourcePage extends VueBase {
     this.labelSelector = ''
     this.fieldSelector = ''
     this.eventScope = { type: '', objectKind: '', objectName: '' }
-    this.sort = null
     this.cursor = null
     this.selected = []
-    this.dialogs?.reset()
-    this.hiddenKeys = ResourceColumns.defaultHidden(this.columns)
+    this.dialogs()?.reset()
+    this.restoreTablePrefs()
+  }
+
+  private restoreTablePrefs(): void {
+    const columns = this.columns
+    if (this.tableKey === '') {
+      this.hiddenKeys = ResourceColumns.defaultHidden(columns)
+      this.sort = null
+      return
+    }
+
+    const stored = this.uiStore.tablePrefsOf(this.tableKey)
+
+    this.hiddenKeys = TablePrefsCodec.resolveHiddenKeys(
+      stored?.hiddenKeys,
+      columns.map(column => column.key),
+      columns.filter(column => column.locked === true).map(column => column.key),
+      ResourceColumns.defaultHidden(columns),
+    )
+    this.sort = TablePrefsCodec.resolveSort(
+      stored?.sort,
+      columns.filter(column => column.sortable !== false).map(column => column.key),
+    )
   }
 }
 </script>

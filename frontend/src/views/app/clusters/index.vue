@@ -11,16 +11,16 @@
       <ui-table-toolbar
           :columns="columns"
           :count="rows.length"
-          :density="density"
+          :density="uiStore.density"
           :filter="catalogStore.filter"
           :hidden-keys="hiddenKeys"
           :sorted="!!sort"
           :total-count="allRows.length"
           filter-placeholder="Filter clusters by name, server or namespace"
           title="Clusters"
-          @update:density="density = $event"
+          @update:density="uiStore.setDensity($event)"
           @update:filter="catalogStore.setFilter($event)"
-          @update:hidden-keys="hiddenKeys = $event"
+          @update:hidden-keys="setHiddenKeys($event)"
       >
         <template #status>
           <span v-if="connectionStore.hasConnections" class="pill pill-active tabular">
@@ -56,7 +56,7 @@
 
       <ui-deferred-loader v-else-if="showSkeleton" :loading="true">
         <template #loading>
-          <ui-skeletons :columns="6" :count="6" :density="density" type="table" />
+          <ui-skeletons :columns="6" :count="6" :density="uiStore.density" type="table" />
         </template>
       </ui-deferred-loader>
 
@@ -65,7 +65,7 @@
           :busy-keys="connectionStore.connectingIds"
           :columns="columns"
           :cursor="cursor"
-          :density="density"
+          :density="uiStore.density"
           :hidden-keys="hiddenKeys"
           :rows="rows"
           :sort="sort"
@@ -80,7 +80,7 @@
           @terminal="openTerminal"
           @toggle-pin="togglePin"
           @update:cursor="cursor = $event"
-          @update:sort="sort = $event"
+          @update:sort="setSort($event)"
       >
         <template #empty>
           <empty-state
@@ -150,6 +150,7 @@ import UiTableToolbar from '@/components/common/table/UiTableToolbar.vue'
 import { ClipboardService } from '@/application/services/clipboard/ClipboardService'
 import { SettingsService } from '@/application/services/settings/SettingsService'
 import { ToastService } from '@/application/services/toast/ToastService'
+import { TablePrefsCodec } from '@/application/services/uiState/models/TablePrefsCodec'
 import { ClusterCatalogColumns } from '@/components/cluster/ClusterCatalogColumns'
 import { ClusterRowBuilder } from '@/components/cluster/ClusterRowBuilder'
 import { ClusterRowSource } from '@/components/cluster/ClusterRowSource'
@@ -160,6 +161,7 @@ import { OpenLocalShellEvent } from '@/domain/events/terminal/OpenLocalShellEven
 import { TerminalModeCatalog } from '@/domain/models/settings/TerminalModeCatalog'
 import type { TTerminalMode } from '@/domain/models/settings/types/TTerminalMode'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
+import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { ClusterAppearanceStore } from '@/store/modules/clusterAppearance/ClusterAppearanceStore'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
@@ -170,7 +172,6 @@ import type { TKubeconfigDeletion } from '@/store/modules/clusterCatalog/types/T
 import type { TClusterRow } from '@/components/cluster/types/TClusterRow'
 import type { TUiSelectOption } from '@/components/common/select/types/TUiSelectOption'
 import type { TUiTableColumn } from '@/components/common/table/types/TUiTableColumn'
-import type { TUiTableDensity } from '@/components/common/table/types/TUiTableDensity'
 import type { TUiTableSort } from '@/components/common/table/types/TUiTableSort'
 
 @Component({
@@ -190,9 +191,9 @@ import type { TUiTableSort } from '@/components/common/table/types/TUiTableSort'
   },
 })
 export default class ClustersPage extends VueBase {
-  private static readonly defaultPanelWidth = 460
+  private static readonly tableKey = 'catalog:clusters'
 
-  public density: TUiTableDensity = 'compact'
+  private static readonly defaultPanelWidth = 460
 
   public hiddenKeys: string[] = ClusterCatalogColumns.defaultHidden()
 
@@ -213,6 +214,7 @@ export default class ClustersPage extends VueBase {
   public deleteBusy = false
 
   constructor(
+      @inject(AppUiStore) public readonly uiStore: AppUiStore,
       @inject(ClusterCatalogStore) public readonly catalogStore: ClusterCatalogStore,
       @inject(ClusterConnectionStore) public readonly connectionStore: ClusterConnectionStore,
       @inject(ClusterHealthStore) public readonly healthStore: ClusterHealthStore,
@@ -273,12 +275,40 @@ export default class ClustersPage extends VueBase {
   }
 
   async created(): Promise<void> {
+    this.restoreTablePrefs()
+
     await Promise.all([
       this.catalogStore.loadOnce(),
       this.connectionStore.loadNamespaces(),
     ])
 
     await this.connectionStore.adopt(this.catalogStore.items.map(context => context.name))
+  }
+
+  public setHiddenKeys(keys: string[]): void {
+    this.hiddenKeys = keys
+    this.uiStore.setTableHiddenKeys(ClustersPage.tableKey, keys)
+  }
+
+  public setSort(sort: TUiTableSort | null): void {
+    this.sort = sort
+    this.uiStore.setTableSort(ClustersPage.tableKey, sort)
+  }
+
+  private restoreTablePrefs(): void {
+    const columns = this.columns
+    const stored = this.uiStore.tablePrefsOf(ClustersPage.tableKey)
+
+    this.hiddenKeys = TablePrefsCodec.resolveHiddenKeys(
+      stored?.hiddenKeys,
+      columns.map(column => column.key),
+      columns.filter(column => column.locked === true).map(column => column.key),
+      ClusterCatalogColumns.defaultHidden(),
+    )
+    this.sort = TablePrefsCodec.resolveSort(
+      stored?.sort,
+      columns.filter(column => column.sortable !== false).map(column => column.key),
+    )
   }
 
   public select(row: TClusterRow): void {

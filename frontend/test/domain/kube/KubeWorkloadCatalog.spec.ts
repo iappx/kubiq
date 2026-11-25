@@ -44,6 +44,40 @@ describe('KubeWorkloadCatalog', () => {
         expect(KubeWorkloadCatalog.canForwardPort(kind('', 'nodes'))).toBe(false)
     })
 
+    it('views logs on pods and pod-owning workloads only', () => {
+        expect(KubeWorkloadCatalog.canViewLogs(kind('', 'pods'))).toBe(true)
+        expect(KubeWorkloadCatalog.canViewLogs(kind('apps', 'deployments'))).toBe(true)
+        expect(KubeWorkloadCatalog.canViewLogs(kind('apps', 'statefulsets'))).toBe(true)
+        expect(KubeWorkloadCatalog.canViewLogs(kind('apps', 'daemonsets'))).toBe(true)
+        expect(KubeWorkloadCatalog.canViewLogs(kind('apps', 'replicasets'))).toBe(true)
+        expect(KubeWorkloadCatalog.canViewLogs(kind('batch', 'jobs'))).toBe(true)
+        expect(KubeWorkloadCatalog.canViewLogs(kind('batch', 'cronjobs'))).toBe(false)
+        expect(KubeWorkloadCatalog.canViewLogs(kind('', 'services'))).toBe(false)
+        expect(KubeWorkloadCatalog.canViewLogs(kind('', 'configmaps'))).toBe(false)
+    })
+
+    it('identifies non-pod loggable workloads separately from pods', () => {
+        expect(KubeWorkloadCatalog.isLoggableWorkload(kind('', 'pods'))).toBe(false)
+        expect(KubeWorkloadCatalog.isLoggableWorkload(kind('apps', 'deployments'))).toBe(true)
+        expect(KubeWorkloadCatalog.isLoggableWorkload(kind('apps', 'statefulsets'))).toBe(true)
+        expect(KubeWorkloadCatalog.isLoggableWorkload(kind('apps', 'daemonsets'))).toBe(true)
+        expect(KubeWorkloadCatalog.isLoggableWorkload(kind('apps', 'replicasets'))).toBe(true)
+        expect(KubeWorkloadCatalog.isLoggableWorkload(kind('batch', 'jobs'))).toBe(true)
+        expect(KubeWorkloadCatalog.isLoggableWorkload(kind('batch', 'cronjobs'))).toBe(false)
+    })
+
+    it('allows attaching a debug container only to pods the user can patch or update', () => {
+        const readOnlyPod = kind('', 'pods').withDefinition({ verbs: ['list', 'get', 'watch'] })
+        const patchOnlyPod = kind('', 'pods').withDefinition({ verbs: ['list', 'get', 'patch'] })
+        const updateOnlyPod = kind('', 'pods').withDefinition({ verbs: ['list', 'get', 'update'] })
+
+        expect(KubeWorkloadCatalog.canDebug(kind('', 'pods'))).toBe(true)
+        expect(KubeWorkloadCatalog.canDebug(patchOnlyPod)).toBe(true)
+        expect(KubeWorkloadCatalog.canDebug(updateOnlyPod)).toBe(true)
+        expect(KubeWorkloadCatalog.canDebug(readOnlyPod)).toBe(false)
+        expect(KubeWorkloadCatalog.canDebug(kind('apps', 'deployments'))).toBe(false)
+    })
+
     it('knows which kinds carry a pod template of their own', () => {
         const templated = KubeResourceRegistry.all()
             .filter(candidate => KubeWorkloadCatalog.hasPodTemplate(candidate))

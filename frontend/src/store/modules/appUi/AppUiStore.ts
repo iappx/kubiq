@@ -1,5 +1,8 @@
 import { inject } from 'tsyringe'
 import { UiStateDefaults } from '@/application/services/uiState/constants/UiStateDefaults'
+import { TablePrefsCodec } from '@/application/services/uiState/models/TablePrefsCodec'
+import type { TTablePrefs } from '@/application/services/uiState/types/TTablePrefs'
+import type { TTableSortPref } from '@/application/services/uiState/types/TTableSortPref'
 import { UiStateService } from '@/application/services/uiState/UiStateService'
 import type { TAppDensity } from '@/domain/models/ui'
 import { InjectableStore, StoreBase } from '@/lib/vue-store'
@@ -17,6 +20,8 @@ export class AppUiStore extends StoreBase<AppUiStore> {
     public dockCollapsed = UiStateDefaults.dockCollapsed
 
     public lastClusterId = ''
+
+    public tablePrefs: Record<string, TTablePrefs> = {}
 
     public detailNamespace = ''
 
@@ -55,6 +60,7 @@ export class AppUiStore extends StoreBase<AppUiStore> {
         this.dockHeight = stored.dockHeight
         this.dockCollapsed = stored.dockCollapsed
         this.lastClusterId = stored.lastClusterId
+        this.tablePrefs = stored.tablePrefs
     }
 
     public setDensity(density: TAppDensity): void {
@@ -93,5 +99,45 @@ export class AppUiStore extends StoreBase<AppUiStore> {
 
         this.lastClusterId = clusterId
         this.uiStateService.writeLastClusterId(clusterId)
+    }
+
+    public tablePrefsOf(tableKey: string): TTablePrefs | undefined {
+        return Object.prototype.hasOwnProperty.call(this.tablePrefs, tableKey)
+            ? this.tablePrefs[tableKey]
+            : undefined
+    }
+
+    public setTableHiddenKeys(tableKey: string, hiddenKeys: readonly string[]): void {
+        this.updateTablePrefs(tableKey, { hiddenKeys: [...hiddenKeys] })
+    }
+
+    public setTableSort(tableKey: string, sort: TTableSortPref | null): void {
+        this.updateTablePrefs(tableKey, {
+            sort: sort ? { key: sort.key, direction: sort.direction } : null,
+        })
+    }
+
+    private updateTablePrefs(tableKey: string, patch: TTablePrefs): void {
+        if (!tableKey) {
+            return
+        }
+
+        const current = this.tablePrefsOf(tableKey)
+        const next: Record<string, TTablePrefs> = { ...this.tablePrefs }
+        delete next[tableKey]
+        next[tableKey] = {
+            ...current,
+            ...patch,
+        }
+
+        const keys = Object.keys(next)
+        if (keys.length > TablePrefsCodec.maxEntries) {
+            for (const key of keys.slice(0, keys.length - TablePrefsCodec.maxEntries)) {
+                delete next[key]
+            }
+        }
+
+        this.tablePrefs = next
+        this.uiStateService.writeTablePrefs(this.tablePrefs)
     }
 }

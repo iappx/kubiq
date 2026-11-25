@@ -1,4 +1,4 @@
-import { Ban, Cable, CircleCheck, CirclePause, CirclePlay, Droplets, FilePenLine, FilePlay, PanelRight, Play, RefreshCw, ScrollText, Scaling, SquareTerminal, Star, StarOff, Trash2 } from '@lucide/vue'
+import { Ban, Bug, Cable, CircleCheck, CirclePause, CirclePlay, Copy, Droplets, FileCode2, FilePenLine, FilePlay, PanelRight, Play, RefreshCw, ScrollText, Scaling, SquareTerminal, Star, StarOff, Trash2 } from '@lucide/vue'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 import type { TResourceRow } from '@/components/resource/types/TResourceRow'
 import { KubeClusterCatalog, KubeDefaultClassCatalog, KubeWorkloadCatalog } from '@/domain/models/kube'
@@ -12,6 +12,8 @@ export class ResourceActions {
     public static readonly logsKey: string = 'logs'
 
     public static readonly shellKey: string = 'shell'
+
+    public static readonly debugKey: string = 'debug'
 
     public static readonly forwardKey: string = 'forward'
 
@@ -37,6 +39,10 @@ export class ResourceActions {
 
     public static readonly unsetDefaultKey: string = 'unset-default'
 
+    public static readonly copyNameKey: string = 'copy-name'
+
+    public static readonly copyYamlKey: string = 'copy-yaml'
+
     public static readonly deleteKey: string = 'delete'
 
     public static of(kind: KubeResourceKind | null): TUiMenuItem[] {
@@ -52,9 +58,14 @@ export class ResourceActions {
             items.push({ key: ResourceActions.editYamlKey, label: 'Edit YAML', icon: FilePenLine })
         }
 
-        if (KubeWorkloadCatalog.isPod(kind)) {
+        if (KubeWorkloadCatalog.canViewLogs(kind)) {
             items.push({ key: ResourceActions.logsKey, label: 'View logs', icon: ScrollText })
+        }
+        if (KubeWorkloadCatalog.isPod(kind)) {
             items.push({ key: ResourceActions.shellKey, label: 'Open shell', icon: SquareTerminal })
+        }
+        if (KubeWorkloadCatalog.canDebug(kind)) {
+            items.push({ key: ResourceActions.debugKey, label: 'Debug container…', icon: Bug })
         }
         if (KubeWorkloadCatalog.canForwardPort(kind)) {
             items.push({ key: ResourceActions.forwardKey, label: 'Forward port', icon: Cable })
@@ -84,6 +95,10 @@ export class ResourceActions {
             items.push({ key: ResourceActions.setDefaultKey, label: 'Set as default', icon: Star, separatorBefore: true })
             items.push({ key: ResourceActions.unsetDefaultKey, label: 'Unset default', icon: StarOff, separatorBefore: true })
         }
+
+        items.push({ key: ResourceActions.copyNameKey, label: 'Copy name', icon: Copy, separatorBefore: true })
+        items.push({ key: ResourceActions.copyYamlKey, label: 'Copy YAML', icon: FileCode2 })
+
         if (kind.canDelete) {
             items.push({
                 key: ResourceActions.deleteKey,

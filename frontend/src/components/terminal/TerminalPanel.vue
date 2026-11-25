@@ -78,11 +78,11 @@ export default class TerminalPanel extends VueBase {
   }
 
   public findNext(): void {
-    this.terminal?.findNext()
+    this.terminal()?.findNext()
   }
 
   public findPrevious(): void {
-    this.terminal?.findPrevious()
+    this.terminal()?.findPrevious()
   }
 
   public restart(): void {
@@ -97,7 +97,7 @@ export default class TerminalPanel extends VueBase {
     this.terminalStore.openLink(TerminalTools.kubectlDocs)
   }
 
-  private get terminal(): { findNext(): void, findPrevious(): void } | undefined {
+  private terminal(): { findNext(): void, findPrevious(): void } | undefined {
     return this.$refs.terminal as { findNext(): void, findPrevious(): void } | undefined
   }
 }

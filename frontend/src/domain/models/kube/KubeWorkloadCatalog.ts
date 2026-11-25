@@ -22,6 +22,14 @@ export class KubeWorkloadCatalog {
         KubeResourceKind.registryKeyOf('apps', 'daemonsets'),
     ]
 
+    private static readonly loggableWorkloads: string[] = [
+        KubeResourceKind.registryKeyOf('apps', 'deployments'),
+        KubeResourceKind.registryKeyOf('apps', 'statefulsets'),
+        KubeResourceKind.registryKeyOf('apps', 'daemonsets'),
+        KubeResourceKind.registryKeyOf('apps', 'replicasets'),
+        KubeWorkloadCatalog.jobsKey,
+    ]
+
     private static readonly podNamePrefixed: string[] = [
         KubeResourceKind.registryKeyOf('apps', 'deployments'),
         KubeResourceKind.registryKeyOf('apps', 'statefulsets'),
@@ -85,6 +93,18 @@ export class KubeWorkloadCatalog {
 
     public static isPod(kind: KubeResourceKind): boolean {
         return kind.registryKey === KubeWorkloadCatalog.podsKey
+    }
+
+    public static isLoggableWorkload(kind: KubeResourceKind): boolean {
+        return KubeWorkloadCatalog.loggableWorkloads.includes(kind.registryKey)
+    }
+
+    public static canViewLogs(kind: KubeResourceKind): boolean {
+        return KubeWorkloadCatalog.isPod(kind) || KubeWorkloadCatalog.isLoggableWorkload(kind)
+    }
+
+    public static canDebug(kind: KubeResourceKind): boolean {
+        return KubeWorkloadCatalog.isPod(kind) && (kind.canPatch || kind.canUpdate)
     }
 
     public static canForwardPort(kind: KubeResourceKind): boolean {

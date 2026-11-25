@@ -11,6 +11,8 @@
           :cluster-id="clusterId"
           :rows="clusterRows"
           @catalog="goToCatalog"
+          @disconnect="disconnectCluster"
+          @reconnect="reconnectCluster"
           @switch="switchCluster"
       />
 
@@ -139,7 +141,30 @@ export default class TopNav extends VueBase {
   }
 
   public reconnect(): void {
-    void this.connectionStore.connect(this.clusterId)
+    this.reconnectCluster(this.clusterId)
+  }
+
+  public reconnectCluster(clusterId: string): void {
+    if (clusterId === '') {
+      return
+    }
+
+    void this.connectionStore.connect(clusterId, this.catalogStore.sources, clusterId === this.clusterId)
+  }
+
+  public async disconnectCluster(clusterId: string): Promise<void> {
+    if (clusterId === '') {
+      return
+    }
+
+    await this.connectionStore.disconnect(clusterId)
+    if (clusterId !== this.clusterId || this.connectionStore.isConnected(clusterId)) {
+      return
+    }
+
+    const next = this.connectionStore.connections[0]
+    const target = next ? ClusterRoutes.shell(next.clusterId) : ClusterRoutes.catalog
+    await this.$router.push(target)
   }
 }
 </script>

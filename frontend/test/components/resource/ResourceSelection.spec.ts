@@ -64,6 +64,7 @@ describe('ResourceSelection', () => {
             expect(row.namespace).toBe('prod')
             expect(row.tone).toBe('unknown')
             expect(row.key).toBe('prod/api-7f9')
+            expect(row.hasState).toBe(false)
         })
 
         it('keys a cluster-scoped object by its name alone', () => {

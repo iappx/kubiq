@@ -21,6 +21,7 @@ describe('CustomResourceEntity', () => {
         const entity = build(KubeObjectFixtures.customResource())
 
         expect(entity.conditions).toHaveLength(1)
+        expect(entity.hasHealthState).toBe(true)
         expect(entity.state).toBe('ok')
         expect(entity.isProblematic).toBe(false)
     })
@@ -31,24 +32,40 @@ describe('CustomResourceEntity', () => {
 
         const entity = build(source)
 
+        expect(entity.hasHealthState).toBe(true)
         expect(entity.state).toBe('error')
         expect(entity.isProblematic).toBe(true)
     })
 
-    it('stays unknown when the CRD spells its conditions some other way', () => {
+    it('stays unknown and reports no health state when the CRD spells its conditions some other way', () => {
         const source = KubeObjectFixtures.customResource()
         source.status.conditions = [{ type: 'Synced', status: 'True' }]
 
-        expect(build(source).state).toBe('unknown')
+        const entity = build(source)
+
+        expect(entity.hasHealthState).toBe(false)
+        expect(entity.state).toBe('unknown')
     })
 
-    it('stays unknown when there is no status at all', () => {
+    it('stays unknown and reports no health state when there is no status at all', () => {
         const source = KubeObjectFixtures.customResource()
         delete source.status
 
         const entity = build(source)
 
         expect(entity.conditions).toEqual([])
+        expect(entity.hasHealthState).toBe(false)
         expect(entity.state).toBe('unknown')
+    })
+
+    it('reports a health state while deleting even without a Ready condition', () => {
+        const source = KubeObjectFixtures.customResource()
+        delete source.status
+        source.metadata.deletionTimestamp = '2026-10-01T12:00:00Z'
+
+        const entity = build(source)
+
+        expect(entity.hasHealthState).toBe(true)
+        expect(entity.state).toBe('pending')
     })
 })

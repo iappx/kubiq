@@ -4,7 +4,12 @@ import type { TKubeObjectState } from '@/domain/entities/kube/types/TKubeObjectS
 
 export class KubeObjectHealth {
     public static hasState(entity: RepoEntityBase): boolean {
-        const state = (entity as unknown as Record<string, unknown>).state
+        const source = entity as unknown as Record<string, unknown>
+        if (typeof source.hasHealthState === 'boolean') {
+            return source.hasHealthState
+        }
+
+        const state = source.state
 
         return typeof state === 'string' && KubeObjectStateCatalog.has(state)
     }

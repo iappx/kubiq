@@ -65,6 +65,7 @@ export class TerminalService {
         return [
             ...(pod.spec?.initContainers ?? []).map(container => ({ name: container.name, isInit: true })),
             ...(pod.spec?.containers ?? []).map(container => ({ name: container.name, isInit: false })),
+            ...(pod.spec?.ephemeralContainers ?? []).map(container => ({ name: container.name, isInit: false })),
         ].filter(container => container.name !== '')
     }
 

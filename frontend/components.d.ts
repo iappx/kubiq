@@ -128,6 +128,7 @@ declare module 'vue' {
     OverviewWorkloadCard: typeof import('./src/components/clusterOverview/OverviewWorkloadCard.vue')['default']
     PaletteTrigger: typeof import('./src/components/clusterShell/PaletteTrigger.vue')['default']
     PodContainersCell: typeof import('./src/components/resource/PodContainersCell.vue')['default']
+    PodDebugDialog: typeof import('./src/components/resource/PodDebugDialog.vue')['default']
     PodLogMenuButton: typeof import('./src/components/logs/PodLogMenuButton.vue')['default']
     PodLogNotice: typeof import('./src/components/logs/PodLogNotice.vue')['default']
     PodLogRow: typeof import('./src/components/logs/PodLogRow.vue')['default']
@@ -155,6 +156,7 @@ declare module 'vue' {
     ResourceCertManagerSection: typeof import('./src/components/resource/detail/ResourceCertManagerSection.vue')['default']
     ResourceConditionList: typeof import('./src/components/resource/detail/ResourceConditionList.vue')['default']
     ResourceContainerList: typeof import('./src/components/resource/detail/ResourceContainerList.vue')['default']
+    ResourceDataEditDialog: typeof import('./src/components/resource/detail/ResourceDataEditDialog.vue')['default']
     ResourceDataRow: typeof import('./src/components/resource/detail/ResourceDataRow.vue')['default']
     ResourceDataSection: typeof import('./src/components/resource/detail/ResourceDataSection.vue')['default']
     ResourceDetailBody: typeof import('./src/components/resource/detail/ResourceDetailBody.vue')['default']
@@ -248,5 +250,6 @@ declare module 'vue' {
     UiTimeChart: typeof import('./src/components/chart/UiTimeChart.vue')['default']
     UiToggle: typeof import('./src/components/common/toggle/UiToggle.vue')['default']
     UiTooltip: typeof import('./src/components/common/UiTooltip.vue')['default']
+    WorkloadLogsDialog: typeof import('./src/components/resource/WorkloadLogsDialog.vue')['default']
   }
 }

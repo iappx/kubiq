@@ -54,6 +54,7 @@ export class ResourceSelection {
             createdAt: '',
             tone: 'unknown',
             statusTitle: KubeObjectStateCatalog.title('unknown'),
+            hasState: false,
         }
     }
 }

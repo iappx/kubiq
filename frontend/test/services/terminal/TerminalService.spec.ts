@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { EntityRepo } from '@iappx/entity-repo'
 import type { ClusterConnectionService } from '@/application/services/cluster/ClusterConnectionService'
 import type { TClusterConnection } from '@/application/services/cluster/types/TClusterConnection'
 import type { LocalShellService } from '@/application/services/localShell/LocalShellService'
@@ -12,14 +13,17 @@ import { ApiError } from '@/domain/errors/ApiError'
 import { TerminalBytes } from '@/domain/models/terminal'
 import type { TTerminalHint, TTerminalState } from '@/domain/models/terminal'
 import type { KubeChannelAdapter } from '@/infrastructure/channel/KubeChannelAdapter'
+import { KubeEntityContext } from '@/infrastructure/entityRepo/kube/KubeEntityContext'
 import type { HostShellAdapter } from '@/infrastructure/process/HostShellAdapter'
 import type { PtyAdapter } from '@/infrastructure/process/PtyAdapter'
 import type { IClusterStream } from '@/infrastructure/kube/types/IClusterStream'
 import { MemoryChannelAdapter } from '../../support/MemoryChannelAdapter'
+import { MemoryKubeTransport } from '../../support/MemoryKubeTransport'
 import { MemoryPtyAdapter } from '../../support/MemoryPtyAdapter'
 
 const channels = new MemoryChannelAdapter()
 const ptys = new MemoryPtyAdapter()
+const restTransport = new MemoryKubeTransport()
 
 const registered: { clusterId: string, stream: IClusterStream }[] = []
 const connections = new Map<string, TClusterConnection>()
@@ -39,6 +43,7 @@ const connection = (clusterId: string, overrides: Partial<TClusterConnection> = 
 const connectionService = {
     connection: (clusterId: string) => connections.get(clusterId) ?? null,
     isConnected: (clusterId: string) => connections.has(clusterId),
+    context: () => EntityRepo.create().use(KubeEntityContext, restTransport as never).getContext(KubeEntityContext),
     registerStream: (clusterId: string, stream: IClusterStream) => {
         registered.push({ clusterId, stream })
         return () => {
@@ -127,6 +132,7 @@ describe('TerminalService', () => {
         await service.closeAll()
         channels.reset()
         ptys.reset()
+        restTransport.reset()
         registered.length = 0
         states.length = 0
         connections.clear()
@@ -518,6 +524,30 @@ describe('TerminalService', () => {
 
             expect(nodeShell.removed).toHaveLength(1)
             expect(stateOf('term|prod|1')?.state).toBe('failed')
+        })
+    })
+
+    describe('containers', () => {
+        it('lists init, regular and ephemeral containers of a pod', async () => {
+            restTransport.answerWith({
+                apiVersion: 'v1',
+                kind: 'Pod',
+                metadata: { uid: 'p1', name: 'api-0', namespace: 'payments' },
+                spec: {
+                    initContainers: [{ name: 'migrate' }],
+                    containers: [{ name: 'app' }],
+                    ephemeralContainers: [{ name: 'debugger-abc123' }],
+                },
+                status: { phase: 'Running' },
+            })
+
+            const containers = await service.containers('prod', 'payments', 'api-0')
+
+            expect(containers).toEqual([
+                { name: 'migrate', isInit: true },
+                { name: 'app', isInit: false },
+                { name: 'debugger-abc123', isInit: false },
+            ])
         })
     })
 })

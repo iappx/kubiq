@@ -3,6 +3,8 @@ import { PodEnvironmentService } from '@/application/services/podEnvironment/Pod
 import { PodEnvironmentText } from '@/application/services/podEnvironment/models/PodEnvironmentText'
 import type { TPodEnvironmentGroup } from '@/application/services/podEnvironment/types/TPodEnvironmentGroup'
 import { ResourceDataService } from '@/application/services/resourceData/ResourceDataService'
+import { ResourceDataEditor } from '@/application/services/resourceData/models/ResourceDataEditor'
+import type { TResourceDataEditDraft } from '@/application/services/resourceData/types/TResourceDataEditDraft'
 import type { TResourceDataPair } from '@/application/services/resourceData/types/TResourceDataPair'
 import { ResourceDetailService } from '@/application/services/resourceDetail/ResourceDetailService'
 import { ResourceEventLog } from '@/application/services/resourceEvents/models/ResourceEventLog'
@@ -281,6 +283,22 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
 
             return false
         }
+    }
+
+    public async saveDataEntry(ref: TResourceObjectRef, draft: TResourceDataEditDraft): Promise<boolean> {
+        const current = this.byKey(ResourceObjectStore.keyOf(ref)).object
+        const edited = ResourceDataEditor.upsert(current, KubeClusterCatalog.isSecret(ref.kind), draft)
+        const result = await this.apply(ref, edited)
+
+        return result !== null
+    }
+
+    public async removeDataEntry(ref: TResourceObjectRef, key: string, field?: string): Promise<boolean> {
+        const current = this.byKey(ResourceObjectStore.keyOf(ref)).object
+        const edited = ResourceDataEditor.remove(current, key, field)
+        const result = await this.apply(ref, edited)
+
+        return result !== null
     }
 
     public forget(clusterId: string): void {

@@ -98,4 +98,52 @@ describe('AppUiStore', () => {
         expect(store.detailNamespace).toBe('')
         expect(store.detailName).toBe('')
     })
+
+    it('persists per-table hidden columns and sort order independently across reloads', () => {
+        store.setTableHiddenKeys('catalog:clusters', ['authType'])
+        store.setTableSort('catalog:clusters', { key: 'displayName', direction: 'asc' })
+        store.setTableHiddenKeys('v1:pods', [])
+
+        expect(store.tablePrefsOf('catalog:clusters')).toEqual({
+            hiddenKeys: ['authType'],
+            sort: { key: 'displayName', direction: 'asc' },
+        })
+        expect(store.tablePrefsOf('v1:pods')).toEqual({
+            hiddenKeys: [],
+        })
+        expect(store.tablePrefsOf('apps/v1:deployments')).toBeUndefined()
+
+        store.load()
+
+        expect(store.tablePrefsOf('catalog:clusters')).toEqual({
+            hiddenKeys: ['authType'],
+            sort: { key: 'displayName', direction: 'asc' },
+        })
+        expect(store.tablePrefsOf('v1:pods')).toEqual({
+            hiddenKeys: [],
+        })
+    })
+
+    it('persists clearing sort without discarding hidden columns', () => {
+        store.setTableHiddenKeys('catalog:clusters', ['source'])
+        store.setTableSort('catalog:clusters', { key: 'server', direction: 'desc' })
+        store.setTableSort('catalog:clusters', null)
+        store.load()
+
+        expect(store.tablePrefsOf('catalog:clusters')).toEqual({
+            hiddenKeys: ['source'],
+            sort: null,
+        })
+    })
+
+    it('replaces tablePrefs immutably on update and ignores empty table keys', () => {
+        const before = store.tablePrefs
+
+        store.setTableHiddenKeys('', ['source'])
+        store.setTableSort('', { key: 'name', direction: 'asc' })
+        expect(store.tablePrefs).toBe(before)
+
+        store.setTableHiddenKeys('catalog:clusters', ['source'])
+        expect(store.tablePrefs).not.toBe(before)
+    })
 })

@@ -76,6 +76,28 @@
       @cancel="creatingNamespace = false"
       @confirm="confirmCreateNamespace"
   />
+
+  <pod-debug-dialog
+      :busy="acting"
+      :containers="debugContainers"
+      :default-image="debugDefaultImage"
+      :error="debugError"
+      :namespace="pendingDebug?.namespace ?? ''"
+      :open="!!pendingDebug"
+      :pod-name="pendingDebug?.name ?? ''"
+      @cancel="cancelDebug"
+      @start="confirmDebug"
+  />
+
+  <workload-logs-dialog
+      :loading="workloadLogsLoading"
+      :open="!!pendingLogs"
+      :pods="workloadLogPods"
+      :workload-kind="kind?.kind ?? ''"
+      :workload-name="pendingLogs?.name ?? ''"
+      @cancel="cancelWorkloadLogs"
+      @select="selectWorkloadLogPod"
+  />
 </template>
 
 <script lang="ts">
@@ -88,20 +110,31 @@ import CreateResourcePanel from '@/components/resource/CreateResourcePanel.vue'
 import DefaultClassDialog from '@/components/resource/DefaultClassDialog.vue'
 import DeleteResourceDialog from '@/components/resource/DeleteResourceDialog.vue'
 import DrainNodeDialog from '@/components/resource/DrainNodeDialog.vue'
+import PodDebugDialog from '@/components/resource/PodDebugDialog.vue'
 import ResourceYamlDiscardDialog from '@/components/resource/detail/ResourceYamlDiscardDialog.vue'
 import ScaleWorkloadDialog from '@/components/resource/ScaleWorkloadDialog.vue'
 import TriggerCronJobDialog from '@/components/resource/TriggerCronJobDialog.vue'
+import WorkloadLogsDialog from '@/components/resource/WorkloadLogsDialog.vue'
 import { ResourceActions } from '@/components/resource/ResourceActions'
 import { ResourceRowBuilder } from '@/components/resource/ResourceRowBuilder'
 import { ResourceTargetBuilder } from '@/components/resource/ResourceTargetBuilder'
 import { ResourceWorkload } from '@/components/resource/ResourceWorkload'
 import type { TResourceRow } from '@/components/resource/types/TResourceRow'
+import { ClipboardService } from '@/application/services/clipboard/ClipboardService'
 import type { TDefaultClassPlan } from '@/application/services/defaultClass/types/TDefaultClassPlan'
+import { PodDebugService } from '@/application/services/podDebug/PodDebugService'
+import { YamlDocument } from '@/application/services/resourceYaml/models/YamlDocument'
+import { ResourceYamlService } from '@/application/services/resourceYaml/ResourceYamlService'
+import { ToastService } from '@/application/services/toast/ToastService'
+import type { TWorkloadPodChoice } from '@/application/services/workloadLogs/types/TWorkloadPodChoice'
+import { WorkloadLogsService } from '@/application/services/workloadLogs/WorkloadLogsService'
 import type { CronJobEntity } from '@/domain/entities/workloads'
+import { ApiError } from '@/domain/errors/ApiError'
+import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { OpenPodLogsEvent } from '@/domain/events/cluster/OpenPodLogsEvent'
 import { OpenPodShellEvent } from '@/domain/events/terminal/OpenPodShellEvent'
 import { OpenPortForwardEvent } from '@/domain/events/terminal/OpenPortForwardEvent'
-import { KubeKindLocator, KubeResourceRegistry } from '@/domain/models/kube'
+import { KubeKindLocator, KubeResourceRegistry, KubeWorkloadCatalog } from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
@@ -120,9 +153,11 @@ import { NodeStore } from '@/store/modules/node/NodeStore'
     DefaultClassDialog,
     DeleteResourceDialog,
     DrainNodeDialog,
+    PodDebugDialog,
     ResourceYamlDiscardDialog,
     ScaleWorkloadDialog,
     TriggerCronJobDialog,
+    WorkloadLogsDialog,
   },
   emits: ['update:acting', 'reload', 'created', 'clear-selection', 'keep-editing', 'discard-edits'],
 })
@@ -151,6 +186,20 @@ export default class ResourceActionDialogs extends VueBase {
 
   public pendingDefault: TDefaultClassPlan | null = null
 
+  public pendingDebug: TResourceRow | null = null
+
+  public debugDefaultImage = ''
+
+  public debugContainers: string[] = []
+
+  public debugError = ''
+
+  public pendingLogs: TResourceRow | null = null
+
+  public workloadLogPods: TWorkloadPodChoice[] = []
+
+  public workloadLogsLoading = false
+
   public acting = false
 
   public creating = false
@@ -164,6 +213,11 @@ export default class ResourceActionDialogs extends VueBase {
       @inject(DefaultClassStore) private readonly defaultClassStore: DefaultClassStore,
       @inject(NamespaceStore) public readonly namespaceStore: NamespaceStore,
       @inject(NodeStore) private readonly nodeStore: NodeStore,
+      @inject(ClipboardService) private readonly clipboardService: ClipboardService,
+      @inject(PodDebugService) private readonly podDebugService: PodDebugService,
+      @inject(ResourceYamlService) private readonly yamlService: ResourceYamlService,
+      @inject(ToastService) private readonly toastService: ToastService,
+      @inject(WorkloadLogsService) private readonly workloadLogsService: WorkloadLogsService,
       @inject(EventBus) private readonly eventBus: EventBus,
   ) {
     super()
@@ -232,15 +286,20 @@ export default class ResourceActionDialogs extends VueBase {
     this.pendingDefault = null
     this.creating = false
     this.creatingNamespace = false
+    this.cancelDebug()
+    this.cancelWorkloadLogs()
   }
 
   public handleAction(action: string, row: TResourceRow): void {
     switch (action) {
       case ResourceActions.logsKey:
-        this.openLogs(row)
+        void this.openLogs(row)
         return
       case ResourceActions.shellKey:
         this.openShell(row)
+        return
+      case ResourceActions.debugKey:
+        void this.askDebug(row)
         return
       case ResourceActions.forwardKey:
         this.openPortForward(row)
@@ -278,6 +337,12 @@ export default class ResourceActionDialogs extends VueBase {
       case ResourceActions.unsetDefaultKey:
         void this.changeDefault(row, false)
         return
+      case ResourceActions.copyNameKey:
+        void this.copyName(row)
+        return
+      case ResourceActions.copyYamlKey:
+        void this.copyYaml(row)
+        return
       case ResourceActions.deleteKey:
         this.askDelete(row)
     }
@@ -288,8 +353,142 @@ export default class ResourceActionDialogs extends VueBase {
     this.$emit('created', created)
   }
 
-  public openLogs(row: TResourceRow): void {
+  public async copyName(row: TResourceRow): Promise<void> {
+    try {
+      await this.clipboardService.write(row.name)
+      this.toastService.success(`Copied "${row.name}"`)
+    } catch (err) {
+      this.eventBus.emitEvent(new AppErrorEvent(err, 'ResourceActionDialogs.copyName'))
+    }
+  }
+
+  public async copyYaml(row: TResourceRow): Promise<void> {
+    const kind = this.kind
+    if (!kind) {
+      return
+    }
+
+    try {
+      const manifest = await this.yamlService.read({
+        clusterId: this.clusterId,
+        kind,
+        name: row.name,
+        namespace: row.namespace,
+      })
+      await this.clipboardService.write(YamlDocument.text(manifest))
+      this.toastService.success(`Copied YAML for "${row.name}"`)
+    } catch (err) {
+      this.eventBus.emitEvent(new AppErrorEvent(err, 'ResourceActionDialogs.copyYaml'))
+    }
+  }
+
+  public async openLogs(row: TResourceRow): Promise<void> {
+    if (this.kind && KubeWorkloadCatalog.isLoggableWorkload(this.kind)) {
+      await this.openWorkloadLogs(row)
+      return
+    }
+
     this.eventBus.emitEvent(new OpenPodLogsEvent(this.clusterId, row.namespace, row.name))
+  }
+
+  public async openWorkloadLogs(row: TResourceRow): Promise<void> {
+    const kind = this.kind
+    if (!kind) {
+      return
+    }
+
+    this.pendingLogs = row
+    this.workloadLogPods = []
+    this.workloadLogsLoading = true
+
+    try {
+      const pods = await this.workloadLogsService.podsOf(this.clusterId, kind, row.name, row.namespace)
+      if (this.pendingLogs?.key !== row.key) {
+        return
+      }
+
+      if (pods.length === 1) {
+        this.cancelWorkloadLogs()
+        this.eventBus.emitEvent(new OpenPodLogsEvent(this.clusterId, pods[0].namespace, pods[0].name))
+        return
+      }
+
+      this.workloadLogPods = pods
+      this.workloadLogsLoading = false
+    } catch (err) {
+      if (this.pendingLogs?.key === row.key) {
+        this.cancelWorkloadLogs()
+      }
+      this.eventBus.emitEvent(new AppErrorEvent(err, 'ResourceActionDialogs.openWorkloadLogs'))
+    }
+  }
+
+  public cancelWorkloadLogs(): void {
+    this.pendingLogs = null
+    this.workloadLogPods = []
+    this.workloadLogsLoading = false
+  }
+
+  public selectWorkloadLogPod(choice: TWorkloadPodChoice): void {
+    this.cancelWorkloadLogs()
+    this.eventBus.emitEvent(new OpenPodLogsEvent(this.clusterId, choice.namespace, choice.name))
+  }
+
+  public async askDebug(row: TResourceRow): Promise<void> {
+    this.pendingDebug = row
+    this.debugError = ''
+    this.debugDefaultImage = ''
+    this.debugContainers = []
+
+    const [imageResult, containersResult] = await Promise.allSettled([
+      this.podDebugService.defaultImage(),
+      this.podDebugService.containersOf(this.clusterId, row.namespace, row.name),
+    ])
+
+    if (this.pendingDebug?.key !== row.key) {
+      return
+    }
+
+    if (imageResult.status === 'fulfilled') {
+      this.debugDefaultImage = imageResult.value
+    }
+    if (containersResult.status === 'fulfilled') {
+      this.debugContainers = containersResult.value
+    }
+  }
+
+  public cancelDebug(): void {
+    this.pendingDebug = null
+    this.debugDefaultImage = ''
+    this.debugContainers = []
+    this.debugError = ''
+  }
+
+  public async confirmDebug(payload: { image: string; targetContainerName: string }): Promise<void> {
+    const target = this.pendingDebug
+    if (!target) {
+      return
+    }
+
+    this.debugError = ''
+
+    try {
+      const result = await this.run(() => this.podDebugService.attach({
+        clusterId: this.clusterId,
+        namespace: target.namespace,
+        podName: target.name,
+        image: payload.image,
+        targetContainerName: payload.targetContainerName || undefined,
+      }))
+      if (this.pendingDebug?.key === target.key) {
+        this.cancelDebug()
+      }
+      this.eventBus.emitEvent(new OpenPodShellEvent(this.clusterId, target.namespace, target.name, result.containerName))
+    } catch (err) {
+      if (this.pendingDebug?.key === target.key) {
+        this.debugError = ResourceActionDialogs.formatError(err)
+      }
+    }
   }
 
   public openShell(row: TResourceRow | null): void {
@@ -550,6 +749,14 @@ export default class ResourceActionDialogs extends VueBase {
   private setActing(value: boolean): void {
     this.acting = value
     this.$emit('update:acting', value)
+  }
+
+  private static formatError(err: unknown): string {
+    if (err instanceof ApiError && err.details) {
+      return `${err.message} — ${err.details}`
+    }
+
+    return err instanceof Error ? err.message : String(err)
   }
 }
 </script>

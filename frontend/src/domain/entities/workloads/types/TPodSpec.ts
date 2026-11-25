@@ -10,5 +10,6 @@ export type TPodSpec = {
     hostNetwork?: boolean
     containers?: TKubeContainer[]
     initContainers?: TKubeContainer[]
+    ephemeralContainers?: TKubeContainer[]
     volumes?: TKubePodVolume[]
 }

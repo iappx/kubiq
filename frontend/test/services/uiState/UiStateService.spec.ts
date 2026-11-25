@@ -26,6 +26,7 @@ describe('UiStateService', () => {
             dockHeight: UiStateDefaults.dockHeight,
             dockCollapsed: UiStateDefaults.dockCollapsed,
             lastClusterId: '',
+            tablePrefs: {},
         })
     })
 
@@ -36,6 +37,12 @@ describe('UiStateService', () => {
         service.writeDockHeight(300)
         service.writeDockCollapsed(false)
         service.writeLastClusterId('prod')
+        service.writeTablePrefs({
+            'catalog:clusters': {
+                hiddenKeys: ['source'],
+                sort: { key: 'displayName', direction: 'desc' },
+            },
+        })
 
         expect(service.read()).toEqual({
             density: 'comfortable',
@@ -44,6 +51,12 @@ describe('UiStateService', () => {
             dockHeight: 300,
             dockCollapsed: false,
             lastClusterId: 'prod',
+            tablePrefs: {
+                'catalog:clusters': {
+                    hiddenKeys: ['source'],
+                    sort: { key: 'displayName', direction: 'desc' },
+                },
+            },
         })
     })
 
@@ -82,6 +95,12 @@ describe('UiStateService', () => {
         store.set(UiStateKeys.sidebarCollapsed, 'yes')
 
         expect(service.read().sidebarCollapsed).toBe(UiStateDefaults.sidebarCollapsed)
+    })
+
+    it('falls back to an empty map for corrupted table preferences', () => {
+        store.set(UiStateKeys.tablePrefs, '{not-json')
+
+        expect(service.read().tablePrefs).toEqual({})
     })
 
     it('answers with the defaults when the browser refuses to read', () => {

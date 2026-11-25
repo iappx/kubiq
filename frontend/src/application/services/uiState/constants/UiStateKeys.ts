@@ -10,4 +10,6 @@ export class UiStateKeys {
     public static readonly dockCollapsed: string = 'ui-dock-collapsed'
 
     public static readonly lastClusterId: string = 'ui-last-cluster'
+
+    public static readonly tablePrefs: string = 'ui-table-prefs'
 }
