@@ -100,6 +100,7 @@ export class ProcessAdapter {
             command: spec.command,
             args: [...spec.args],
             env: { ...(spec.env ?? {}) },
+            emptyEnv: [...(spec.emptyEnv ?? [])],
             dir: spec.dir ?? '',
             pty: false,
             cols: 0,

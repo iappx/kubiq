@@ -32,7 +32,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
+import { Component, Prop, VueBase, Watch } from '@iappx/vue-facing-di'
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -42,6 +42,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from 'reka-ui'
+import { ModalEscapeStack } from '@/components/base/modals/ModalEscapeStack'
 import UiStatusDot from '@/components/common/status/UiStatusDot.vue'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 
@@ -66,5 +67,41 @@ export default class UiDropdownMenu extends VueBase {
   public readonly align?: 'start' | 'center' | 'end'
 
   public isOpen = false
+
+  private escapeToken: symbol | null = null
+
+  @Watch('isOpen')
+  openChanged(open: boolean): void {
+    if (open) {
+      this.registerEscape()
+    } else {
+      this.unregisterEscape()
+    }
+  }
+
+  mounted(): void {
+    if (this.isOpen) {
+      this.registerEscape()
+    }
+  }
+
+  beforeUnmount(): void {
+    this.unregisterEscape()
+  }
+
+  private registerEscape(): void {
+    this.escapeToken ??= Symbol('dropdown-menu')
+    ModalEscapeStack.push(this.escapeToken, 'modal', () => {
+      if (this.isOpen) {
+        this.isOpen = false
+      }
+    })
+  }
+
+  private unregisterEscape(): void {
+    if (this.escapeToken) {
+      ModalEscapeStack.remove(this.escapeToken)
+    }
+  }
 }
 </script>

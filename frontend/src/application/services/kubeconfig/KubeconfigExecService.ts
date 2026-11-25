@@ -49,10 +49,18 @@ export class KubeconfigExecService {
 
         const command = await this.resolveCommand(execConfig.command.trim(), user.filePath || context.filePath)
         const env: Record<string, string> = {}
+        const emptyEnv = new Set<string>()
         for (const entry of execConfig.env) {
-            env[entry.name] = entry.value
+            if (entry.value === '') {
+                delete env[entry.name]
+                emptyEnv.add(entry.name)
+            } else {
+                emptyEnv.delete(entry.name)
+                env[entry.name] = entry.value
+            }
         }
         env.KUBERNETES_EXEC_INFO = ExecCredentialParser.buildExecInfo(execConfig, context.cluster)
+        emptyEnv.delete('KUBERNETES_EXEC_INFO')
 
         let outcome
         try {
@@ -60,6 +68,7 @@ export class KubeconfigExecService {
                 command,
                 args: execConfig.args,
                 env,
+                ...(emptyEnv.size > 0 ? { emptyEnv: [...emptyEnv] } : {}),
                 timeoutMs: KubeconfigExecService.DefaultTimeoutMs,
             })
         } catch (err) {

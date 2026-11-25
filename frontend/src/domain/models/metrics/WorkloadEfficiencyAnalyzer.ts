@@ -110,8 +110,8 @@ export class WorkloadEfficiencyAnalyzer {
         }
 
         return [...byNamespace.entries()]
-            .map(([namespace, items]) => WorkloadEfficiencyAnalyzer.toGroup(namespace, items))
-            .sort((a, b) => WorkloadEfficiencyAnalyzer.compareGroups(a, b))
+            .map(([namespace, items]) => WorkloadEfficiencyAnalyzer.toGroup(namespace, items, mode))
+            .sort((a, b) => WorkloadEfficiencyAnalyzer.compareGroups(a, b, mode))
     }
 
     private static evaluatePod(
@@ -231,8 +231,8 @@ export class WorkloadEfficiencyAnalyzer {
         return cpuHigh || memHigh
     }
 
-    private static toGroup(namespace: string, items: TEfficiencyItem[]): TEfficiencyNamespaceGroup {
-        const sorted = [...items].sort((a, b) => WorkloadEfficiencyAnalyzer.compareItems(a, b))
+    private static toGroup(namespace: string, items: TEfficiencyItem[], mode: TEfficiencyMode): TEfficiencyNamespaceGroup {
+        const sorted = [...items].sort((a, b) => WorkloadEfficiencyAnalyzer.compareItems(a, b, mode))
         const uniquePods = new Set(sorted.map(item => item.podName))
 
         let maxCpuRatio = 0
@@ -262,8 +262,16 @@ export class WorkloadEfficiencyAnalyzer {
         }
     }
 
-    private static compareItems(left: TEfficiencyItem, right: TEfficiencyItem): number {
-        const diff = Math.max(right.cpuRatio, right.memoryRatio) - Math.max(left.cpuRatio, left.memoryRatio)
+    private static compareItems(left: TEfficiencyItem, right: TEfficiencyItem, mode: TEfficiencyMode): number {
+        const diff = mode === 'unused-requests'
+            ? WorkloadEfficiencyAnalyzer.compareNumbers(
+                WorkloadEfficiencyAnalyzer.unusedRatio(left),
+                WorkloadEfficiencyAnalyzer.unusedRatio(right),
+            )
+            : WorkloadEfficiencyAnalyzer.compareNumbers(
+                Math.max(right.cpuRatio, right.memoryRatio),
+                Math.max(left.cpuRatio, left.memoryRatio),
+            )
         if (diff !== 0) {
             return diff
         }
@@ -271,9 +279,47 @@ export class WorkloadEfficiencyAnalyzer {
         return byPod !== 0 ? byPod : left.containerName.localeCompare(right.containerName)
     }
 
-    private static compareGroups(left: TEfficiencyNamespaceGroup, right: TEfficiencyNamespaceGroup): number {
-        const diff = Math.max(right.maxCpuRatio, right.maxMemoryRatio) - Math.max(left.maxCpuRatio, left.maxMemoryRatio)
+    private static compareGroups(
+        left: TEfficiencyNamespaceGroup,
+        right: TEfficiencyNamespaceGroup,
+        mode: TEfficiencyMode,
+    ): number {
+        const diff = mode === 'unused-requests'
+            ? WorkloadEfficiencyAnalyzer.compareNumbers(
+                WorkloadEfficiencyAnalyzer.groupUnusedRatio(left),
+                WorkloadEfficiencyAnalyzer.groupUnusedRatio(right),
+            )
+            : WorkloadEfficiencyAnalyzer.compareNumbers(
+                Math.max(right.maxCpuRatio, right.maxMemoryRatio),
+                Math.max(left.maxCpuRatio, left.maxMemoryRatio),
+            )
         return diff !== 0 ? diff : left.namespace.localeCompare(right.namespace)
+    }
+
+    private static unusedRatio(item: TEfficiencyItem): number {
+        const ratios: number[] = []
+        if (item.cpuRequestCores > 0) {
+            ratios.push(item.cpuRatio)
+        }
+        if (item.memoryRequestBytes > 0) {
+            ratios.push(item.memoryRatio)
+        }
+
+        return ratios.length > 0 ? Math.min(...ratios) : Number.POSITIVE_INFINITY
+    }
+
+    private static groupUnusedRatio(group: TEfficiencyNamespaceGroup): number {
+        return group.items.length > 0
+            ? WorkloadEfficiencyAnalyzer.unusedRatio(group.items[0])
+            : Number.POSITIVE_INFINITY
+    }
+
+    private static compareNumbers(left: number, right: number): number {
+        if (left === right) {
+            return 0
+        }
+
+        return left < right ? -1 : 1
     }
 
     private static podRequest(pod: PodEntity, resource: 'cpu' | 'memory'): number {

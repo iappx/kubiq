@@ -139,24 +139,61 @@ describe('WorkloadEfficiencyAnalyzer', () => {
         expect(groups[0].items[0].cpuRatio).toBeCloseTo(0.9)
     })
 
-    it('detects unused-requests pods at or below the threshold', () => {
+    it('detects unused-requests pods at or below the threshold and sorts lowest utilization first', () => {
         const pods = [
+            buildPod('batch', 'moderate-0', 'Running', [
+                { name: 'worker', requests: { cpu: '1', memory: '1Gi' } },
+            ]),
             buildPod('batch', 'idle-0', 'Running', [
                 { name: 'worker', requests: { cpu: '1', memory: '1Gi' } },
+            ]),
+            buildPod('batch', 'cpu-only-0', 'Running', [
+                { name: 'worker', requests: { cpu: '1' } },
             ]),
             buildPod('batch', 'busy-0', 'Running', [
                 { name: 'worker', requests: { cpu: '1', memory: '1Gi' } },
             ]),
+            buildPod('analytics', 'barely-used-0', 'Running', [
+                { name: 'worker', requests: { cpu: '1', memory: '1Gi' } },
+            ]),
         ]
         const usage: Record<string, TPodUsage> = {
-            'batch/idle-0': { cpuCores: 0.1, memoryBytes: mib(128) },
+            'batch/moderate-0': { cpuCores: 0.2, memoryBytes: mib(256) },
+            'batch/idle-0': { cpuCores: 0.08, memoryBytes: mib(512) },
+            'batch/cpu-only-0': { cpuCores: 0.15, memoryBytes: mib(512) },
             'batch/busy-0': { cpuCores: 0.8, memoryBytes: mib(800) },
+            'analytics/barely-used-0': { cpuCores: 0.02, memoryBytes: mib(64) },
         }
 
         const groups = WorkloadEfficiencyAnalyzer.analyze(pods, usage, 'unused-requests', 25)
 
-        expect(groups).toHaveLength(1)
-        expect(groups[0].items.map(item => item.podName)).toEqual(['idle-0'])
+        expect(groups.map(group => group.namespace)).toEqual(['analytics', 'batch'])
+        expect(groups[0].items.map(item => item.podName)).toEqual(['barely-used-0'])
+        expect(groups[1].items.map(item => item.podName)).toEqual(['idle-0', 'cpu-only-0', 'moderate-0'])
+    })
+
+    it('keeps near-limit sorting descending by highest ratio within and across groups', () => {
+        const pods = [
+            buildPod('alpha', 'mid-0', 'Running', [
+                { name: 'app', limits: { cpu: '1', memory: '1Gi' } },
+            ]),
+            buildPod('beta', 'high-0', 'Running', [
+                { name: 'app', limits: { cpu: '1', memory: '1Gi' } },
+            ]),
+            buildPod('beta', 'peak-0', 'Running', [
+                { name: 'app', limits: { cpu: '1', memory: '1Gi' } },
+            ]),
+        ]
+        const usage: Record<string, TPodUsage> = {
+            'alpha/mid-0': { cpuCores: 0.85, memoryBytes: mib(512) },
+            'beta/high-0': { cpuCores: 0.82, memoryBytes: mib(512) },
+            'beta/peak-0': { cpuCores: 0.96, memoryBytes: mib(512) },
+        }
+
+        const groups = WorkloadEfficiencyAnalyzer.analyze(pods, usage, 'near-limit', 80)
+
+        expect(groups.map(group => group.namespace)).toEqual(['beta', 'alpha'])
+        expect(groups[0].items.map(item => item.podName)).toEqual(['peak-0', 'high-0'])
     })
 
     it('aggregates multi-container pods when only pod-level usage is available', () => {

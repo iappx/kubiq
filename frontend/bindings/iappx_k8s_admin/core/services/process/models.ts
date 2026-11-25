@@ -178,6 +178,7 @@ export class StartSpec {
      * An empty value removes the variable instead of setting it to "".
      */
     "env": { [_ in string]?: string };
+    "emptyEnv": string[];
     "dir": string;
     "pty": boolean;
     "cols": number;
@@ -193,6 +194,9 @@ export class StartSpec {
         }
         if (!("env" in $$source)) {
             this["env"] = {};
+        }
+        if (!("emptyEnv" in $$source)) {
+            this["emptyEnv"] = [];
         }
         if (!("dir" in $$source)) {
             this["dir"] = "";
@@ -216,12 +220,16 @@ export class StartSpec {
     static createFrom($$source: any = {}): StartSpec {
         const $$createField1_0 = $$createType0;
         const $$createField2_0 = $$createType1;
+        const $$createField3_0 = $$createType0;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("args" in $$parsedSource) {
             $$parsedSource["args"] = $$createField1_0($$parsedSource["args"]);
         }
         if ("env" in $$parsedSource) {
             $$parsedSource["env"] = $$createField2_0($$parsedSource["env"]);
+        }
+        if ("emptyEnv" in $$parsedSource) {
+            $$parsedSource["emptyEnv"] = $$createField3_0($$parsedSource["emptyEnv"]);
         }
         return new StartSpec($$parsedSource as Partial<StartSpec>);
     }

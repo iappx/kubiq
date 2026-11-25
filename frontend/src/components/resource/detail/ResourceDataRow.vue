@@ -53,7 +53,7 @@
       </button>
 
       <button
-          v-if="canEdit"
+          v-if="canDelete"
           :aria-label="deleteLabel"
           class="btn-icon h-7 w-7 shrink-0 text-destructive"
           title="Delete key"
@@ -105,8 +105,11 @@ export default class ResourceDataRow extends VueBase {
   @Prop({ required: true })
   public readonly object: Record<string, unknown>
 
-  @Prop({ required: false, default: false })
+  @Prop({ required: false, type: Boolean, default: false })
   public readonly editable?: boolean
+
+  @Prop({ required: false, type: Boolean, default: false })
+  public readonly deletable?: boolean
 
   public revealed = false
 
@@ -150,7 +153,41 @@ export default class ResourceDataRow extends VueBase {
   }
 
   public get canEdit(): boolean {
-    return Boolean(this.editable) && !this.entry.binary && this.entry.field === DetailDataEntries.dataField
+    return Boolean(this.editable)
+      && !this.entry.binary
+      && this.entry.field === DetailDataEntries.dataField
+      && DetailDataEntries.isCopyable(this.object, this.entry)
+      && this.hasValidUtf8Encoding
+  }
+
+  public get canDelete(): boolean {
+    return Boolean(this.deletable)
+  }
+
+  private get hasValidUtf8Encoding(): boolean {
+    if (!this.entry.encoded) {
+      return true
+    }
+
+    const map = this.object[this.entry.field]
+    if (typeof map !== 'object' || map === null) {
+      return true
+    }
+
+    const encoded = (map as Record<string, unknown>)[this.entry.key]
+    if (typeof encoded !== 'string' || encoded === '') {
+      return true
+    }
+
+    try {
+      const binary = atob(encoded)
+      const bytes = Uint8Array.from(binary, char => char.charCodeAt(0))
+      new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+
+      return true
+    } catch {
+      return false
+    }
   }
 
   public get editLabel(): string {

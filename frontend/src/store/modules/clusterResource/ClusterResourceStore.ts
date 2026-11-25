@@ -31,6 +31,8 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
 
     public lists: Record<string, TResourceListState> = {}
 
+    private readonly generations = new Map<string, number>()
+
     constructor(
         @inject(ResourceListService) private readonly listService: ResourceListService,
         @inject(ResourceWatchService) private readonly watchService: ResourceWatchService,
@@ -52,6 +54,7 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
 
     public async load(request: TResourceListRequest): Promise<void> {
         const key = ClusterResourceStore.keyOf(request.clusterId, request.kind)
+        this.bumpGeneration(key)
         this.patch(key, { loading: true, loadingMore: false, error: '', errorDetail: '', forbidden: false })
 
         try {
@@ -72,11 +75,12 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
             return
         }
 
+        const generation = this.generationOf(key)
         this.patch(key, { loadingMore: true })
 
         try {
             const result = await this.listService.listMore(request, state.cursors)
-            if (!(key in this.lists)) {
+            if (this.generationOf(key) !== generation || !(key in this.lists)) {
                 return
             }
 
@@ -91,7 +95,10 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
                 hasMore: result.hasMore,
             })
         } catch (err) {
-            if (key in this.lists && KubeStatusReader.isGone(err)) {
+            if (this.generationOf(key) !== generation || !(key in this.lists)) {
+                return
+            }
+            if (KubeStatusReader.isGone(err)) {
                 const current = this.byKey(key)
                 this.patch(key, {
                     cursors: current.cursors.map(cursor => ({
@@ -105,7 +112,7 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
                 this.eventBus.emitEvent(new AppErrorEvent(err, 'ClusterResourceStore.loadMore'))
             }
         } finally {
-            if (key in this.lists) {
+            if (this.generationOf(key) === generation && key in this.lists) {
                 this.patch(key, { loadingMore: false })
             }
         }
@@ -285,7 +292,9 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
         const remaining: Record<string, TResourceListState> = {}
 
         Object.keys(this.lists).forEach((key) => {
-            if (!key.startsWith(prefix)) {
+            if (key.startsWith(prefix)) {
+                this.bumpGeneration(key)
+            } else {
                 remaining[key] = this.lists[key]
             }
         })
@@ -390,6 +399,17 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
 
         const removing = new Set(rowKeys)
         this.patch(key, { busyKeys: current.filter(open => !removing.has(open)) })
+    }
+
+    private generationOf(key: string): number {
+        return this.generations.get(key) ?? 0
+    }
+
+    private bumpGeneration(key: string): number {
+        const next = this.generationOf(key) + 1
+        this.generations.set(key, next)
+
+        return next
     }
 
     private byKey(key: string): TResourceListState {

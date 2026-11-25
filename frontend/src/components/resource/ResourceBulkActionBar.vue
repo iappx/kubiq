@@ -59,7 +59,7 @@ export default class ResourceBulkActionBar extends VueBase {
   @Prop({ required: false, default: null })
   public readonly kind: KubeResourceKind | null
 
-  @Prop({ required: false, default: false })
+  @Prop({ required: false, type: Boolean, default: false })
   public readonly busy?: boolean
 
   public get countLabel(): string {

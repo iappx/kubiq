@@ -290,7 +290,13 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
         const edited = ResourceDataEditor.upsert(current, KubeClusterCatalog.isSecret(ref.kind), draft)
         const result = await this.apply(ref, edited)
 
-        return result !== null
+        if (result !== null) {
+            return true
+        }
+
+        this.surfaceDataConflict(ref, 'ResourceObjectStore.saveDataEntry')
+
+        return false
     }
 
     public async removeDataEntry(ref: TResourceObjectRef, key: string, field?: string): Promise<boolean> {
@@ -298,7 +304,13 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
         const edited = ResourceDataEditor.remove(current, key, field)
         const result = await this.apply(ref, edited)
 
-        return result !== null
+        if (result !== null) {
+            return true
+        }
+
+        this.surfaceDataConflict(ref, 'ResourceObjectStore.removeDataEntry')
+
+        return false
     }
 
     public forget(clusterId: string): void {
@@ -350,6 +362,24 @@ export class ResourceObjectStore extends StoreBase<ResourceObjectStore> {
         } finally {
             this.patch(key, { relationsLoading: false })
         }
+    }
+
+    private surfaceDataConflict(ref: TResourceObjectRef, context: string): void {
+        const key = ResourceObjectStore.keyOf(ref)
+        const state = this.byKey(key)
+        if (Object.keys(state.conflict).length === 0) {
+            return
+        }
+
+        this.patch(key, { object: state.conflict, conflict: {} })
+        this.eventBus.emitEvent(new AppErrorEvent(
+            new ApiError(
+                'Object was modified on the cluster',
+                'The latest version has been loaded — review the keys and try again.',
+                409,
+            ),
+            context,
+        ))
     }
 
     // A conflict raises no error event: the editor puts the fresh object beside the draft and explains it there.

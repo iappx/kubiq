@@ -87,12 +87,39 @@ describe('KubeconfigExecService', () => {
         expect(spec.command).toBe('aws')
         expect(spec.args).toEqual(['eks', 'get-token', '--cluster-name', 'prod'])
         expect(spec.env?.AWS_PROFILE).toBe('prod')
+        expect(spec.emptyEnv).toBeUndefined()
         expect(spec.timeoutMs).toBe(KubeconfigExecService.DefaultTimeoutMs)
 
         const execInfo = JSON.parse(spec.env?.KUBERNETES_EXEC_INFO ?? '{}')
         expect(execInfo.kind).toBe('ExecCredential')
         expect(execInfo.spec.interactive).toBe(false)
         expect(execInfo.spec.cluster.server).toBe('https://eks.example.internal:6443')
+    })
+
+    it('forwards empty-string exec env values through emptyEnv instead of env', async () => {
+        collect.mockResolvedValue({
+            code: 0,
+            stdout: execOutput('fake-token'),
+            stderr: '',
+        })
+
+        await service.resolve(buildContext({
+            env: [
+                { name: 'AWS_PROFILE', value: 'prod' },
+                { name: 'EMPTY_FLAG', value: '' },
+                { name: 'OVERRIDDEN_TO_EMPTY', value: 'initial' },
+                { name: 'OVERRIDDEN_TO_EMPTY', value: '' },
+                { name: 'OVERRIDDEN_TO_VALUE', value: '' },
+                { name: 'OVERRIDDEN_TO_VALUE', value: 'set' },
+            ],
+        }))
+
+        const spec = collect.mock.calls[0][0]
+        expect(spec.env?.AWS_PROFILE).toBe('prod')
+        expect(spec.env?.OVERRIDDEN_TO_VALUE).toBe('set')
+        expect(spec.env).not.toHaveProperty('EMPTY_FLAG')
+        expect(spec.env).not.toHaveProperty('OVERRIDDEN_TO_EMPTY')
+        expect(spec.emptyEnv).toEqual(['EMPTY_FLAG', 'OVERRIDDEN_TO_EMPTY'])
     })
 
     it('caches credentials until 60s before expirationTimestamp and refreshes afterwards', async () => {

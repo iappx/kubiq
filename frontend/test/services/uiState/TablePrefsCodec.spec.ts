@@ -119,6 +119,47 @@ describe('TablePrefsCodec', () => {
         })
     })
 
+    describe('mergeHiddenKeys', () => {
+        const available = ['name', 'status', 'namespace', 'node', 'ip', 'age']
+
+        it('preserves hidden keys for unavailable dynamic columns when toggling visible ones', () => {
+            const merged = TablePrefsCodec.mergeHiddenKeys(
+                ['cpu', 'memory', 'node'],
+                ['ip'],
+                available,
+            )
+
+            expect(merged).toEqual(['ip', 'cpu', 'memory'])
+        })
+
+        it('removes keys that are currently available and no longer hidden', () => {
+            const merged = TablePrefsCodec.mergeHiddenKeys(
+                ['node', 'ip', 'cpu'],
+                [],
+                [...available, 'cpu'],
+            )
+
+            expect(merged).toEqual([])
+        })
+
+        it('deduplicates keys, preserves order, and excludes empty strings', () => {
+            const merged = TablePrefsCodec.mergeHiddenKeys(
+                ['cpu', '', 'memory', 'cpu', 'ip'],
+                ['ip', '', 'namespace', 'ip', 'cpu'],
+                available,
+            )
+
+            expect(merged).toEqual(['ip', 'namespace', 'cpu', 'memory'])
+        })
+
+        it('handles an undefined previous list', () => {
+            expect(TablePrefsCodec.mergeHiddenKeys(undefined, ['node', '', 'node', 'ip'], available)).toEqual([
+                'node',
+                'ip',
+            ])
+        })
+    })
+
     describe('resolveSort', () => {
         const sortable = ['name', 'status', 'age']
 

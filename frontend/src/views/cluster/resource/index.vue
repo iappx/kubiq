@@ -251,6 +251,7 @@ import { TablePrefsCodec } from '@/application/services/uiState/models/TablePref
 import type { TEventScope } from '@/domain/entities/cluster'
 import { AppConnectivityEvent } from '@/domain/events/app/AppConnectivityEvent'
 import { AppResumedEvent } from '@/domain/events/app/AppResumedEvent'
+import { ClusterConnectedEvent } from '@/domain/events/cluster/ClusterConnectedEvent'
 import { KubeAccessHint, KubeClusterCatalog, KubeResourceRegistry } from '@/domain/models/kube'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
@@ -320,6 +321,8 @@ export default class ResourcePage extends VueBase {
   private onResumed!: () => void
 
   private onConnectivity!: (event: AppConnectivityEvent) => void
+
+  private onConnected!: (event: ClusterConnectedEvent) => void
 
   private queryState!: RouteQueryState
 
@@ -581,8 +584,14 @@ export default class ResourcePage extends VueBase {
         void this.reconnect()
       }
     }
+    this.onConnected = (event: ClusterConnectedEvent) => {
+      if (event.clusterId === this.clusterId) {
+        void this.reconnect()
+      }
+    }
     this.eventBus.registerHandler(AppResumedEvent, this.onResumed)
     this.eventBus.registerHandler(AppConnectivityEvent, this.onConnectivity)
+    this.eventBus.registerHandler(ClusterConnectedEvent, this.onConnected)
     this.removeLeaveGuard = this.$router.beforeEach((to, from) => this.guardRoute(to, from))
 
     this.resetView()
@@ -602,6 +611,7 @@ export default class ResourcePage extends VueBase {
     this.removeLeaveGuard()
     this.eventBus.unregisterHandler(AppResumedEvent, this.onResumed)
     this.eventBus.unregisterHandler(AppConnectivityEvent, this.onConnectivity)
+    this.eventBus.unregisterHandler(ClusterConnectedEvent, this.onConnected)
     this.uiStore.closeDetail()
     await this.stopWatch()
   }
@@ -665,7 +675,12 @@ export default class ResourcePage extends VueBase {
   public setHiddenKeys(keys: string[]): void {
     this.hiddenKeys = keys
     if (this.tableKey !== '') {
-      this.uiStore.setTableHiddenKeys(this.tableKey, keys)
+      const merged = TablePrefsCodec.mergeHiddenKeys(
+        this.uiStore.tablePrefsOf(this.tableKey)?.hiddenKeys,
+        keys,
+        this.columns.map(column => column.key),
+      )
+      this.uiStore.setTableHiddenKeys(this.tableKey, merged)
     }
   }
 

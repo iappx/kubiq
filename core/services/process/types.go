@@ -10,11 +10,12 @@ type StartSpec struct {
 	Command string   `json:"command"`
 	Args    []string `json:"args"`
 	// An empty value removes the variable instead of setting it to "".
-	Env  map[string]string `json:"env"`
-	Dir  string            `json:"dir"`
-	Pty  bool              `json:"pty"`
-	Cols int               `json:"cols"`
-	Rows int               `json:"rows"`
+	Env      map[string]string `json:"env"`
+	EmptyEnv []string          `json:"emptyEnv"`
+	Dir      string            `json:"dir"`
+	Pty      bool              `json:"pty"`
+	Cols     int               `json:"cols"`
+	Rows     int               `json:"rows"`
 }
 
 type LaunchSpec struct {

@@ -13,12 +13,12 @@
       :name-key="nameKey"
       :refreshing="refreshing"
       :rows="rows"
+      :selectable="true"
       :selected="selected"
       :sort="sort"
       :tone-of="toneOf"
       class="flex-1 min-h-0"
       row-key="key"
-      selectable
       @action="$emit('action', $event)"
       @open="$emit('open', $event)"
       @update:cursor="$emit('update:cursor', $event)"
@@ -102,7 +102,7 @@ export default class ResourceTable extends VueBase {
   @Prop({ required: false, default: 'compact' })
   public readonly density?: TUiTableDensity
 
-  @Prop({ required: false, default: false })
+  @Prop({ required: false, type: Boolean, default: false })
   public readonly refreshing?: boolean
 
   public get nameKey(): string {

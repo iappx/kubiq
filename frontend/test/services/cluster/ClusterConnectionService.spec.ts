@@ -302,6 +302,33 @@ describe('ClusterConnectionService', () => {
             expect(second.sessionId).toBe('session-2')
             expect(service.connections).toHaveLength(1)
         })
+
+        it('forgets cached credentials before rebuilding the spec on reconnect and keeps the newly minted ones', async () => {
+            variables.KUBECONFIG = HOME_CONFIG
+            sessionsInOrder('session-1', 'session-2')
+
+            const order: string[] = []
+            const forgetSpy = vi.spyOn(kubeconfigService, 'forgetCredentials').mockImplementation((contextName) => {
+                order.push(`forget:${contextName}`)
+            })
+            const originalBuild = kubeconfigService.buildConnectionSpec.bind(kubeconfigService)
+            vi.spyOn(kubeconfigService, 'buildConnectionSpec').mockImplementation(async (contextName, extraPaths) => {
+                order.push(`build:${contextName}`)
+                return originalBuild(contextName, extraPaths)
+            })
+
+            await service.connect('prod')
+            expect(forgetSpy).not.toHaveBeenCalled()
+            order.length = 0
+
+            const reconnected = await service.connect('prod')
+
+            expect(order).toEqual(['forget:prod', 'build:prod'])
+            expect(forgetSpy).toHaveBeenCalledTimes(1)
+            expect(forgetSpy).toHaveBeenCalledWith('prod')
+            expect(disconnect).toHaveBeenCalledWith('session-1')
+            expect(reconnected.sessionId).toBe('session-2')
+        })
     })
 
     describe('the server version', () => {

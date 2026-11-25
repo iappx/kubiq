@@ -63,6 +63,20 @@ describe('ProcessAdapter', () => {
         expect(host.started[0].args).toEqual(['version', '--short'])
         expect(host.started[0].env).toEqual({ KUBECONFIG: '/a:/b' })
         expect(host.started[0].pty).toBe(false)
+        expect(start.mock.calls[0][0].emptyEnv).toEqual([])
+    })
+
+    it('forwards emptyEnv names to the Go StartSpec', async () => {
+        host.script({ stdout: 'ok\n' })
+
+        await adapter.collect({
+            command: 'aws',
+            args: ['eks', 'get-token'],
+            env: { AWS_PROFILE: 'prod' },
+            emptyEnv: ['AWS_SESSION_TOKEN', 'AWS_REGION'],
+        })
+
+        expect(start.mock.calls[0][0].emptyEnv).toEqual(['AWS_SESSION_TOKEN', 'AWS_REGION'])
     })
 
     it('collects stdout, stderr and the exit code of a finished process', async () => {

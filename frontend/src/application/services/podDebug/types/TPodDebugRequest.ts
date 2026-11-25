@@ -4,4 +4,5 @@ export type TPodDebugRequest = {
     podName: string
     image: string
     targetContainerName?: string
+    signal?: AbortSignal
 }

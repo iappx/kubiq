@@ -599,6 +599,80 @@ describe('ClusterResourceStore pagination', () => {
         expect(store.stateOf('prod', pods).loadingMore).toBe(false)
         expect(errors).toHaveLength(1)
     })
+
+    it('discards a stale loadMore result when a fresh load supersedes it', async () => {
+        let resolveStale!: (value: typeof fake.state.moreResult) => void
+        let resolveFreshMore!: (value: typeof fake.state.moreResult) => void
+        fake.listMore
+            .mockImplementationOnce(() => new Promise((resolve) => { resolveStale = resolve }))
+            .mockImplementationOnce(() => new Promise((resolve) => { resolveFreshMore = resolve }))
+
+        const staleMore = store.loadMore({ clusterId: 'prod', kind: pods })
+        expect(store.stateOf('prod', pods).loadingMore).toBe(true)
+
+        fake.state.result = {
+            items: [object('fresh-0')],
+            total: 2,
+            cursors: [{ namespace: '', resourceVersion: '20', continueToken: 'fresh-tok' }],
+            hasMore: true,
+        }
+        await store.load({ clusterId: 'prod', kind: pods })
+
+        const freshMore = store.loadMore({ clusterId: 'prod', kind: pods })
+        expect(store.stateOf('prod', pods).loadingMore).toBe(true)
+
+        resolveStale({
+            items: [object('stale-2'), object('stale-3')],
+            total: 99,
+            cursors: [{ namespace: '', resourceVersion: '10', continueToken: 'stale-tok' }],
+            hasMore: false,
+        })
+        await staleMore
+
+        expect(itemNames()).toEqual(['fresh-0'])
+        expect(store.stateOf('prod', pods).total).toBe(2)
+        expect(store.stateOf('prod', pods).hasMore).toBe(true)
+        expect(store.stateOf('prod', pods).loadingMore).toBe(true)
+        expect(store.stateOf('prod', pods).cursors).toEqual([
+            { namespace: '', resourceVersion: '20', continueToken: 'fresh-tok' },
+        ])
+
+        resolveFreshMore({
+            items: [object('fresh-1')],
+            total: undefined,
+            cursors: [{ namespace: '', resourceVersion: '20' }],
+            hasMore: false,
+        })
+        await freshMore
+
+        expect(itemNames()).toEqual(['fresh-0', 'fresh-1'])
+        expect(store.stateOf('prod', pods).hasMore).toBe(false)
+        expect(store.stateOf('prod', pods).loadingMore).toBe(false)
+    })
+
+    it('ignores a stale loadMore failure after a fresh load replaces the list', async () => {
+        let rejectStale!: (reason?: unknown) => void
+        fake.listMore.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectStale = reject }))
+
+        const staleMore = store.loadMore({ clusterId: 'prod', kind: pods })
+
+        fake.state.result = {
+            items: [object('fresh-0')],
+            total: 3,
+            cursors: [{ namespace: '', resourceVersion: '30', continueToken: 'fresh-tok' }],
+            hasMore: true,
+        }
+        await store.load({ clusterId: 'prod', kind: pods })
+
+        rejectStale(new ApiError('The cluster no longer keeps that resource version', 'Expired', 410))
+        await staleMore
+
+        expect(store.stateOf('prod', pods).hasMore).toBe(true)
+        expect(store.stateOf('prod', pods).cursors).toEqual([
+            { namespace: '', resourceVersion: '30', continueToken: 'fresh-tok' },
+        ])
+        expect(errors).toEqual([])
+    })
 })
 
 describe('ClusterResourceStore bulk actions', () => {

@@ -48,12 +48,16 @@ export class ClusterConnectionService {
     }
 
     public async connect(contextName: string, extraPaths: readonly string[] = []): Promise<TClusterConnection> {
+        if (this.live.has(contextName)) {
+            this.kubeconfigService.forgetCredentials(contextName)
+        }
+
         const spec = await this.kubeconfigService.buildConnectionSpec(contextName, extraPaths)
 
         // A second connect to the same context must not strand the old session:
         // the Go side would keep it open with nothing left holding its id.
         if (this.live.has(contextName)) {
-            await this.disconnect(contextName)
+            await this.closeLive(contextName, false)
         }
 
         const sessionId = await this.sessionAdapter.connect(spec, contextName)
@@ -81,24 +85,8 @@ export class ClusterConnectionService {
         return adopted
     }
 
-    public async disconnect(clusterId: string): Promise<TClusterConnection | null> {
-        const connection = this.live.get(clusterId) ?? null
-        if (!connection) {
-            return null
-        }
-
-        // StopStream needs the session the Go side is about to forget, so streams drain first;
-        // the release runs in `finally` or a dead session keeps answering through a cached context.
-        await this.streams.drain(clusterId)
-        try {
-            await this.sessionAdapter.disconnect(connection.sessionId)
-        } finally {
-            this.contexts.release(clusterId)
-            this.live.delete(clusterId)
-            this.kubeconfigService.forgetCredentials(clusterId)
-        }
-
-        return connection
+    public disconnect(clusterId: string): Promise<TClusterConnection | null> {
+        return this.closeLive(clusterId, true)
     }
 
     public async disconnectAll(): Promise<void> {
@@ -169,6 +157,28 @@ export class ClusterConnectionService {
         const version = await this.versions.read(clusterId, connection.sessionId)
 
         return version.isKnown
+    }
+
+    private async closeLive(clusterId: string, forgetCredentials: boolean): Promise<TClusterConnection | null> {
+        const connection = this.live.get(clusterId) ?? null
+        if (!connection) {
+            return null
+        }
+
+        // StopStream needs the session the Go side is about to forget, so streams drain first;
+        // the release runs in `finally` or a dead session keeps answering through a cached context.
+        await this.streams.drain(clusterId)
+        try {
+            await this.sessionAdapter.disconnect(connection.sessionId)
+        } finally {
+            this.contexts.release(clusterId)
+            this.live.delete(clusterId)
+            if (forgetCredentials) {
+                this.kubeconfigService.forgetCredentials(clusterId)
+            }
+        }
+
+        return connection
     }
 
     private async reclaim(session: TKubeSession, contextNames: readonly string[]): Promise<TClusterConnection | null> {

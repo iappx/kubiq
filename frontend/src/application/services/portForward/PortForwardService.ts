@@ -8,6 +8,7 @@ import { PortForwardSession } from '@/application/services/portForward/models/Po
 import { PortForwardTarget } from '@/application/services/portForward/models/PortForwardTarget'
 import type { IPortForwardSessionOwner } from '@/application/services/portForward/types/IPortForwardSessionOwner'
 import type { IPortForwardSink } from '@/application/services/portForward/types/IPortForwardSink'
+import type { TPortCheckResult } from '@/application/services/portForward/types/TPortCheckResult'
 import type { TPortForward } from '@/application/services/portForward/types/TPortForward'
 import type { TPortForwardBackend } from '@/application/services/portForward/types/TPortForwardBackend'
 import type { TPortForwardChange } from '@/application/services/portForward/types/TPortForwardChange'
@@ -27,7 +28,6 @@ import { KubeStatusReader } from '@/infrastructure/entityRepo/kube/transport/Kub
 import { EntityRepoProvider } from '@/infrastructure/entityRepo/EntityRepoProvider'
 import { KubeForwardAdapter } from '@/infrastructure/channel/KubeForwardAdapter'
 import type { TKubeForwardHandle } from '@/infrastructure/channel/types/TKubeForwardHandle'
-import type { TPortCheckResult } from '@/infrastructure/channel/types/TPortCheckResult'
 import { PodChannelPath } from '@/infrastructure/channel/PodChannelPath'
 import { HostShellAdapter } from '@/infrastructure/process/HostShellAdapter'
 

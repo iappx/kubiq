@@ -76,7 +76,7 @@ export default class OverviewEfficiencyGroupRow extends VueBase {
   @Prop({ required: true })
   public readonly mode: TEfficiencyMode
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: Boolean })
   public readonly expanded: boolean
 
   public get podLabel(): string {

@@ -46,6 +46,7 @@
       <resource-data-row
           v-for="entry in shown"
           :key="`${entry.field}/${entry.key}`"
+          :deletable="canDelete"
           :editable="canEdit"
           :entry="entry"
           :object="state.object"
@@ -78,6 +79,7 @@
 
     <resource-data-edit-dialog
         :busy="state.applying"
+        :can-rename="canDelete"
         :existing-keys="existingKeys"
         :initial-key="editingKey"
         :initial-value="editingValue"
@@ -154,6 +156,10 @@ export default class ResourceDataSection extends VueBase {
 
   public get canEdit(): boolean {
     return (this.target.kind.canPatch || this.target.kind.canUpdate) && !this.isImmutable
+  }
+
+  public get canDelete(): boolean {
+    return this.target.kind.canUpdate && !this.isImmutable
   }
 
   public get entries(): TDetailDataEntry[] {
@@ -262,8 +268,9 @@ export default class ResourceDataSection extends VueBase {
       return
     }
 
-    const deleted = await this.objectStore.removeDataEntry(this.target, this.deletingEntry.key, this.deletingEntry.field)
-    if (deleted) {
+    const { key, field } = this.deletingEntry
+    const deleted = await this.objectStore.removeDataEntry(this.target, key, field)
+    if (deleted || !this.entries.some(entry => entry.key === key && entry.field === field)) {
       this.deletingEntry = null
     }
   }

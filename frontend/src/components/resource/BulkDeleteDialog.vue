@@ -25,7 +25,7 @@ import type { KubeResourceKind } from '@/domain/models/kube'
 export default class BulkDeleteDialog extends VueBase {
   private static readonly previewLimit: number = 5
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: Boolean })
   public readonly open: boolean
 
   @Prop({ required: false, default: null })
@@ -34,7 +34,7 @@ export default class BulkDeleteDialog extends VueBase {
   @Prop({ required: true })
   public readonly rows: TResourceRow[]
 
-  @Prop({ required: false, default: false })
+  @Prop({ required: false, type: Boolean, default: false })
   public readonly busy?: boolean
 
   public get title(): string {

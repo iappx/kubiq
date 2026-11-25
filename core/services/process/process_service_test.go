@@ -386,6 +386,38 @@ func TestMergeEnvironment(t *testing.T) {
 	}
 }
 
+func TestMergeEnvironmentPreservesExplicitEmptyVariables(t *testing.T) {
+	base := []string{"KEEP=1", "CLEAR=old", "DROP=bye"}
+
+	merged := mergeEnvironment(
+		base,
+		map[string]string{"DROP": "", "ADD": "yes"},
+		"CLEAR", "NEW_EMPTY", "NEW_EMPTY",
+	)
+
+	assertEnvironment(t, merged, "KEEP", "1")
+	assertEnvironment(t, merged, "CLEAR", "")
+	assertEnvironment(t, merged, "ADD", "yes")
+	assertEnvironment(t, merged, "NEW_EMPTY", "")
+
+	newEmptyCount := 0
+	for _, entry := range merged {
+		if strings.HasPrefix(entry, "DROP=") {
+			t.Fatalf("merged environment still carries %q", entry)
+		}
+		if entry == "NEW_EMPTY=" {
+			newEmptyCount++
+		}
+	}
+	if newEmptyCount != 1 {
+		t.Fatalf("NEW_EMPTY= appeared %d times, want 1: %v", newEmptyCount, merged)
+	}
+
+	emptyOnly := mergeEnvironment([]string{"EXISTING=value"}, nil, "EXISTING", "ADDED_EMPTY")
+	assertEnvironment(t, emptyOnly, "EXISTING", "")
+	assertEnvironment(t, emptyOnly, "ADDED_EMPTY", "")
+}
+
 func TestEnsureTerminalEnvironment(t *testing.T) {
 	defaults := ensureTerminalEnvironment([]string{"PATH=/usr/bin", "MALFORMED"})
 	assertEnvironment(t, defaults, "PATH", "/usr/bin")

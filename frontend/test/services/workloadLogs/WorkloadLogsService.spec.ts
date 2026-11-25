@@ -115,4 +115,28 @@ describe('WorkloadLogsService', () => {
 
         expect(restTransport.last.query?.labelSelector).toBe('job-name=backup-1')
     })
+
+    it('queries pods using matchExpressions selectors', async () => {
+        manifest = {
+            metadata: { name: 'worker', namespace: 'ops' },
+            spec: {
+                selector: {
+                    matchExpressions: [
+                        { key: 'app', operator: 'In', values: ['worker', 'queue'] },
+                        { key: 'canary', operator: 'DoesNotExist' },
+                    ],
+                },
+            },
+        }
+        restTransport.answerWith({
+            apiVersion: 'v1',
+            kind: 'PodList',
+            metadata: { resourceVersion: '1' },
+            items: [],
+        })
+
+        await service.podsOf('prod', kind('apps', 'deployments'), 'worker', 'ops')
+
+        expect(restTransport.last.query?.labelSelector).toBe('app in (worker,queue),!canary')
+    })
 })

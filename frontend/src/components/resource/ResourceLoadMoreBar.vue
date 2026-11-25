@@ -32,10 +32,10 @@ export default class ResourceLoadMoreBar extends VueBase {
   @Prop({ required: false })
   public readonly total?: number
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: Boolean })
   public readonly hasMore: boolean
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: Boolean })
   public readonly loading: boolean
 
   @Prop({ required: true })

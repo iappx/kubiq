@@ -86,7 +86,7 @@ export default class UiDock extends VueBase {
   @Prop({ required: true })
   public readonly active: string | null
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: Boolean })
   public readonly collapsed: boolean
 
   @Prop({ required: true })

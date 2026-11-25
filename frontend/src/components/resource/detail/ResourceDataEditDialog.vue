@@ -15,7 +15,7 @@
             v-model="draft.key"
             :aria-describedby="describedBy"
             :aria-invalid="errors.key ? 'true' : undefined"
-            :disabled="busy"
+            :disabled="busy || keyLocked"
             autocomplete="off"
             class="ui-input font-mono text-xs"
             placeholder="app.properties"
@@ -23,6 +23,9 @@
             type="text"
             @keydown.enter.prevent="submit"
         >
+        <p v-if="keyLocked" class="text-xs text-muted-foreground">
+          Renaming a key requires update permission.
+        </p>
       </ui-form-field>
 
       <ui-form-field v-slot="{ fieldId, describedBy }" :error="errors.value" label="Value">
@@ -58,10 +61,10 @@ import UiModal from '@/components/common/modal/UiModal.vue'
   emits: ['save', 'cancel'],
 })
 export default class ResourceDataEditDialog extends VueBase {
-  @Prop({ required: true })
+  @Prop({ required: true, type: Boolean })
   public readonly open: boolean
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: Boolean })
   public readonly isSecret: boolean
 
   @Prop({ required: true })
@@ -73,8 +76,11 @@ export default class ResourceDataEditDialog extends VueBase {
   @Prop({ required: false, default: '' })
   public readonly initialValue?: string
 
-  @Prop({ required: false, default: false })
+  @Prop({ required: false, type: Boolean, default: false })
   public readonly busy?: boolean
+
+  @Prop({ required: false, type: Boolean, default: true })
+  public readonly canRename?: boolean
 
   public draft: TResourceDataEditDraft = { key: '', value: '' }
 
@@ -88,6 +94,10 @@ export default class ResourceDataEditDialog extends VueBase {
 
   public get isEdit(): boolean {
     return Boolean(this.initialKey)
+  }
+
+  public get keyLocked(): boolean {
+    return this.isEdit && this.canRename === false
   }
 
   public get title(): string {
@@ -114,11 +124,14 @@ export default class ResourceDataEditDialog extends VueBase {
   }
 
   public submit(): void {
-    const result = this.validator.validate(this.draft, this.existingKeys)
+    const payload: TResourceDataEditDraft = this.keyLocked
+      ? { ...this.draft, key: this.initialKey ?? '' }
+      : { ...this.draft }
+    const result = this.validator.validate(payload, this.existingKeys)
     this.errors = result.errors
 
     if (result.valid) {
-      this.$emit('save', { ...this.draft })
+      this.$emit('save', payload)
     }
   }
 }

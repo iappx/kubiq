@@ -15,8 +15,11 @@ import { ModalShellBase } from '@/components/base/modals/ModalShellBase'
 import type { TModalLayer } from '@/components/base/modals/types/TModalLayer'
 import { IdService } from '@/application/services/id/IdService'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import UiContextMenu from '@/components/common/menu/UiContextMenu.vue'
+import UiDropdownMenu from '@/components/common/menu/UiDropdownMenu.vue'
 import UiModal from '@/components/common/modal/UiModal.vue'
 import UiSidePanel from '@/components/common/panel/UiSidePanel.vue'
+import UiPopover from '@/components/common/popover/UiPopover.vue'
 
 class TestShell extends ModalShellBase {
     public open = false
@@ -216,5 +219,76 @@ describe('ModalShellBase', () => {
         expect(panel.$emit).toHaveBeenCalledWith('close')
 
         panel.beforeUnmount()
+    })
+
+    it.each([
+        ['UiPopover', UiPopover],
+        ['UiDropdownMenu', UiDropdownMenu],
+        ['UiContextMenu', UiContextMenu],
+    ])('closes %s ahead of an open UiSidePanel on Escape and yields back to the panel after closing', (_name, ComponentClass) => {
+        type TPanelHarness = {
+            open: boolean
+            $emit: ReturnType<typeof vi.fn>
+            mounted: () => void
+            beforeUnmount: () => void
+            openChanged: (open: boolean) => void
+        }
+        type TOverlayHarness = {
+            isOpen: boolean
+            mounted: () => void
+            beforeUnmount: () => void
+            openChanged: (open: boolean) => void
+        }
+
+        const panel = new (UiSidePanel as unknown as new () => TPanelHarness)()
+        panel.open = true
+        panel.$emit = vi.fn()
+        panel.mounted()
+
+        const overlay = new (ComponentClass as unknown as new () => TOverlayHarness)()
+        overlay.isOpen = false
+        overlay.mounted()
+        expect(ModalEscapeStack.hasOpenModal()).toBe(false)
+
+        overlay.isOpen = true
+        overlay.openChanged(true)
+        expect(ModalEscapeStack.hasOpenModal()).toBe(true)
+
+        dispatchEscape()
+        expect(overlay.isOpen).toBe(false)
+        expect(panel.$emit).not.toHaveBeenCalled()
+
+        overlay.openChanged(false)
+        expect(ModalEscapeStack.hasOpenModal()).toBe(false)
+
+        dispatchEscape()
+        expect(panel.$emit).toHaveBeenCalledTimes(1)
+        expect(panel.$emit).toHaveBeenCalledWith('close')
+
+        overlay.beforeUnmount()
+        panel.beforeUnmount()
+    })
+
+    it.each([
+        ['UiPopover', UiPopover],
+        ['UiDropdownMenu', UiDropdownMenu],
+        ['UiContextMenu', UiContextMenu],
+    ])('registers an initially open %s on mount and unregisters on unmount', (_name, ComponentClass) => {
+        type TOverlayHarness = {
+            isOpen: boolean
+            mounted: () => void
+            beforeUnmount: () => void
+        }
+
+        const overlay = new (ComponentClass as unknown as new () => TOverlayHarness)()
+        overlay.isOpen = true
+        overlay.mounted()
+        expect(ModalEscapeStack.hasOpenModal()).toBe(true)
+
+        overlay.beforeUnmount()
+        expect(ModalEscapeStack.hasOpenModal()).toBe(false)
+
+        dispatchEscape()
+        expect(overlay.isOpen).toBe(true)
     })
 })

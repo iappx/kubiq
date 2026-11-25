@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EntityRepo } from '@iappx/entity-repo'
 import type { TRestRequest, TRestResponse } from '@iappx/entity-repo-rest'
 import type { ClusterConnectionService } from '@/application/services/cluster/ClusterConnectionService'
@@ -233,5 +233,69 @@ describe('PodDebugService', () => {
             tick += 120_000
             return tick
         })).rejects.toThrow(PodDebugService.notReady)
+    })
+
+    it('rejects with cancelled error before patching when signal is already aborted', async () => {
+        const controller = new AbortController()
+        controller.abort()
+
+        const caught = await service.attach({
+            clusterId: 'prod',
+            namespace: 'payments',
+            podName: 'api-0',
+            image: 'alpine:3.20',
+            signal: controller.signal,
+        }).catch(err => err)
+
+        expect(caught).toBeInstanceOf(ApiError)
+        expect(PodDebugService.isCancelled(caught)).toBe(true)
+        expect((caught as ApiError).message).toBe(PodDebugService.cancelled)
+        expect(httpCalls).toHaveLength(0)
+    })
+
+    it('stops polling immediately without leaking timers when aborted during wait', async () => {
+        vi.useFakeTimers()
+        try {
+            httpQueue.push(okResponse({}))
+            httpQueue.push(okResponse({
+                status: {
+                    ephemeralContainerStatuses: [
+                        { name: 'debugger-abc123', state: { waiting: { reason: 'ContainerCreating' } } },
+                    ],
+                },
+            }))
+
+            const controller = new AbortController()
+            const pending = service.attach({
+                clusterId: 'prod',
+                namespace: 'payments',
+                podName: 'api-0',
+                image: 'alpine:3.20',
+                signal: controller.signal,
+            })
+
+            for (let i = 0; i < 10 && vi.getTimerCount() === 0; i += 1) {
+                await Promise.resolve()
+            }
+
+            expect(httpCalls).toHaveLength(2)
+            expect(vi.getTimerCount()).toBe(1)
+
+            controller.abort()
+
+            const caught = await pending.catch(err => err)
+            expect(caught).toBeInstanceOf(ApiError)
+            expect(PodDebugService.isCancelled(caught)).toBe(true)
+            expect(httpCalls).toHaveLength(2)
+            expect(vi.getTimerCount()).toBe(0)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('distinguishes cancellation errors from other errors via isCancelled', () => {
+        expect(PodDebugService.isCancelled(new ApiError(PodDebugService.cancelled))).toBe(true)
+        expect(PodDebugService.isCancelled(new ApiError(PodDebugService.notReady))).toBe(false)
+        expect(PodDebugService.isCancelled(new Error(PodDebugService.cancelled))).toBe(false)
     })
 })

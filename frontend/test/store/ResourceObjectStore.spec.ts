@@ -645,22 +645,69 @@ describe('ResourceObjectStore data editing', () => {
         expect(captured[0]).toMatchObject({ kindName: 'ConfigMap', name: 'app-config', replaced: true })
     })
 
-    it('returns false and captures conflict on 409 during saveDataEntry', async () => {
+    it('refreshes the object, clears conflict, and raises AppErrorEvent on 409 during saveDataEntry without leaking secret values', async () => {
         eventBus.registerHandler(AppErrorEvent, record)
 
-        transport.answerWith(configMapDoc('40', { a: '1' }))
-        await store.load(configMapTarget)
+        const freshPlain = 'fresh-cluster-value'
+        const freshEncoded = btoa(freshPlain)
+        const draftPlain = 'local-draft-value'
+        const draftEncoded = btoa(draftPlain)
+
+        transport.answerWith(secretDoc('40', { token: btoa('old-value') }))
+        await store.load(secretTarget)
         transport.reset()
 
         transport.failWith(new ApiError('Conflict', 'Conflict', 409))
-        transport.answerWith(configMapDoc('41', { a: '2' }))
+        transport.answerWith(secretDoc('41', { token: freshEncoded }))
 
-        const saved = await store.saveDataEntry(configMapTarget, { key: 'a', value: '3', originalKey: 'a' })
+        const saved = await store.saveDataEntry(secretTarget, { key: 'token', value: draftPlain, originalKey: 'token' })
 
         eventBus.unregisterHandler(AppErrorEvent, record)
         expect(saved).toBe(false)
-        expect(KubeManifest.resourceVersionOf(store.stateOf(configMapTarget).conflict)).toBe('41')
-        expect(captured).toEqual([])
+        expect(KubeManifest.resourceVersionOf(store.stateOf(secretTarget).object)).toBe('41')
+        expect(store.stateOf(secretTarget).object).toMatchObject({ data: { token: freshEncoded } })
+        expect(store.stateOf(secretTarget).conflict).toEqual({})
+        expect(captured).toHaveLength(1)
+        expect(captured[0]).toBeInstanceOf(AppErrorEvent)
+        const event = captured[0] as AppErrorEvent
+        expect(event.context).toBe('ResourceObjectStore.saveDataEntry')
+        expect(event.error).toBeInstanceOf(ApiError)
+        expect((event.error as ApiError).message).toBe('Object was modified on the cluster')
+        expect((event.error as ApiError).details).toBe('The latest version has been loaded — review the keys and try again.')
+        expect(JSON.stringify(captured)).not.toContain(freshPlain)
+        expect(JSON.stringify(captured)).not.toContain(freshEncoded)
+        expect(JSON.stringify(captured)).not.toContain(draftPlain)
+        expect(JSON.stringify(captured)).not.toContain(draftEncoded)
+    })
+
+    it('refreshes the object, clears conflict, and raises AppErrorEvent on 409 during removeDataEntry', async () => {
+        eventBus.registerHandler(AppErrorEvent, record)
+
+        const freshPlain = 'retained-secret-value'
+        const freshEncoded = btoa(freshPlain)
+
+        transport.answerWith(secretDoc('45', { a: btoa('one'), b: btoa('two') }))
+        await store.load(secretTarget)
+        transport.reset()
+
+        transport.failWith(new ApiError('Conflict', 'Conflict', 409))
+        transport.answerWith(secretDoc('46', { a: freshEncoded, b: btoa('two') }))
+
+        const removed = await store.removeDataEntry(secretTarget, 'a')
+
+        eventBus.unregisterHandler(AppErrorEvent, record)
+        expect(removed).toBe(false)
+        expect(KubeManifest.resourceVersionOf(store.stateOf(secretTarget).object)).toBe('46')
+        expect(store.stateOf(secretTarget).object).toMatchObject({ data: { a: freshEncoded, b: btoa('two') } })
+        expect(store.stateOf(secretTarget).conflict).toEqual({})
+        expect(captured).toHaveLength(1)
+        expect(captured[0]).toBeInstanceOf(AppErrorEvent)
+        const event = captured[0] as AppErrorEvent
+        expect(event.context).toBe('ResourceObjectStore.removeDataEntry')
+        expect(event.error).toBeInstanceOf(ApiError)
+        expect((event.error as ApiError).message).toBe('Object was modified on the cluster')
+        expect(JSON.stringify(captured)).not.toContain(freshPlain)
+        expect(JSON.stringify(captured)).not.toContain(freshEncoded)
     })
 
     it('returns false and raises AppErrorEvent when removeDataEntry fails', async () => {

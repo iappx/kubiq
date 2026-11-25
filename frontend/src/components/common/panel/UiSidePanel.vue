@@ -76,7 +76,7 @@ export default class UiSidePanel extends ModalShellBase {
 
   public static readonly maxWidthPx = 880
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: Boolean })
   public readonly open: boolean
 
   @Prop({ required: true })

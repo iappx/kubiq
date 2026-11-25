@@ -70,7 +70,7 @@ export class ExternalTerminalCommand {
         return value
             .replace(/\\/g, '\\\\')
             .replace(/"/g, '\\"')
-            .replace(/\r?\n/g, ' ')
+            .replace(/\r\n|\r|\n/g, ' ')
     }
 
     public static posixBootstrap(
@@ -164,7 +164,7 @@ export class ExternalTerminalCommand {
             }
         }
 
-        return { path: 'open', args: ['-a', custom], env }
+        return { path: 'open', args: ['-n', '-a', custom], env }
     }
 
     private static forLinux(

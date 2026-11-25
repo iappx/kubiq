@@ -51,7 +51,7 @@ func (s *ProcessService) Start(spec StartSpec) StartResult {
 	// have no business in a log file.
 	log.Printf("Process start [%s pty=%v]: %s", id, spec.Pty, spec.Command)
 
-	managed, err := startManagedProcess(id, sequence, spec, dir, mergeEnvironment(os.Environ(), spec.Env))
+	managed, err := startManagedProcess(id, sequence, spec, dir, mergeEnvironment(os.Environ(), spec.Env, spec.EmptyEnv...))
 	if err != nil {
 		return StartResult{Error: err.Error()}
 	}

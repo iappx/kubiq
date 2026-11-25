@@ -96,6 +96,34 @@ export class TablePrefsCodec {
         return resolved
     }
 
+    public static mergeHiddenKeys(
+        previous: readonly string[] | undefined,
+        next: readonly string[],
+        availableKeys: readonly string[],
+    ): string[] {
+        const available = new Set(availableKeys)
+        const seen = new Set<string>()
+        const merged: string[] = []
+
+        for (const key of next) {
+            if (key.length > 0 && !seen.has(key)) {
+                seen.add(key)
+                merged.push(key)
+            }
+        }
+
+        if (previous !== undefined) {
+            for (const key of previous) {
+                if (key.length > 0 && !available.has(key) && !seen.has(key)) {
+                    seen.add(key)
+                    merged.push(key)
+                }
+            }
+        }
+
+        return merged
+    }
+
     public static resolveSort(
         stored: TTableSortPref | null | undefined,
         sortableKeys: readonly string[],

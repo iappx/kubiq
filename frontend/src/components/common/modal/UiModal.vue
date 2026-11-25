@@ -19,7 +19,13 @@
         >
           <div class="flex items-center justify-between mb-5">
             <h2 :id="titleId" class="text-base font-semibold text-foreground">{{ title }}</h2>
-            <button aria-label="Close" class="btn-icon" type="button" @click="$emit('close')">
+            <button
+                :disabled="loading"
+                aria-label="Close"
+                class="btn-icon disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+                @click="!loading && $emit('close')"
+            >
               <x :size="18" />
             </button>
           </div>
@@ -72,7 +78,7 @@ export default class UiModal extends ModalShellBase {
   @Prop({ required: false, default: 'Cancel' })
   public readonly cancelLabel?: string
 
-  @Prop({ required: false })
+  @Prop({ required: false, type: Boolean, default: false })
   public readonly loading?: boolean
 
   @Prop({ required: false, type: Boolean, default: false })

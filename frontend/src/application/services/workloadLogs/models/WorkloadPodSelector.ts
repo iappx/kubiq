@@ -6,16 +6,13 @@ export class WorkloadPodSelector {
     public static labelSelectorFor(kind: KubeResourceKind, object: Record<string, unknown>): string {
         const spec = WorkloadPodSelector.asRecord(object.spec)
         const selector = WorkloadPodSelector.asRecord(spec?.selector)
-        const matchLabels = WorkloadPodSelector.asRecord(selector?.matchLabels)
+        const clauses = [
+            ...WorkloadPodSelector.matchLabelClauses(selector?.matchLabels),
+            ...WorkloadPodSelector.matchExpressionClauses(selector?.matchExpressions),
+        ]
 
-        if (matchLabels) {
-            const pairs = Object.entries(matchLabels)
-                .filter(([key, value]) => key !== '' && typeof value === 'string')
-                .map(([key, value]) => `${key}=${value as string}`)
-
-            if (pairs.length > 0) {
-                return pairs.join(',')
-            }
+        if (clauses.length > 0) {
+            return clauses.join(',')
         }
 
         if (kind.registryKey === KubeWorkloadCatalog.jobsKey) {
@@ -27,6 +24,68 @@ export class WorkloadPodSelector {
         }
 
         return ''
+    }
+
+    private static matchLabelClauses(value: unknown): string[] {
+        const matchLabels = WorkloadPodSelector.asRecord(value)
+        if (!matchLabels) {
+            return []
+        }
+
+        return Object.entries(matchLabels)
+            .filter(([key, item]) => key !== '' && typeof item === 'string')
+            .map(([key, item]) => `${key}=${item as string}`)
+    }
+
+    private static matchExpressionClauses(value: unknown): string[] {
+        if (!Array.isArray(value)) {
+            return []
+        }
+
+        const clauses: string[] = []
+        for (const entry of value) {
+            const clause = WorkloadPodSelector.expressionClause(entry)
+            if (clause !== null) {
+                clauses.push(clause)
+            }
+        }
+
+        return clauses
+    }
+
+    private static expressionClause(entry: unknown): string | null {
+        const item = WorkloadPodSelector.asRecord(entry)
+        if (!item) {
+            return null
+        }
+
+        const key = item.key
+        const operator = item.operator
+        if (typeof key !== 'string' || key === '' || typeof operator !== 'string') {
+            return null
+        }
+
+        if (operator === 'Exists') {
+            return key
+        }
+        if (operator === 'DoesNotExist') {
+            return `!${key}`
+        }
+        if (operator === 'In' || operator === 'NotIn') {
+            if (!Array.isArray(item.values)) {
+                return null
+            }
+
+            const values = item.values.filter((val): val is string => typeof val === 'string' && val !== '')
+            if (values.length === 0) {
+                return null
+            }
+
+            const keyword = operator === 'In' ? 'in' : 'notin'
+            return `${key} ${keyword} (${values.join(',')})`
+        }
+
+        return null
     }
 
     public static sortPods(pods: readonly PodEntity[]): PodEntity[] {

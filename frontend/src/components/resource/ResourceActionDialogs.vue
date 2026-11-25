@@ -206,6 +206,14 @@ export default class ResourceActionDialogs extends VueBase {
 
   public creatingNamespace = false
 
+  private debugAbort: AbortController | null = null
+
+  private debugLoadRequest = 0
+
+  private workloadLogsRequest = 0
+
+  private unmounted = false
+
   constructor(
       @inject(AppUiStore) public readonly uiStore: AppUiStore,
       @inject(ClusterDiscoveryStore) private readonly discoveryStore: ClusterDiscoveryStore,
@@ -221,6 +229,12 @@ export default class ResourceActionDialogs extends VueBase {
       @inject(EventBus) private readonly eventBus: EventBus,
   ) {
     super()
+  }
+
+  beforeUnmount(): void {
+    this.unmounted = true
+    this.abortDebug()
+    this.cancelWorkloadLogs()
   }
 
   public get state(): TResourceListState {
@@ -397,13 +411,14 @@ export default class ResourceActionDialogs extends VueBase {
       return
     }
 
+    const requestId = ++this.workloadLogsRequest
     this.pendingLogs = row
     this.workloadLogPods = []
     this.workloadLogsLoading = true
 
     try {
       const pods = await this.workloadLogsService.podsOf(this.clusterId, kind, row.name, row.namespace)
-      if (this.pendingLogs?.key !== row.key) {
+      if (this.unmounted || requestId !== this.workloadLogsRequest || this.pendingLogs?.key !== row.key) {
         return
       }
 
@@ -416,6 +431,9 @@ export default class ResourceActionDialogs extends VueBase {
       this.workloadLogPods = pods
       this.workloadLogsLoading = false
     } catch (err) {
+      if (this.unmounted || requestId !== this.workloadLogsRequest) {
+        return
+      }
       if (this.pendingLogs?.key === row.key) {
         this.cancelWorkloadLogs()
       }
@@ -424,6 +442,7 @@ export default class ResourceActionDialogs extends VueBase {
   }
 
   public cancelWorkloadLogs(): void {
+    this.workloadLogsRequest += 1
     this.pendingLogs = null
     this.workloadLogPods = []
     this.workloadLogsLoading = false
@@ -435,6 +454,8 @@ export default class ResourceActionDialogs extends VueBase {
   }
 
   public async askDebug(row: TResourceRow): Promise<void> {
+    this.abortDebug()
+    const requestId = ++this.debugLoadRequest
     this.pendingDebug = row
     this.debugError = ''
     this.debugDefaultImage = ''
@@ -445,7 +466,7 @@ export default class ResourceActionDialogs extends VueBase {
       this.podDebugService.containersOf(this.clusterId, row.namespace, row.name),
     ])
 
-    if (this.pendingDebug?.key !== row.key) {
+    if (this.unmounted || requestId !== this.debugLoadRequest || this.pendingDebug?.key !== row.key) {
       return
     }
 
@@ -454,10 +475,14 @@ export default class ResourceActionDialogs extends VueBase {
     }
     if (containersResult.status === 'fulfilled') {
       this.debugContainers = containersResult.value
+    } else {
+      this.debugError = 'Could not load pod containers — you can still attach without a target container.'
     }
   }
 
   public cancelDebug(): void {
+    this.debugLoadRequest += 1
+    this.abortDebug()
     this.pendingDebug = null
     this.debugDefaultImage = ''
     this.debugContainers = []
@@ -470,6 +495,9 @@ export default class ResourceActionDialogs extends VueBase {
       return
     }
 
+    this.abortDebug()
+    const controller = new AbortController()
+    this.debugAbort = controller
     this.debugError = ''
 
     try {
@@ -479,12 +507,22 @@ export default class ResourceActionDialogs extends VueBase {
         podName: target.name,
         image: payload.image,
         targetContainerName: payload.targetContainerName || undefined,
+        signal: controller.signal,
       }))
-      if (this.pendingDebug?.key === target.key) {
-        this.cancelDebug()
+      if (this.debugAbort === controller) {
+        this.debugAbort = null
       }
-      this.eventBus.emitEvent(new OpenPodShellEvent(this.clusterId, target.namespace, target.name, result.containerName))
+      if (!controller.signal.aborted && !this.unmounted && this.pendingDebug?.key === target.key) {
+        this.cancelDebug()
+        this.eventBus.emitEvent(new OpenPodShellEvent(this.clusterId, target.namespace, target.name, result.containerName))
+      }
     } catch (err) {
+      if (this.debugAbort === controller) {
+        this.debugAbort = null
+      }
+      if (controller.signal.aborted || this.unmounted || PodDebugService.isCancelled(err)) {
+        return
+      }
       if (this.pendingDebug?.key === target.key) {
         this.debugError = ResourceActionDialogs.formatError(err)
       }
@@ -735,6 +773,13 @@ export default class ResourceActionDialogs extends VueBase {
     }
 
     return this.state.items.find(item => ResourceRowBuilder.keyOf(item) === row.key) ?? null
+  }
+
+  private abortDebug(): void {
+    if (this.debugAbort) {
+      this.debugAbort.abort()
+      this.debugAbort = null
+    }
   }
 
   private async run<T>(action: () => Promise<T>): Promise<T> {

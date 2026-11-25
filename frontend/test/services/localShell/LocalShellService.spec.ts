@@ -209,7 +209,7 @@ describe('LocalShellService', () => {
 
             expect(launched).toHaveLength(1)
             expect(launched[0].path).toBe('open')
-            expect(launched[0].args).toEqual(['-a', 'Warp'])
+            expect(launched[0].args).toEqual(['-n', '-a', 'Warp'])
         })
 
         it('expands a tilde-prefixed custom terminal path', async () => {

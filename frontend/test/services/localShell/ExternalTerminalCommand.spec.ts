@@ -165,8 +165,8 @@ describe('ExternalTerminalCommand', () => {
             })
         })
 
-        it('uses open -a for other macOS application names', () => {
-            const spec = ExternalTerminalCommand.build({
+        it('uses open -n -a for other macOS application names and .app bundles', () => {
+            const byName = ExternalTerminalCommand.build({
                 platform: 'darwin',
                 mode: 'custom',
                 customCommand: 'Warp',
@@ -176,11 +176,44 @@ describe('ExternalTerminalCommand', () => {
                 env: baseEnv,
             })
 
-            expect(spec).toEqual({
+            expect(byName).toEqual({
                 path: 'open',
-                args: ['-a', 'Warp'],
+                args: ['-n', '-a', 'Warp'],
                 env: baseEnv,
             })
+
+            const byBundle = ExternalTerminalCommand.build({
+                platform: 'darwin',
+                mode: 'custom',
+                customCommand: '/Applications/Warp.app',
+                detectedTerminal: '',
+                shellCommand: '/bin/zsh',
+                shellArgs: ['-l'],
+                env: baseEnv,
+            })
+
+            expect(byBundle).toEqual({
+                path: 'open',
+                args: ['-n', '-a', '/Applications/Warp.app'],
+                env: baseEnv,
+            })
+        })
+
+        it('sanitizes standalone carriage returns as well as newlines in AppleScript strings', () => {
+            expect(ExternalTerminalCommand.escapeAppleScript('a\rb\r\nc\nd')).toBe('a b c d')
+
+            const spec = ExternalTerminalCommand.build({
+                platform: 'darwin',
+                mode: 'system',
+                customCommand: '',
+                detectedTerminal: '',
+                shellCommand: '/bin/zsh',
+                shellArgs: ['-l'],
+                env: { KUBECONFIG: '/tmp/line1\rline2.kubeconfig' },
+            })
+
+            expect(spec.args[3]).not.toContain('\r')
+            expect(spec.args[3]).toContain("export KUBECONFIG='/tmp/line1 line2.kubeconfig'")
         })
     })
 

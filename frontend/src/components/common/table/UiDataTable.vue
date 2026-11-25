@@ -182,7 +182,7 @@ export default class UiDataTable extends VueBase {
   @Prop({ required: false, default: null })
   public readonly cursor?: string | null
 
-  @Prop({ required: false, default: false })
+  @Prop({ required: false, type: Boolean, default: false })
   public readonly selectable?: boolean
 
   @Prop({ required: false, default: 'compact' })
@@ -200,10 +200,10 @@ export default class UiDataTable extends VueBase {
   @Prop({ required: false, default: () => [] })
   public readonly flashKeys?: string[]
 
-  @Prop({ required: false, default: false })
+  @Prop({ required: false, type: Boolean, default: false })
   public readonly refreshing?: boolean
 
-  @Prop({ required: false, default: true })
+  @Prop({ required: false, type: Boolean, default: true })
   public readonly stickyName?: boolean
 
   @Prop({ required: false })

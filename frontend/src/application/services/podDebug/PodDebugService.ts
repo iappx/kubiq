@@ -19,6 +19,12 @@ export class PodDebugService {
 
     public static readonly notReady: string = 'The debug container did not start'
 
+    public static readonly cancelled: string = 'Debug container startup was cancelled'
+
+    public static isCancelled(err: unknown): boolean {
+        return err instanceof ApiError && err.message === PodDebugService.cancelled
+    }
+
     constructor(
         @inject(ClusterConnectionService) private readonly connectionService: ClusterConnectionService,
         @inject(SettingsService) private readonly settingsService: SettingsService,
@@ -48,6 +54,8 @@ export class PodDebugService {
     }
 
     public async attach(request: TPodDebugRequest, now: () => number = Date.now): Promise<TPodDebugResult> {
+        PodDebugService.throwIfAborted(request.signal)
+
         const image = request.image.trim()
         if (image === '') {
             throw new ApiError(PodDebugService.missingImage)
@@ -55,6 +63,8 @@ export class PodDebugService {
 
         const sessionId = this.session(request.clusterId)
         const containerName = EphemeralContainerManifest.nameFor(this.idService.next())
+        PodDebugService.throwIfAborted(request.signal)
+
         const patch = await this.http.send(sessionId, {
             method: 'PATCH',
             url: EphemeralContainerManifest.patchPath(request.namespace, request.podName),
@@ -64,8 +74,9 @@ export class PodDebugService {
             body: EphemeralContainerManifest.patchDocument(containerName, image, request.targetContainerName),
         })
 
+        PodDebugService.throwIfAborted(request.signal)
         PodDebugService.ensureSuccess(patch.status, patch.data)
-        await this.waitRunning(sessionId, request.namespace, request.podName, containerName, now)
+        await this.waitRunning(sessionId, request.namespace, request.podName, containerName, now, request.signal)
 
         return { containerName, image }
     }
@@ -76,16 +87,20 @@ export class PodDebugService {
         podName: string,
         containerName: string,
         now: () => number,
+        signal?: AbortSignal,
     ): Promise<void> {
         const deadline = now() + PodDebugDefaults.readyTimeoutMs
         const podUrl = EphemeralContainerManifest.podPath(namespace, podName)
 
         for (;;) {
+            PodDebugService.throwIfAborted(signal)
+
             const response = await this.http.send(sessionId, {
                 method: 'GET',
                 url: podUrl,
             })
 
+            PodDebugService.throwIfAborted(signal)
             PodDebugService.ensureSuccess(response.status, response.data)
 
             const pod = PodDebugService.parsePod(response.data)
@@ -109,7 +124,8 @@ export class PodDebugService {
                 )
             }
 
-            await PodDebugService.pause(PodDebugDefaults.pollIntervalMs)
+            await PodDebugService.pause(PodDebugDefaults.pollIntervalMs, signal)
+            PodDebugService.throwIfAborted(signal)
         }
     }
 
@@ -147,7 +163,27 @@ export class PodDebugService {
         }
     }
 
-    private static pause(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms))
+    private static throwIfAborted(signal?: AbortSignal): void {
+        if (signal?.aborted) {
+            throw new ApiError(PodDebugService.cancelled)
+        }
+    }
+
+    private static pause(ms: number, signal?: AbortSignal): Promise<void> {
+        if (signal?.aborted) {
+            return Promise.reject(new ApiError(PodDebugService.cancelled))
+        }
+
+        return new Promise((resolve, reject) => {
+            const onAbort = () => {
+                clearTimeout(timer)
+                reject(new ApiError(PodDebugService.cancelled))
+            }
+            const timer = setTimeout(() => {
+                signal?.removeEventListener('abort', onAbort)
+                resolve()
+            }, ms)
+            signal?.addEventListener('abort', onAbort, { once: true })
+        })
     }
 }
