@@ -19,6 +19,9 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/env', () => ({
     },
 }))
 
+import { container } from 'tsyringe'
+import { KubeconfigExecService } from '@/application/services/kubeconfig/KubeconfigExecService'
+import { KubeconfigOidcService } from '@/application/services/kubeconfig/KubeconfigOidcService'
 import { KubeconfigService } from '@/application/services/kubeconfig/KubeconfigService'
 import { ApiError } from '@/domain/errors/ApiError'
 import { EntityRepoProvider } from '@/infrastructure/entityRepo/EntityRepoProvider'
@@ -36,6 +39,8 @@ const environment = new EnvironmentAdapter({ isAvailable: () => true } as WailsR
 const offline = new EnvironmentAdapter({ isAvailable: () => false } as WailsRuntimeService)
 
 let transport: MemoryFileTransport
+let execService: { resolve: ReturnType<typeof vi.fn>; forget: ReturnType<typeof vi.fn> }
+let oidcService: { resolve: ReturnType<typeof vi.fn>; forget: ReturnType<typeof vi.fn> }
 let service: KubeconfigService
 
 const failure = async (action: () => Promise<unknown>): Promise<ApiError> => {
@@ -55,9 +60,19 @@ describe('KubeconfigService', () => {
         home = 'C:/Users/tester'
         separator = ';'
         transport = new MemoryFileTransport()
+        execService = {
+            resolve: vi.fn(),
+            forget: vi.fn(),
+        }
+        oidcService = {
+            resolve: vi.fn(),
+            forget: vi.fn(),
+        }
         service = new KubeconfigService(
             environment,
             new EntityRepoProvider(transport as unknown as FileSystemTransport),
+            execService as unknown as KubeconfigExecService,
+            oidcService as unknown as KubeconfigOidcService,
         )
     })
 
@@ -392,26 +407,111 @@ describe('KubeconfigService', () => {
             expect(error.message).toContain('no cluster address')
         })
 
-        it('refuses a context that needs an exec plugin, and says when it will work', async () => {
+        it('resolves exec credential plugins into the connection spec', async () => {
             variables.KUBECONFIG = WORK_CONFIG
             transport.files.set(WORK_CONFIG, KubeconfigFixtures.withPlugins())
+            execService.resolve.mockResolvedValue({
+                token: 'fake-exec-token',
+                clientCertPem: KubeconfigFixtures.clientCertPem,
+                clientKeyPem: KubeconfigFixtures.clientKeyPem,
+                expiresAt: 0,
+            })
 
-            const error = await failure(() => service.buildConnectionSpec('exec'))
+            const spec = await service.buildConnectionSpec('exec')
 
-            expect(error.message).toContain('later version')
-            expect(error.details).toContain('Exec credential plugin')
+            expect(execService.resolve).toHaveBeenCalledTimes(1)
+            expect(spec.token).toBe('fake-exec-token')
+            expect(spec.clientCertPem).toBe(KubeconfigFixtures.clientCertPem)
+            expect(spec.clientKeyPem).toBe(KubeconfigFixtures.clientKeyPem)
         })
 
-        it('refuses a context that needs an auth provider plugin', async () => {
+        it('resolves oidc auth-provider credentials and passes idp CA material', async () => {
             variables.KUBECONFIG = WORK_CONFIG
-            transport.files.set(WORK_CONFIG, KubeconfigFixtures.withPlugins())
+            transport.files.set(WORK_CONFIG, [
+                'apiVersion: v1',
+                'kind: Config',
+                'clusters:',
+                '  - name: oidc',
+                '    cluster:',
+                '      server: https://oidc.example.internal:6443',
+                'contexts:',
+                '  - name: oidc',
+                '    context:',
+                '      cluster: oidc',
+                '      user: oidc-user',
+                'users:',
+                '  - name: oidc-user',
+                '    user:',
+                '      auth-provider:',
+                '        name: oidc',
+                '        config:',
+                `          idp-certificate-authority-data: ${KubeconfigFixtures.b64(KubeconfigFixtures.caPem)}`,
+                '          id-token: fake-oidc-token',
+                '',
+            ].join('\n'))
+            oidcService.resolve.mockResolvedValue('fake-resolved-oidc-token')
 
-            const error = await failure(() => service.buildConnectionSpec('oidc'))
+            const spec = await service.buildConnectionSpec('oidc')
 
-            expect(error.message).toContain('later version')
+            expect(oidcService.resolve).toHaveBeenCalledTimes(1)
+            expect(oidcService.resolve.mock.calls[0][1]).toBe(KubeconfigFixtures.caPem)
+            expect(spec.token).toBe('fake-resolved-oidc-token')
         })
 
-        it('still lists a context it cannot build a specification for', async () => {
+        it('refuses an unsupported legacy auth provider and interactive-only exec plugins', async () => {
+            variables.KUBECONFIG = WORK_CONFIG
+            transport.files.set(WORK_CONFIG, [
+                'apiVersion: v1',
+                'kind: Config',
+                'clusters:',
+                '  - name: legacy',
+                '    cluster:',
+                '      server: https://legacy.example.internal:6443',
+                'contexts:',
+                '  - name: gcp',
+                '    context:',
+                '      cluster: legacy',
+                '      user: gcp-user',
+                '  - name: interactive',
+                '    context:',
+                '      cluster: legacy',
+                '      user: interactive-user',
+                'users:',
+                '  - name: gcp-user',
+                '    user:',
+                '      auth-provider:',
+                '        name: gcp',
+                '  - name: interactive-user',
+                '    user:',
+                '      exec:',
+                '        apiVersion: client.authentication.k8s.io/v1',
+                '        command: kubelogin',
+                '        interactiveMode: Always',
+                '',
+            ].join('\n'))
+
+            const gcpError = await failure(() => service.buildConnectionSpec('gcp'))
+            expect(gcpError.message).toContain('gcp')
+            expect(gcpError.message).toContain('exec')
+
+            const interactiveError = await failure(() => service.buildConnectionSpec('interactive'))
+            expect(interactiveError.message).toContain('non-interactively')
+        })
+
+        it('forgets cached exec and oidc credentials for a context', () => {
+            service.forgetCredentials('prod')
+
+            expect(execService.forget).toHaveBeenCalledWith('prod')
+            expect(oidcService.forget).toHaveBeenCalledWith('prod')
+        })
+
+        it('injects exec and oidc services through tsyringe', () => {
+            const resolved = container.resolve(KubeconfigService)
+
+            expect(() => resolved.forgetCredentials('prod')).not.toThrow()
+        })
+
+        it('lists exec and oidc contexts as supported', async () => {
             variables.KUBECONFIG = WORK_CONFIG
             transport.files.delete(HOME_CONFIG)
             transport.files.set(WORK_CONFIG, KubeconfigFixtures.withPlugins())
@@ -419,7 +519,7 @@ describe('KubeconfigService', () => {
             const contexts = await service.getContexts()
 
             expect(contexts.map(context => context.name)).toEqual(['exec', 'oidc'])
-            expect(contexts.every(context => context.isSupported)).toBe(false)
+            expect(contexts.every(context => context.isSupported)).toBe(true)
             expect(contexts[0].authType).toBe('exec')
             expect(contexts[1].authType).toBe('authProvider')
         })

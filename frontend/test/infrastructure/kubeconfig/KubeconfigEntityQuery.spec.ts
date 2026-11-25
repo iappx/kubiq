@@ -94,13 +94,61 @@ describe('KubeconfigEntityQuery', () => {
         expect(users[1].token).toBe(KubeconfigFixtures.stagingToken)
     })
 
-    it('recognises the plugin entries without pretending to support them', async () => {
-        transport.files.set(FILE, KubeconfigFixtures.withPlugins())
+    it('parses exec credential plugin and auth-provider entries into typed structures', async () => {
+        transport.files.set(FILE, [
+            'apiVersion: v1',
+            'kind: Config',
+            'users:',
+            '  - name: exec-user',
+            '    user:',
+            '      exec:',
+            '        apiVersion: client.authentication.k8s.io/v1beta1',
+            '        command: aws',
+            '        args:',
+            '          - eks',
+            '          - get-token',
+            '          - --cluster-name',
+            '          - prod',
+            '        env:',
+            '          - name: AWS_PROFILE',
+            '            value: prod',
+            '        installHint: Install AWS CLI v2',
+            '        interactiveMode: IfAvailable',
+            '        provideClusterInfo: true',
+            '  - name: oidc-user',
+            '    user:',
+            '      auth-provider:',
+            '        name: oidc',
+            '        config:',
+            '          idp-issuer-url: https://idp.example.internal',
+            '          client-id: kubiq',
+            '          id-token: fake-id-token',
+            '',
+        ].join('\n'))
 
         const users = await query.getUsers()
+        const execUser = users.find(user => user.name === 'exec-user')
+        const oidcUser = users.find(user => user.name === 'oidc-user')
 
-        expect(users.find(user => user.name === 'exec-user')?.usesExec).toBe(true)
-        expect(users.find(user => user.name === 'oidc-user')?.usesAuthProvider).toBe(true)
+        expect(execUser?.usesExec).toBe(true)
+        expect(execUser?.execConfig).toEqual({
+            apiVersion: 'client.authentication.k8s.io/v1beta1',
+            command: 'aws',
+            args: ['eks', 'get-token', '--cluster-name', 'prod'],
+            env: [{ name: 'AWS_PROFILE', value: 'prod' }],
+            installHint: 'Install AWS CLI v2',
+            interactiveMode: 'IfAvailable',
+            provideClusterInfo: true,
+        })
+        expect(oidcUser?.usesAuthProvider).toBe(true)
+        expect(oidcUser?.authProvider).toEqual({
+            name: 'oidc',
+            config: {
+                'idp-issuer-url': 'https://idp.example.internal',
+                'client-id': 'kubiq',
+                'id-token': 'fake-id-token',
+            },
+        })
     })
 
     it('reports the current context of the file', async () => {

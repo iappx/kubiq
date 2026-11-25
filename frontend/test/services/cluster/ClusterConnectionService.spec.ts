@@ -39,6 +39,8 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/kube', () => ({
 }))
 
 import { ClusterConnectionService } from '@/application/services/cluster/ClusterConnectionService'
+import { KubeconfigExecService } from '@/application/services/kubeconfig/KubeconfigExecService'
+import { KubeconfigOidcService } from '@/application/services/kubeconfig/KubeconfigOidcService'
 import { KubeconfigService } from '@/application/services/kubeconfig/KubeconfigService'
 import { ApiError } from '@/domain/errors/ApiError'
 import { KubeResourceKind, KubeResourceRegistry } from '@/domain/models/kube'
@@ -47,11 +49,13 @@ import { KubeContextProvider } from '@/infrastructure/entityRepo/kube/KubeContex
 import { KubeQueryMeta } from '@/infrastructure/entityRepo/kube/KubeQueryMeta'
 import { FileSystemTransport } from '@/infrastructure/entityRepo/transport/FileSystemTransport'
 import { EnvironmentAdapter } from '@/infrastructure/env/EnvironmentAdapter'
+import { KubeHttpAdapter } from '@/infrastructure/kube/KubeHttpAdapter'
 import { KubeSessionAdapter } from '@/infrastructure/kube/KubeSessionAdapter'
 import { KubeStreamRegistry } from '@/infrastructure/kube/KubeStreamRegistry'
 import { KubeVersionAdapter } from '@/infrastructure/kube/KubeVersionAdapter'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { KubeHealthMonitor } from '@/infrastructure/kube/KubeHealthMonitor'
+import { ProcessAdapter } from '@/infrastructure/process/ProcessAdapter'
 import { WailsRuntimeService } from '@/infrastructure/wails/WailsRuntimeService'
 import { MemoryFileTransport } from '../../support/MemoryFileTransport'
 import { KubeconfigFixtures } from '../../support/fixtures/KubeconfigFixtures'
@@ -65,6 +69,7 @@ const pods = KubeResourceRegistry.find('', 'pods') as KubeResourceKind
 let transport: MemoryFileTransport
 let contexts: KubeContextProvider
 let streams: KubeStreamRegistry
+let kubeconfigService: KubeconfigService
 let service: ClusterConnectionService
 
 const versionOf = (gitVersion: string, major: string, minor: string): string => JSON.stringify({
@@ -111,14 +116,19 @@ describe('ClusterConnectionService', () => {
         transport.files.set(HOME_CONFIG, KubeconfigFixtures.primary())
         transport.files.set(WORK_CONFIG, KubeconfigFixtures.secondary())
 
+        const sessionAdapter = new KubeSessionAdapter(runtime)
+        const envAdapter = new EnvironmentAdapter(runtime)
+        kubeconfigService = new KubeconfigService(
+            envAdapter,
+            new EntityRepoProvider(transport as unknown as FileSystemTransport),
+            new KubeconfigExecService(new ProcessAdapter(runtime), envAdapter),
+            new KubeconfigOidcService(sessionAdapter, new KubeHttpAdapter(runtime)),
+        )
         contexts = new KubeContextProvider(runtime, new KubeHealthMonitor(new EventBus()))
         streams = new KubeStreamRegistry()
         service = new ClusterConnectionService(
-            new KubeconfigService(
-                new EnvironmentAdapter(runtime),
-                new EntityRepoProvider(transport as unknown as FileSystemTransport),
-            ),
-            new KubeSessionAdapter(runtime),
+            kubeconfigService,
+            sessionAdapter,
             contexts,
             streams,
             new KubeVersionAdapter(contexts),
@@ -164,13 +174,42 @@ describe('ClusterConnectionService', () => {
         it('says which contexts it cannot use and why', async () => {
             variables.KUBECONFIG = WORK_CONFIG
             transport.files.delete(HOME_CONFIG)
-            transport.files.set(WORK_CONFIG, KubeconfigFixtures.withPlugins())
+            transport.files.set(WORK_CONFIG, [
+                'apiVersion: v1',
+                'kind: Config',
+                'clusters:',
+                '  - name: legacy',
+                '    cluster:',
+                '      server: https://legacy.example.internal:6443',
+                'contexts:',
+                '  - name: interactive',
+                '    context:',
+                '      cluster: legacy',
+                '      user: interactive-user',
+                '  - name: gcp',
+                '    context:',
+                '      cluster: legacy',
+                '      user: gcp-user',
+                'users:',
+                '  - name: interactive-user',
+                '    user:',
+                '      exec:',
+                '        apiVersion: client.authentication.k8s.io/v1',
+                '        command: kubelogin',
+                '        interactiveMode: Always',
+                '  - name: gcp-user',
+                '    user:',
+                '      auth-provider:',
+                '        name: gcp',
+                '',
+            ].join('\n'))
 
             const { contexts: list } = await service.readCatalog()
 
             expect(list.map(context => context.isSupported)).toEqual([false, false])
-            expect(list[0].unsupportedReason).toContain('later version')
+            expect(list[0].unsupportedReason).toContain('non-interactively')
             expect(list[1].authType).toBe('authProvider')
+            expect(list[1].unsupportedReason).toContain('gcp')
         })
 
         it('reads the extra kubeconfig files it is handed', async () => {
@@ -216,9 +255,27 @@ describe('ClusterConnectionService', () => {
 
         it('never reaches the Go side for a context it cannot build', async () => {
             variables.KUBECONFIG = WORK_CONFIG
-            transport.files.set(WORK_CONFIG, KubeconfigFixtures.withPlugins())
+            transport.files.set(WORK_CONFIG, [
+                'apiVersion: v1',
+                'kind: Config',
+                'clusters:',
+                '  - name: legacy',
+                '    cluster:',
+                '      server: https://legacy.example.internal:6443',
+                'contexts:',
+                '  - name: gcp',
+                '    context:',
+                '      cluster: legacy',
+                '      user: gcp-user',
+                'users:',
+                '  - name: gcp-user',
+                '    user:',
+                '      auth-provider:',
+                '        name: gcp',
+                '',
+            ].join('\n'))
 
-            await expect(service.connect('exec')).rejects.toBeInstanceOf(ApiError)
+            await expect(service.connect('gcp')).rejects.toBeInstanceOf(ApiError)
             expect(connect).not.toHaveBeenCalled()
         })
 
@@ -415,6 +472,15 @@ describe('ClusterConnectionService', () => {
 
             expect(healthy.stopped).toBe(1)
             expect(service.isConnected('prod')).toBe(false)
+        })
+
+        it('forgets cached credentials when disconnecting so a reconnect fetches fresh ones', async () => {
+            const forgetSpy = vi.spyOn(kubeconfigService, 'forgetCredentials')
+            await service.connect('prod')
+
+            await service.disconnect('prod')
+
+            expect(forgetSpy).toHaveBeenCalledWith('prod')
         })
 
         it('closes every cluster at once', async () => {

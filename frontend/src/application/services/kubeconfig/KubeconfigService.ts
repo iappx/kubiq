@@ -1,4 +1,6 @@
 import { inject, injectable } from 'tsyringe'
+import { KubeconfigExecService } from '@/application/services/kubeconfig/KubeconfigExecService'
+import { KubeconfigOidcService } from '@/application/services/kubeconfig/KubeconfigOidcService'
 import type { TKubeconfigProblem } from '@/application/services/kubeconfig/types/TKubeconfigProblem'
 import type { TKubeconfigRead } from '@/application/services/kubeconfig/types/TKubeconfigRead'
 import type { TKubeconfigScan } from '@/application/services/kubeconfig/types/TKubeconfigScan'
@@ -24,6 +26,8 @@ export class KubeconfigService {
     constructor(
         @inject(EnvironmentAdapter) private readonly environment: EnvironmentAdapter,
         @inject(EntityRepoProvider) private readonly repoProvider: EntityRepoProvider,
+        @inject(KubeconfigExecService) private readonly execService?: KubeconfigExecService,
+        @inject(KubeconfigOidcService) private readonly oidcService?: KubeconfigOidcService,
     ) {}
 
     public resolve(path: string): Promise<string> {
@@ -99,6 +103,11 @@ export class KubeconfigService {
         return stamps.join('\n')
     }
 
+    public forgetCredentials(contextName: string): void {
+        this.execService?.forget(contextName)
+        this.oidcService?.forget(contextName)
+    }
+
     public async buildConnectionSpec(contextName: string, extraPaths: readonly string[] = []): Promise<TConnectionSpec> {
         const read = await this.read(extraPaths)
         const context = read.contexts.find(candidate => candidate.name === contextName)
@@ -126,19 +135,70 @@ export class KubeconfigService {
 
         if (user && !user.isSupported) {
             throw new ApiError(
-                `Kubeconfig context "${context.name}" cannot be used yet: ${KubeconfigAuthTypeCatalog.reason(user.authType)}`,
+                `Kubeconfig context "${context.name}" cannot be used: ${user.unsupportedReason}`,
                 `Authentication method: ${KubeconfigAuthTypeCatalog.title(user.authType)}`,
             )
         }
 
-        return {
+        const caPem = await this.material(
+            cluster.certificateAuthorityData,
+            cluster.certificateAuthority,
+            cluster.filePath,
+            'certificate-authority-data',
+        )
+
+        const base = {
             server: cluster.server,
-            caPem: await this.material(
-                cluster.certificateAuthorityData,
-                cluster.certificateAuthority,
-                cluster.filePath,
-                'certificate-authority-data',
-            ),
+            caPem,
+            insecureSkipTlsVerify: cluster.insecureSkipTlsVerify === true,
+            serverName: cluster.tlsServerName ?? '',
+            proxyUrl: cluster.proxyUrl ?? '',
+            timeoutSeconds: 0,
+        }
+
+        if (user?.authType === 'exec') {
+            if (!this.execService) {
+                throw new ApiError('Exec credential plugin support is not available')
+            }
+
+            const credential = await this.execService.resolve(context)
+
+            return {
+                ...base,
+                clientCertPem: credential.clientCertPem,
+                clientKeyPem: credential.clientKeyPem,
+                token: credential.token,
+                username: '',
+                password: '',
+            }
+        }
+
+        if (user?.authType === 'authProvider' && user.authProvider?.name === KubeconfigAuthTypeCatalog.SupportedAuthProvider) {
+            if (!this.oidcService) {
+                throw new ApiError('OIDC authentication support is not available')
+            }
+
+            const config = user.authProvider.config
+            const idpCaPem = await this.material(
+                config['idp-certificate-authority-data'],
+                config['idp-certificate-authority'],
+                user.filePath || context.filePath,
+                'idp-certificate-authority-data',
+            )
+            const token = await this.oidcService.resolve(context, idpCaPem)
+
+            return {
+                ...base,
+                clientCertPem: '',
+                clientKeyPem: '',
+                token,
+                username: '',
+                password: '',
+            }
+        }
+
+        return {
+            ...base,
             clientCertPem: await this.material(
                 user?.clientCertificateData,
                 user?.clientCertificate,
@@ -154,11 +214,6 @@ export class KubeconfigService {
             token: await this.token(user),
             username: user?.username ?? '',
             password: user?.password ?? '',
-            insecureSkipTlsVerify: cluster.insecureSkipTlsVerify === true,
-            serverName: cluster.tlsServerName ?? '',
-            proxyUrl: cluster.proxyUrl ?? '',
-            // 0 leaves the request timeout to the Go client.
-            timeoutSeconds: 0,
         }
     }
 

@@ -5,4 +5,5 @@ export type TResourceListResult = {
     items: RepoEntityBase[]
     total?: number
     cursors: TResourceScopeCursor[]
+    hasMore: boolean
 }

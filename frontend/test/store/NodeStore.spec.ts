@@ -42,6 +42,7 @@ vi.mock('@/application/services/node/NodeService', () => ({
 
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { ApiError } from '@/domain/errors/ApiError'
+import { BulkActionCompletedEvent } from '@/domain/events/cluster/BulkActionCompletedEvent'
 import { NodeDrainedEvent } from '@/domain/events/cluster/NodeDrainedEvent'
 import { NodeSchedulingChangedEvent } from '@/domain/events/cluster/NodeSchedulingChangedEvent'
 import { EventBus } from '@/infrastructure/eventBus/EventBus'
@@ -55,10 +56,12 @@ const eventBus = container.resolve(EventBus)
 const errors: AppErrorEvent[] = []
 const scheduling: NodeSchedulingChangedEvent[] = []
 const drained: NodeDrainedEvent[] = []
+const bulkEvents: BulkActionCompletedEvent[] = []
 
 eventBus.registerHandler(AppErrorEvent, event => void errors.push(event))
 eventBus.registerHandler(NodeSchedulingChangedEvent, event => void scheduling.push(event))
 eventBus.registerHandler(NodeDrainedEvent, event => void drained.push(event))
+eventBus.registerHandler(BulkActionCompletedEvent, event => void bulkEvents.push(event))
 
 const nodes = KubeResourceRegistry.find('', 'nodes')!
 const pods = KubeResourceRegistry.find('', 'pods')!
@@ -77,6 +80,7 @@ describe('NodeStore', () => {
         errors.length = 0
         scheduling.length = 0
         drained.length = 0
+        bulkEvents.length = 0
         fake.state.pods = []
         fake.state.listFailure = undefined
         fake.state.drainFailure = undefined
@@ -169,5 +173,58 @@ describe('NodeStore', () => {
 
         expect(store.podsOf('prod', 'worker-1').loaded).toBe(false)
         expect(store.podsOf('staging', 'worker-1').loaded).toBe(true)
+    })
+
+    it('cordons multiple nodes in bounded batches and emits one bulk event', async () => {
+        const targets = ['n0', 'n1', 'n2', 'n3', 'n4', 'n5'].map(name => ({
+            clusterId: 'prod',
+            kind: nodes,
+            name,
+            rowKey: `${name}-uid`,
+        }))
+        let inFlight = 0
+        let maxInFlight = 0
+        let busySeen: string[] = []
+
+        fake.cordon.mockImplementation(async () => {
+            inFlight++
+            maxInFlight = Math.max(maxInFlight, inFlight)
+            if (busySeen.length === 0) {
+                busySeen = store.busyRowKeys('prod')
+            }
+            await Promise.resolve()
+            inFlight--
+        })
+
+        const outcome = await store.bulkCordon(targets)
+
+        expect(outcome).toEqual({ succeeded: 6, failed: 0 })
+        expect(maxInFlight).toBeLessThanOrEqual(5)
+        expect(busySeen).toEqual(['n0-uid', 'n1-uid', 'n2-uid', 'n3-uid', 'n4-uid', 'n5-uid'])
+        expect(store.busyRowKeys('prod')).toEqual([])
+        expect(bulkEvents).toEqual([new BulkActionCompletedEvent('prod', 'cordon', 'Node', 'Nodes', 6, 0)])
+    })
+
+    it('uncordons multiple nodes and reports partial failures cleanly', async () => {
+        const targets = [
+            { clusterId: 'prod', kind: nodes, name: 'worker-1', rowKey: 'w1' },
+            { clusterId: 'prod', kind: nodes, name: 'worker-2', rowKey: 'w2' },
+        ]
+        fake.uncordon
+            .mockResolvedValueOnce(undefined)
+            .mockRejectedValueOnce(new ApiError('refused', 'Forbidden', 403))
+
+        const outcome = await store.bulkUncordon(targets)
+
+        expect(outcome).toEqual({ succeeded: 1, failed: 1 })
+        expect(errors).toHaveLength(1)
+        expect(bulkEvents).toEqual([new BulkActionCompletedEvent('prod', 'uncordon', 'Node', 'Nodes', 1, 1)])
+        expect(store.busyRowKeys('prod')).toEqual([])
+    })
+
+    it('returns zeroes immediately when bulk cordon receives no targets', async () => {
+        expect(await store.bulkCordon([])).toEqual({ succeeded: 0, failed: 0 })
+        expect(await store.bulkUncordon([])).toEqual({ succeeded: 0, failed: 0 })
+        expect(bulkEvents).toEqual([])
     })
 })

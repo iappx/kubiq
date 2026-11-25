@@ -4,9 +4,13 @@ import { ApiError } from '@/domain/errors/ApiError'
 import { KubeconfigClusterEntity } from '@/domain/entities/kubeconfig/KubeconfigClusterEntity'
 import { KubeconfigContextEntity } from '@/domain/entities/kubeconfig/KubeconfigContextEntity'
 import { KubeconfigUserEntity } from '@/domain/entities/kubeconfig/KubeconfigUserEntity'
+import type { TKubeconfigAuthProvider } from '@/domain/entities/kubeconfig/types/TKubeconfigAuthProvider'
+import type { TKubeconfigExecConfig } from '@/domain/entities/kubeconfig/types/TKubeconfigExecConfig'
+import type { TKubeconfigExecEnvVar } from '@/domain/entities/kubeconfig/types/TKubeconfigExecEnvVar'
 import { FileSystemTransport } from '@/infrastructure/entityRepo/transport/FileSystemTransport'
 import type { TKubeconfigDocument } from '@/infrastructure/entityRepo/kubeconfig/types/TKubeconfigDocument'
 import type { TKubeconfigQueryOptions } from '@/infrastructure/entityRepo/kubeconfig/types/TKubeconfigQueryOptions'
+import type { TKubeconfigUserDocument } from '@/infrastructure/entityRepo/kubeconfig/types/TKubeconfigUserDocument'
 
 export class KubeconfigEntityQuery
     extends EntityQuery<KubeconfigContextEntity, FileSystemTransport, TKubeconfigQueryOptions> {
@@ -143,20 +147,76 @@ export class KubeconfigEntityQuery
     }
 
     private usersOf(document: TKubeconfigDocument): KubeconfigUserEntity[] {
-        return this.named(document.users).map(entry => KubeconfigUserEntity.build({
-            name: entry.name,
-            clientCertificate: entry.user?.['client-certificate'] ?? '',
-            clientCertificateData: entry.user?.['client-certificate-data'] ?? '',
-            clientKey: entry.user?.['client-key'] ?? '',
-            clientKeyData: entry.user?.['client-key-data'] ?? '',
-            token: entry.user?.token ?? '',
-            tokenFile: entry.user?.tokenFile ?? '',
-            username: entry.user?.username ?? '',
-            password: entry.user?.password ?? '',
-            usesExec: !!entry.user?.exec,
-            usesAuthProvider: !!entry.user?.['auth-provider'],
-            filePath: this.file,
-        }))
+        return this.named(document.users).map((entry) => {
+            const execConfig = KubeconfigEntityQuery.execConfigOf(entry.user)
+            const authProvider = KubeconfigEntityQuery.authProviderOf(entry.user)
+
+            return KubeconfigUserEntity.build({
+                name: entry.name,
+                clientCertificate: entry.user?.['client-certificate'] ?? '',
+                clientCertificateData: entry.user?.['client-certificate-data'] ?? '',
+                clientKey: entry.user?.['client-key'] ?? '',
+                clientKeyData: entry.user?.['client-key-data'] ?? '',
+                token: entry.user?.token ?? '',
+                tokenFile: entry.user?.tokenFile ?? '',
+                username: entry.user?.username ?? '',
+                password: entry.user?.password ?? '',
+                usesExec: execConfig !== undefined,
+                usesAuthProvider: authProvider !== undefined,
+                execConfig,
+                authProvider,
+                filePath: this.file,
+            })
+        })
+    }
+
+    private static execConfigOf(user: TKubeconfigUserDocument | undefined): TKubeconfigExecConfig | undefined {
+        const exec = user?.exec
+        if (!KubeconfigEntityQuery.isMapping(exec)) {
+            return undefined
+        }
+
+        const args = Array.isArray(exec.args) ? exec.args.map(arg => String(arg)) : []
+        const env: TKubeconfigExecEnvVar[] = Array.isArray(exec.env)
+            ? exec.env
+                .filter((item): item is { name: string; value?: unknown } =>
+                    KubeconfigEntityQuery.isMapping(item)
+                    && typeof item.name === 'string'
+                    && item.name !== '')
+                .map(item => ({
+                    name: item.name,
+                    value: item.value === undefined || item.value === null ? '' : String(item.value),
+                }))
+            : []
+
+        return {
+            apiVersion: typeof exec.apiVersion === 'string' ? exec.apiVersion : '',
+            command: typeof exec.command === 'string' ? exec.command : '',
+            args,
+            env,
+            installHint: typeof exec.installHint === 'string' ? exec.installHint : '',
+            interactiveMode: typeof exec.interactiveMode === 'string' ? exec.interactiveMode : '',
+            provideClusterInfo: exec.provideClusterInfo === true,
+        }
+    }
+
+    private static authProviderOf(user: TKubeconfigUserDocument | undefined): TKubeconfigAuthProvider | undefined {
+        const provider = user?.['auth-provider']
+        if (!KubeconfigEntityQuery.isMapping(provider)) {
+            return undefined
+        }
+
+        const config: Record<string, string> = {}
+        if (KubeconfigEntityQuery.isMapping(provider.config)) {
+            for (const [key, value] of Object.entries(provider.config)) {
+                config[key] = value === undefined || value === null ? '' : String(value)
+            }
+        }
+
+        return {
+            name: typeof provider.name === 'string' ? provider.name : '',
+            config,
+        }
     }
 
     private named<T extends { name?: string }>(entries: T[] | undefined): (T & { name: string })[] {

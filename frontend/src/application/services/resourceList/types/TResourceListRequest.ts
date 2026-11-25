@@ -7,4 +7,5 @@ export type TResourceListRequest = {
     labelSelector?: string
     fieldSelector?: string
     limit?: number
+    continueTokens?: Record<string, string>
 }

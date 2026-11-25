@@ -2,6 +2,7 @@ import { inject } from 'tsyringe'
 import type { RepoEntityBase } from '@iappx/entity-repo'
 import { ResourceListService } from '@/application/services/resourceList/ResourceListService'
 import type { TResourceListRequest } from '@/application/services/resourceList/types/TResourceListRequest'
+import type { TResourceListResult } from '@/application/services/resourceList/types/TResourceListResult'
 import { ResourceWatchService } from '@/application/services/resourceWatch/ResourceWatchService'
 import type { TResourceChange } from '@/application/services/resourceWatch/types/TResourceChange'
 import { WorkloadActionService } from '@/application/services/workloadAction/WorkloadActionService'
@@ -9,6 +10,7 @@ import type { TCronJobTriggerRequest } from '@/application/services/workloadActi
 import type { TWorkloadTarget } from '@/application/services/workloadAction/types/TWorkloadTarget'
 import { KubeObjectKey } from '@/domain/entities/kube'
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
+import { BulkActionCompletedEvent } from '@/domain/events/cluster/BulkActionCompletedEvent'
 import { CronJobSuspendedEvent } from '@/domain/events/cluster/CronJobSuspendedEvent'
 import { CronJobTriggeredEvent } from '@/domain/events/cluster/CronJobTriggeredEvent'
 import { ResourceDeletedEvent } from '@/domain/events/cluster/ResourceDeletedEvent'
@@ -20,10 +22,13 @@ import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { KubeStatusReader } from '@/infrastructure/entityRepo/kube/transport/KubeStatusReader'
 import { InjectableStore, StoreBase } from '@/lib/vue-store'
 import { ResourceListStateFactory } from '@/store/modules/clusterResource/ResourceListStateFactory'
+import type { TBulkActionOutcome } from '@/store/modules/clusterResource/types/TBulkActionOutcome'
 import type { TResourceListState } from '@/store/modules/clusterResource/types/TResourceListState'
 
 @InjectableStore
 export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
+    private static readonly bulkBatchSize: number = 5
+
     public lists: Record<string, TResourceListState> = {}
 
     constructor(
@@ -47,15 +52,62 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
 
     public async load(request: TResourceListRequest): Promise<void> {
         const key = ClusterResourceStore.keyOf(request.clusterId, request.kind)
-        this.patch(key, { loading: true, error: '', errorDetail: '', forbidden: false })
+        this.patch(key, { loading: true, loadingMore: false, error: '', errorDetail: '', forbidden: false })
 
         try {
             const result = await this.listService.list(request)
-            this.setItems(request.clusterId, request.kind, result.items, result.total, result.cursors)
+            this.setItems(request.clusterId, request.kind, result.items, result.total, result.cursors, result.hasMore)
         } catch (err) {
             this.rememberFailure(key, err)
         } finally {
             this.patch(key, { loading: false })
+        }
+    }
+
+    public async loadMore(request: TResourceListRequest): Promise<void> {
+        const key = ClusterResourceStore.keyOf(request.clusterId, request.kind)
+        const state = this.byKey(key)
+
+        if (!state.loaded || !state.hasMore || state.loadingMore || state.loading) {
+            return
+        }
+
+        this.patch(key, { loadingMore: true })
+
+        try {
+            const result = await this.listService.listMore(request, state.cursors)
+            if (!(key in this.lists)) {
+                return
+            }
+
+            const current = this.byKey(key)
+            const items = ClusterResourceStore.mergeItems(current.items, result.items)
+            const total = ClusterResourceStore.nextTotal(current.total, items.length, result)
+
+            this.patch(key, {
+                items,
+                total,
+                cursors: result.cursors,
+                hasMore: result.hasMore,
+            })
+        } catch (err) {
+            if (key in this.lists && KubeStatusReader.isGone(err)) {
+                const current = this.byKey(key)
+                this.patch(key, {
+                    cursors: current.cursors.map(cursor => ({
+                        namespace: cursor.namespace,
+                        resourceVersion: cursor.resourceVersion,
+                    })),
+                    hasMore: false,
+                })
+            }
+            if (!KubeStatusReader.isForbidden(err)) {
+                this.eventBus.emitEvent(new AppErrorEvent(err, 'ClusterResourceStore.loadMore'))
+            }
+        } finally {
+            if (key in this.lists) {
+                this.patch(key, { loadingMore: false })
+            }
         }
     }
 
@@ -65,9 +117,18 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
         items: RepoEntityBase[],
         total?: number,
         cursors: TResourceListState['cursors'] = [],
+        hasMore: boolean = false,
     ): void {
         // The tint marks what a live watch changed, so a relist clears it rather than flashing every row.
-        this.patch(ClusterResourceStore.keyOf(clusterId, kind), { items, total, loaded: true, cursors, flashKeys: [] })
+        this.patch(ClusterResourceStore.keyOf(clusterId, kind), {
+            items,
+            total,
+            loaded: true,
+            cursors,
+            hasMore,
+            loadingMore: false,
+            flashKeys: [],
+        })
     }
 
     public async watch(request: TResourceListRequest): Promise<void> {
@@ -199,6 +260,24 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
         })
     }
 
+    public bulkRemove(targets: readonly TWorkloadTarget[]): Promise<TBulkActionOutcome> {
+        return this.runBulk(
+            targets,
+            'delete',
+            'ClusterResourceStore.bulkRemove',
+            target => this.listService.delete(target.clusterId, target.kind, target.name, target.namespace),
+        )
+    }
+
+    public bulkRestart(targets: readonly TWorkloadTarget[]): Promise<TBulkActionOutcome> {
+        return this.runBulk(
+            targets,
+            'restart',
+            'ClusterResourceStore.bulkRestart',
+            target => this.actionService.restart(target),
+        )
+    }
+
     public forget(clusterId: string): void {
         void this.watchService.release(clusterId)
 
@@ -229,6 +308,62 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
         }
     }
 
+    private async runBulk(
+        targets: readonly TWorkloadTarget[],
+        action: 'delete' | 'restart',
+        context: string,
+        execute: (target: TWorkloadTarget) => Promise<void>,
+    ): Promise<TBulkActionOutcome> {
+        if (targets.length === 0) {
+            return { succeeded: 0, failed: 0 }
+        }
+
+        const first = targets[0]
+        const key = ClusterResourceStore.keyOf(first.clusterId, first.kind)
+        const rowKeys = targets.map(target => target.rowKey)
+        this.markBusyBatch(key, rowKeys, true)
+
+        let succeeded = 0
+        let failed = 0
+        let firstError: unknown
+
+        try {
+            for (let offset = 0; offset < targets.length; offset += ClusterResourceStore.bulkBatchSize) {
+                const batch = targets.slice(offset, offset + ClusterResourceStore.bulkBatchSize)
+                const settled = await Promise.allSettled(batch.map(target => execute(target)))
+
+                settled.forEach((entry) => {
+                    if (entry.status === 'fulfilled') {
+                        succeeded++
+                    } else {
+                        failed++
+                        if (firstError === undefined) {
+                            firstError = entry.reason
+                        }
+                    }
+                })
+            }
+
+            if (firstError !== undefined) {
+                this.eventBus.emitEvent(new AppErrorEvent(firstError, context))
+            }
+            if (succeeded > 0) {
+                this.eventBus.emitEvent(new BulkActionCompletedEvent(
+                    first.clusterId,
+                    action,
+                    first.kind.kind,
+                    first.kind.title,
+                    succeeded,
+                    failed,
+                ))
+            }
+
+            return { succeeded, failed }
+        } finally {
+            this.markBusyBatch(key, rowKeys, false)
+        }
+    }
+
     private markStale(key: string, at: number): void {
         this.patch(key, { watching: false, staleSince: at })
     }
@@ -241,12 +376,65 @@ export class ClusterResourceStore extends StoreBase<ClusterResourceStore> {
         })
     }
 
+    private markBusyBatch(key: string, rowKeys: readonly string[], busy: boolean): void {
+        const current = this.byKey(key).busyKeys
+
+        if (busy) {
+            const present = new Set(current)
+            const additions = rowKeys.filter(rowKey => !present.has(rowKey))
+            if (additions.length > 0) {
+                this.patch(key, { busyKeys: [...current, ...additions] })
+            }
+            return
+        }
+
+        const removing = new Set(rowKeys)
+        this.patch(key, { busyKeys: current.filter(open => !removing.has(open)) })
+    }
+
     private byKey(key: string): TResourceListState {
         return this.lists[key] ?? ResourceListStateFactory.empty()
     }
 
     private patch(key: string, changes: Partial<TResourceListState>): void {
         this.lists = { ...this.lists, [key]: { ...this.byKey(key), ...changes } }
+    }
+
+    private static mergeItems(existing: readonly RepoEntityBase[], incoming: readonly RepoEntityBase[]): RepoEntityBase[] {
+        const merged = [...existing]
+        const positions = new Map<string, number>()
+
+        merged.forEach((item, index) => positions.set(KubeObjectKey.of(item), index))
+
+        incoming.forEach((item) => {
+            const key = KubeObjectKey.of(item)
+            const at = positions.get(key)
+
+            if (at === undefined) {
+                positions.set(key, merged.length)
+                merged.push(item)
+            } else {
+                merged[at] = item
+            }
+        })
+
+        return merged
+    }
+
+    private static nextTotal(
+        previousTotal: number | undefined,
+        mergedCount: number,
+        result: TResourceListResult,
+    ): number | undefined {
+        if (!result.hasMore) {
+            return previousTotal !== undefined || result.total !== undefined ? mergedCount : undefined
+        }
+        if (result.total !== undefined) {
+            const remaining = Math.max(result.total - result.items.length, 0)
+            return mergedCount + remaining
+        }
+
+        return previousTotal !== undefined ? Math.max(previousTotal, mergedCount) : undefined
     }
 
     private static shiftTotal(total: number | undefined, by: number): number | undefined {

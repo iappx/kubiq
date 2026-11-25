@@ -46,24 +46,28 @@
         </thead>
 
         <tbody>
+          <tr v-if="virtualWindow.topSpacerPx > 0" aria-hidden="true" class="ui-virtual-spacer">
+            <td :colspan="columnCount" :style="{ height: `${virtualWindow.topSpacerPx}px`, padding: 0, border: 0 }" />
+          </tr>
+
           <tr
-              v-for="(row, index) in sortedRows"
-              :key="keys[index]"
-              :data-busy="isBusy(keys[index]) ? 'true' : undefined"
-              :data-cursor="keys[index] === cursor ? 'true' : undefined"
-              :data-flash="flashTone(row, keys[index])"
-              :data-row-key="keys[index]"
-              :data-selected="isSelected(keys[index]) ? 'true' : undefined"
+              v-for="entry in visibleEntries"
+              :key="entry.key"
+              :data-busy="isBusy(entry.key) ? 'true' : undefined"
+              :data-cursor="entry.key === cursor ? 'true' : undefined"
+              :data-flash="flashTone(entry.row, entry.key)"
+              :data-row-key="entry.key"
+              :data-selected="isSelected(entry.key) ? 'true' : undefined"
               tabindex="-1"
-              @click="onRowClick(row, keys[index])"
-              @contextmenu.prevent="openMenuAt($event.clientX, $event.clientY, keys[index])"
+              @click="onRowClick(entry.row, entry.key)"
+              @contextmenu.prevent="openMenuAt($event.clientX, $event.clientY, entry.key)"
           >
             <td v-if="selectable" class="ui-sticky-cell w-8" style="left: 0">
               <input
-                  :aria-label="`Select ${rowLabel(row, keys[index])}`"
-                  :checked="isSelected(keys[index])"
+                  :aria-label="`Select ${rowLabel(entry.row, entry.key)}`"
+                  :checked="isSelected(entry.key)"
                   type="checkbox"
-                  @click.stop="onSelectClick($event, keys[index])"
+                  @click.stop="onSelectClick($event, entry.key)"
               >
             </td>
 
@@ -76,31 +80,35 @@
                 ]"
                 :style="isSticky(columnIndex) ? { left: `${nameOffset}px` } : undefined"
             >
-              <slot :column="column" :name="`cell-${column.key}`" :row="row" :value="valueOf(row, column.key)">
+              <slot :column="column" :name="`cell-${column.key}`" :row="entry.row" :value="valueOf(entry.row, column.key)">
                 <button
                     v-if="column.key === resolvedNameKey"
-                    :title="cellText(row, column.key)"
+                    :title="cellText(entry.row, column.key)"
                     class="ui-name-button ui-cell"
                     type="button"
-                    @click.stop="open(row, keys[index])"
+                    @click.stop="open(entry.row, entry.key)"
                 >
-                  {{ cellText(row, column.key) }}
+                  {{ cellText(entry.row, column.key) }}
                 </button>
-                <span v-else :title="cellText(row, column.key)" class="ui-cell">{{ cellText(row, column.key) }}</span>
+                <span v-else :title="cellText(entry.row, column.key)" class="ui-cell">{{ cellText(entry.row, column.key) }}</span>
               </slot>
             </td>
 
             <td v-if="hasActions" class="w-8">
               <button
-                  :aria-label="`Actions for ${rowLabel(row, keys[index])}`"
-                  :title="`Actions for ${rowLabel(row, keys[index])}`"
+                  :aria-label="`Actions for ${rowLabel(entry.row, entry.key)}`"
+                  :title="`Actions for ${rowLabel(entry.row, entry.key)}`"
                   class="btn-icon w-7 h-7"
                   type="button"
-                  @click.stop="openMenuFrom($event, keys[index])"
+                  @click.stop="openMenuFrom($event, entry.key)"
               >
                 <ellipsis-vertical :size="14" />
               </button>
             </td>
+          </tr>
+
+          <tr v-if="virtualWindow.bottomSpacerPx > 0" aria-hidden="true" class="ui-virtual-spacer">
+            <td :colspan="columnCount" :style="{ height: `${virtualWindow.bottomSpacerPx}px`, padding: 0, border: 0 }" />
           </tr>
 
           <tr v-if="sortedRows.length === 0">
@@ -124,6 +132,7 @@
 </template>
 
 <script lang="ts">
+import { nextTick } from 'vue'
 import { Component, Prop, Watch, VueBase } from '@iappx/vue-facing-di'
 import { ArrowDown, ArrowUp, EllipsisVertical } from '@lucide/vue'
 import UiContextMenu from '@/components/common/menu/UiContextMenu.vue'
@@ -134,11 +143,13 @@ import { UiTableCursor } from '@/components/common/table/UiTableCursor'
 import { UiTableSelection } from '@/components/common/table/UiTableSelection'
 import { UiTableSorter } from '@/components/common/table/UiTableSorter'
 import { UiTableValue } from '@/components/common/table/UiTableValue'
+import { UiTableVirtualizer } from '@/components/common/table/UiTableVirtualizer'
 import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
 import type { TUiTableColumn } from '@/components/common/table/types/TUiTableColumn'
 import type { TUiTableDensity } from '@/components/common/table/types/TUiTableDensity'
 import type { TUiTableSort } from '@/components/common/table/types/TUiTableSort'
 import type { TUiTone } from '@/components/common/status/types/TUiTone'
+import type { TUiVirtualWindow } from '@/components/common/table/types/TUiVirtualWindow'
 
 @Component({
   components: { ArrowDown, ArrowUp, EllipsisVertical, UiContextMenu, UiProgressBar },
@@ -214,11 +225,25 @@ export default class UiDataTable extends VueBase {
 
   public menuRowKey: string | null = null
 
+  public scrollTop = 0
+
+  public viewportHeight = 0
+
+  public headerHeight = 0
+
   private readonly flashController = new UiFlashController()
 
   private flashTimer: ReturnType<typeof setTimeout> | null = null
 
   private anchorKey: string | null = null
+
+  private scrollFrame: number | null = null
+
+  private resizeObserver: ResizeObserver | null = null
+
+  private onScrollerScroll: (() => void) | null = null
+
+  private pendingFocusKey: string | null = null
 
   public get visibleColumns(): TUiTableColumn[] {
     const hidden = this.hiddenKeys ?? []
@@ -231,6 +256,26 @@ export default class UiDataTable extends VueBase {
 
   public get keys(): string[] {
     return this.sortedRows.map(row => String(UiTableValue.read(row, this.rowKey)))
+  }
+
+  public get virtualWindow(): TUiVirtualWindow {
+    return UiTableVirtualizer.compute({
+      totalRows: this.sortedRows.length,
+      scrollTop: this.scrollTop,
+      viewportHeight: this.viewportHeight,
+      density: this.density,
+    })
+  }
+
+  public get visibleEntries(): Array<{ row: any; key: string; index: number }> {
+    const rows = this.sortedRows
+    const keys = this.keys
+    const { startIndex, endIndex } = this.virtualWindow
+    const result: Array<{ row: any; key: string; index: number }> = []
+    for (let index = startIndex; index < endIndex; index++) {
+      result.push({ row: rows[index], key: keys[index], index })
+    }
+    return result
   }
 
   public get resolvedNameKey(): string {
@@ -268,8 +313,51 @@ export default class UiDataTable extends VueBase {
     this.flash(keys ?? [])
   }
 
+  @Watch('rows')
+  rowsChanged(): void {
+    this.clampScrollTop()
+  }
+
+  @Watch('sort')
+  sortChanged(): void {
+    this.clampScrollTop()
+  }
+
+  @Watch('density')
+  densityChanged(): void {
+    void nextTick(() => this.measureViewport())
+  }
+
+  mounted(): void {
+    this.measureViewport()
+    const scroller = this.scrollerElement()
+    if (!scroller) {
+      return
+    }
+
+    this.onScrollerScroll = () => this.scheduleScrollSync()
+    scroller.addEventListener('scroll', this.onScrollerScroll, { passive: true })
+
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => this.measureViewport())
+      this.resizeObserver.observe(scroller)
+    }
+  }
+
   beforeUnmount(): void {
     this.cancelFlashTimer()
+    this.cancelScrollFrame()
+
+    const scroller = this.scrollerElement()
+    if (scroller && this.onScrollerScroll) {
+      scroller.removeEventListener('scroll', this.onScrollerScroll)
+    }
+    this.onScrollerScroll = null
+
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect()
+      this.resizeObserver = null
+    }
   }
 
   public flash(keys: readonly string[]): void {
@@ -476,10 +564,112 @@ export default class UiDataTable extends VueBase {
       return
     }
 
-    const scroller = this.$refs.scroller as HTMLElement | undefined
-    const row = scroller?.querySelector<HTMLElement>(`[data-row-key="${CSS.escape(key)}"]`)
+    const scroller = this.scrollerElement()
+    if (!scroller) {
+      return
+    }
+
+    const window = this.virtualWindow
+    if (window.active) {
+      const index = this.keys.indexOf(key)
+      if (index >= 0) {
+        const headerHeightPx = this.headerHeight || (scroller.querySelector('thead')?.offsetHeight ?? 0)
+        const nextScrollTop = UiTableVirtualizer.scrollTopForIndex({
+          index,
+          rowHeightPx: window.rowHeightPx,
+          scrollTop: this.scrollTop,
+          viewportHeight: this.viewportHeight,
+          headerHeightPx,
+        })
+        if (nextScrollTop !== null) {
+          this.cancelScrollFrame()
+          this.scrollTop = nextScrollTop
+          scroller.scrollTop = nextScrollTop
+          this.pendingFocusKey = key
+          void nextTick(() => {
+            if (this.pendingFocusKey !== key) {
+              return
+            }
+            this.pendingFocusKey = null
+            const row = this.findRowElement(scroller, key)
+            row?.focus({ preventScroll: true })
+          })
+          return
+        }
+      }
+    }
+
+    this.pendingFocusKey = null
+    const row = this.findRowElement(scroller, key)
     row?.focus()
-    row?.scrollIntoView({ block: 'nearest' })
+    if (!window.active) {
+      row?.scrollIntoView?.({ block: 'nearest' })
+    }
+  }
+
+  private scrollerElement(): HTMLElement | undefined {
+    return this.$refs.scroller as HTMLElement | undefined
+  }
+
+  private findRowElement(scroller: HTMLElement, key: string): HTMLElement | null {
+    const escaped = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(key)
+      : key.replace(/["\\]/g, '\\$&')
+    return scroller.querySelector<HTMLElement>(`[data-row-key="${escaped}"]`)
+  }
+
+  private measureViewport(): void {
+    const scroller = this.scrollerElement()
+    if (!scroller) {
+      return
+    }
+
+    this.viewportHeight = scroller.clientHeight
+    const thead = scroller.querySelector('thead')
+    this.headerHeight = thead ? thead.offsetHeight : 0
+    this.clampScrollTop()
+  }
+
+  private clampScrollTop(): void {
+    if (this.viewportHeight <= 0) {
+      return
+    }
+
+    const clamped = UiTableVirtualizer.clampScrollTop({
+      totalRows: this.sortedRows.length,
+      scrollTop: this.scrollTop,
+      viewportHeight: this.viewportHeight,
+      headerHeightPx: this.headerHeight,
+      rowHeightPx: UiTableVirtualizer.rowHeight(this.density),
+    })
+    if (clamped !== this.scrollTop) {
+      this.scrollTop = clamped
+    }
+    const scroller = this.scrollerElement()
+    if (scroller && scroller.scrollTop > clamped) {
+      scroller.scrollTop = clamped
+    }
+  }
+
+  private scheduleScrollSync(): void {
+    if (this.scrollFrame !== null) {
+      return
+    }
+
+    this.scrollFrame = requestAnimationFrame(() => {
+      this.scrollFrame = null
+      const scroller = this.scrollerElement()
+      if (scroller) {
+        this.scrollTop = scroller.scrollTop
+      }
+    })
+  }
+
+  private cancelScrollFrame(): void {
+    if (this.scrollFrame !== null) {
+      cancelAnimationFrame(this.scrollFrame)
+      this.scrollFrame = null
+    }
   }
 
   private scheduleFlashPrune(): void {

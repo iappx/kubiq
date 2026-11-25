@@ -7,6 +7,17 @@ export type TKubeconfigUserDocument = {
     tokenFile?: string
     username?: string
     password?: string
-    exec?: { command?: string }
-    'auth-provider'?: { name?: string }
+    exec?: {
+        apiVersion?: string
+        command?: string
+        args?: unknown[]
+        env?: { name?: string; value?: unknown }[] | null
+        installHint?: string
+        interactiveMode?: string
+        provideClusterInfo?: boolean
+    }
+    'auth-provider'?: {
+        name?: string
+        config?: Record<string, unknown>
+    }
 }

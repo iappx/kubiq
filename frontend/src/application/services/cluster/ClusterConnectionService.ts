@@ -95,6 +95,7 @@ export class ClusterConnectionService {
         } finally {
             this.contexts.release(clusterId)
             this.live.delete(clusterId)
+            this.kubeconfigService.forgetCredentials(clusterId)
         }
 
         return connection

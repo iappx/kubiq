@@ -29,10 +29,11 @@ const widgets = new KubeResourceKind({
 
 let service: ResourceListService
 
-const podList = (names: string[], remaining?: number, resourceVersion?: string) => ({
+const podList = (names: string[], remaining?: number, resourceVersion?: string, continueToken?: string) => ({
     metadata: {
         ...(remaining === undefined ? {} : { remainingItemCount: remaining }),
         ...(resourceVersion === undefined ? {} : { resourceVersion }),
+        ...(continueToken === undefined ? {} : { continue: continueToken }),
     },
     items: names.map(name => ({ metadata: { uid: name, name, namespace: 'payments' } })),
 })
@@ -165,6 +166,82 @@ describe('ResourceListService.list', () => {
         const result = await service.list({ clusterId: 'prod', kind: pods })
 
         expect(result.cursors).toEqual([{ namespace: '', resourceVersion: '' }])
+        expect(result.hasMore).toBe(false)
+    })
+
+    it('captures the continue token and sets hasMore when another page exists', async () => {
+        transport.answerWith(podList(['api-0'], 12, '4011', 'tok-page-2'))
+
+        const result = await service.list({ clusterId: 'prod', kind: pods })
+
+        expect(result.cursors).toEqual([{ namespace: '', resourceVersion: '4011', continueToken: 'tok-page-2' }])
+        expect(result.hasMore).toBe(true)
+    })
+
+    it('forwards a continue token on the request as the continue query parameter', async () => {
+        transport.answerWith(podList(['api-1'], undefined, '4011'))
+
+        await service.list({ clusterId: 'prod', kind: pods, continueTokens: { '': 'tok-page-2' } })
+
+        expect(transport.path).toContain('continue=tok-page-2')
+        expect(transport.path).toContain(`limit=${ResourceListLimits.pageSize}`)
+    })
+})
+
+describe('ResourceListService.listMore', () => {
+    beforeEach(() => {
+        transport.reset()
+        service = new ResourceListService(connectionService)
+    })
+
+    it('only queries scopes with a continue token and preserves each scope resourceVersion', async () => {
+        transport.answerWith(podList(['worker-1'], 5, '9999', 'tok-ledger-3'))
+
+        const result = await service.listMore(
+            { clusterId: 'prod', kind: pods, namespaces: ['payments', 'ledger'] },
+            [
+                { namespace: 'payments', resourceVersion: '4011' },
+                { namespace: 'ledger', resourceVersion: '4012', continueToken: 'tok-ledger-2' },
+            ],
+        )
+
+        expect(transport.requests).toHaveLength(1)
+        expect(transport.last.url).toBe('/api/v1/namespaces/ledger/pods')
+        expect(transport.path).toContain('continue=tok-ledger-2')
+        expect(result.items).toHaveLength(1)
+        expect(result.total).toBe(6)
+        expect(result.hasMore).toBe(true)
+        expect(result.cursors).toEqual([
+            { namespace: 'payments', resourceVersion: '4011' },
+            { namespace: 'ledger', resourceVersion: '4012', continueToken: 'tok-ledger-3' },
+        ])
+    })
+
+    it('clears continueToken and sets hasMore false when the final page arrives', async () => {
+        transport.answerWith(podList(['api-1'], undefined, '4011', ''))
+
+        const result = await service.listMore(
+            { clusterId: 'prod', kind: pods },
+            [{ namespace: '', resourceVersion: '4011', continueToken: 'tok-last' }],
+        )
+
+        expect(result.hasMore).toBe(false)
+        expect(result.cursors).toEqual([{ namespace: '', resourceVersion: '4011' }])
+    })
+
+    it('makes no requests when no scope has a continue token', async () => {
+        const result = await service.listMore(
+            { clusterId: 'prod', kind: pods },
+            [{ namespace: '', resourceVersion: '4011' }],
+        )
+
+        expect(transport.requests).toHaveLength(0)
+        expect(result).toEqual({
+            items: [],
+            total: undefined,
+            cursors: [{ namespace: '', resourceVersion: '4011' }],
+            hasMore: false,
+        })
     })
 })
 

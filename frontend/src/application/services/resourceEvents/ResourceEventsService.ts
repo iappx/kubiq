@@ -31,7 +31,7 @@ export class ResourceEventsService {
     public list(request: TObjectEventsRequest): Promise<TResourceListResult> {
         const kind = this.kindOf(request)
         if (!kind) {
-            return Promise.resolve({ items: [], cursors: [] })
+            return Promise.resolve({ items: [], cursors: [], hasMore: false })
         }
 
         return this.listService.list({

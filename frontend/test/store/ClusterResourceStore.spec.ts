@@ -6,9 +6,17 @@ const fake = vi.hoisted(() => {
         result: {
             items: [] as unknown[],
             total: undefined as number | undefined,
-            cursors: [] as { namespace: string, resourceVersion: string }[],
+            cursors: [] as { namespace: string, resourceVersion: string, continueToken?: string }[],
+            hasMore: false,
+        },
+        moreResult: {
+            items: [] as unknown[],
+            total: undefined as number | undefined,
+            cursors: [] as { namespace: string, resourceVersion: string, continueToken?: string }[],
+            hasMore: false,
         },
         listFailure: undefined as Error | undefined,
+        listMoreFailure: undefined as Error | undefined,
         deleteFailure: undefined as Error | undefined,
         watchFailure: undefined as Error | undefined,
         actionFailure: undefined as Error | undefined,
@@ -25,6 +33,12 @@ const fake = vi.hoisted(() => {
                 throw state.listFailure
             }
             return state.result
+        }),
+        listMore: vi.fn(async () => {
+            if (state.listMoreFailure) {
+                throw state.listMoreFailure
+            }
+            return state.moreResult
         }),
         remove: vi.fn(async () => {
             if (state.deleteFailure) {
@@ -69,6 +83,7 @@ const fake = vi.hoisted(() => {
 vi.mock('@/application/services/resourceList/ResourceListService', () => ({
     ResourceListService: class {
         public list = fake.list
+        public listMore = fake.listMore
         public delete = fake.remove
     },
 }))
@@ -92,6 +107,7 @@ vi.mock('@/application/services/workloadAction/WorkloadActionService', () => ({
 
 import { AppErrorEvent } from '@/domain/events/app/AppErrorEvent'
 import { ApiError } from '@/domain/errors/ApiError'
+import { BulkActionCompletedEvent } from '@/domain/events/cluster/BulkActionCompletedEvent'
 import { ClusterDisconnectedEvent } from '@/domain/events/cluster/ClusterDisconnectedEvent'
 import { CronJobSuspendedEvent } from '@/domain/events/cluster/CronJobSuspendedEvent'
 import { CronJobTriggeredEvent } from '@/domain/events/cluster/CronJobTriggeredEvent'
@@ -123,6 +139,7 @@ eventBus.registerHandler(WorkloadRestartedEvent, record)
 eventBus.registerHandler(CronJobTriggeredEvent, record)
 eventBus.registerHandler(CronJobSuspendedEvent, record)
 eventBus.registerHandler(ResourceDeletedEvent, record)
+eventBus.registerHandler(BulkActionCompletedEvent, record)
 
 const pods = KubeResourceRegistry.find('', 'pods')!
 const nodes = KubeResourceRegistry.find('', 'nodes')!
@@ -151,8 +168,10 @@ describe('ClusterResourceStore', () => {
     beforeEach(() => {
         errors.length = 0
         announced.length = 0
-        fake.state.result = { items: [object('api-0')], total: 1, cursors: [{ namespace: '', resourceVersion: '10' }] }
+        fake.state.result = { items: [object('api-0')], total: 1, cursors: [{ namespace: '', resourceVersion: '10' }], hasMore: false }
+        fake.state.moreResult = { items: [], total: undefined, cursors: [], hasMore: false }
         fake.state.listFailure = undefined
+        fake.state.listMoreFailure = undefined
         fake.state.deleteFailure = undefined
         fake.state.watchFailure = undefined
         fake.state.actionFailure = undefined
@@ -249,8 +268,10 @@ describe('ClusterResourceStore', () => {
 describe('ClusterResourceStore watch', () => {
     beforeEach(async () => {
         errors.length = 0
-        fake.state.result = { items: [object('api-0')], total: 1, cursors: [{ namespace: '', resourceVersion: '10' }] }
+        fake.state.result = { items: [object('api-0')], total: 1, cursors: [{ namespace: '', resourceVersion: '10' }], hasMore: false }
+        fake.state.moreResult = { items: [], total: undefined, cursors: [], hasMore: false }
         fake.state.listFailure = undefined
+        fake.state.listMoreFailure = undefined
         fake.state.watchFailure = undefined
         fake.state.started = []
         fake.state.stopped = 0
@@ -380,7 +401,7 @@ describe('ClusterResourceStore actions', () => {
     beforeEach(async () => {
         errors.length = 0
         announced.length = 0
-        fake.state.result = { items: [object('api-0')], total: 1, cursors: [] }
+        fake.state.result = { items: [object('api-0')], total: 1, cursors: [], hasMore: false }
         fake.state.listFailure = undefined
         fake.state.deleteFailure = undefined
         fake.state.actionFailure = undefined
@@ -479,5 +500,187 @@ describe('ClusterResourceStore actions', () => {
 
         expect(announced).toEqual([])
         expect(errors).toHaveLength(1)
+    })
+})
+
+describe('ClusterResourceStore pagination', () => {
+    beforeEach(async () => {
+        errors.length = 0
+        announced.length = 0
+        fake.state.result = {
+            items: [object('api-0'), object('api-1')],
+            total: 5,
+            cursors: [{ namespace: '', resourceVersion: '10', continueToken: 'tok-2' }],
+            hasMore: true,
+        }
+        fake.state.moreResult = {
+            items: [object('api-1'), object('api-2'), object('api-3')],
+            total: 4,
+            cursors: [{ namespace: '', resourceVersion: '10', continueToken: 'tok-3' }],
+            hasMore: true,
+        }
+        fake.state.listFailure = undefined
+        fake.state.listMoreFailure = undefined
+        vi.clearAllMocks()
+        store.lists = {}
+
+        await store.load({ clusterId: 'prod', kind: pods })
+    })
+
+    it('records hasMore from the initial page load', () => {
+        expect(store.stateOf('prod', pods).hasMore).toBe(true)
+        expect(store.stateOf('prod', pods).loadingMore).toBe(false)
+    })
+
+    it('appends newly loaded items, deduplicating overlapping keys and updating total and cursors', async () => {
+        await store.loadMore({ clusterId: 'prod', kind: pods })
+
+        expect(fake.listMore).toHaveBeenCalledWith(
+            { clusterId: 'prod', kind: pods },
+            [{ namespace: '', resourceVersion: '10', continueToken: 'tok-2' }],
+        )
+        expect(itemNames()).toEqual(['api-0', 'api-1', 'api-2', 'api-3'])
+        expect(store.stateOf('prod', pods).total).toBe(5)
+        expect(store.stateOf('prod', pods).hasMore).toBe(true)
+        expect(store.stateOf('prod', pods).loadingMore).toBe(false)
+        expect(store.stateOf('prod', pods).cursors).toEqual([
+            { namespace: '', resourceVersion: '10', continueToken: 'tok-3' },
+        ])
+    })
+
+    it('clears hasMore and finalises total when the last page arrives', async () => {
+        fake.state.moreResult = {
+            items: [object('api-2')],
+            total: undefined,
+            cursors: [{ namespace: '', resourceVersion: '10' }],
+            hasMore: false,
+        }
+
+        await store.loadMore({ clusterId: 'prod', kind: pods })
+
+        expect(itemNames()).toEqual(['api-0', 'api-1', 'api-2'])
+        expect(store.stateOf('prod', pods).total).toBe(3)
+        expect(store.stateOf('prod', pods).hasMore).toBe(false)
+    })
+
+    it('skips loadMore when nothing more is available or the list is not loaded', async () => {
+        fake.state.moreResult = {
+            items: [object('api-2')],
+            total: undefined,
+            cursors: [{ namespace: '', resourceVersion: '10' }],
+            hasMore: false,
+        }
+        await store.loadMore({ clusterId: 'prod', kind: pods })
+        vi.clearAllMocks()
+
+        await store.loadMore({ clusterId: 'prod', kind: pods })
+        await store.loadMore({ clusterId: 'prod', kind: nodes })
+
+        expect(fake.listMore).not.toHaveBeenCalled()
+    })
+
+    it('clears continue tokens and hasMore when the server reports 410 Gone', async () => {
+        fake.state.listMoreFailure = new ApiError('The cluster no longer keeps that resource version', 'Expired', 410)
+
+        await store.loadMore({ clusterId: 'prod', kind: pods })
+
+        expect(store.stateOf('prod', pods).hasMore).toBe(false)
+        expect(store.stateOf('prod', pods).loadingMore).toBe(false)
+        expect(store.stateOf('prod', pods).cursors).toEqual([{ namespace: '', resourceVersion: '10' }])
+        expect(errors).toHaveLength(1)
+    })
+
+    it('keeps hasMore true on transient errors so the user can retry', async () => {
+        fake.state.listMoreFailure = new ApiError('The cluster API is not available right now.', '', 503)
+
+        await store.loadMore({ clusterId: 'prod', kind: pods })
+
+        expect(store.stateOf('prod', pods).hasMore).toBe(true)
+        expect(store.stateOf('prod', pods).loadingMore).toBe(false)
+        expect(errors).toHaveLength(1)
+    })
+})
+
+describe('ClusterResourceStore bulk actions', () => {
+    beforeEach(async () => {
+        errors.length = 0
+        announced.length = 0
+        fake.state.result = { items: [object('api-0')], total: 1, cursors: [], hasMore: false }
+        fake.state.listFailure = undefined
+        fake.state.deleteFailure = undefined
+        fake.state.actionFailure = undefined
+        vi.clearAllMocks()
+        store.lists = {}
+
+        await store.load({ clusterId: 'prod', kind: pods })
+    })
+
+    it('deletes selected targets in bounded batches and emits one bulk event', async () => {
+        const targets = ['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map(name => target(name))
+        let inFlight = 0
+        let maxInFlight = 0
+        let busyDuringRun: string[] = []
+
+        fake.remove.mockImplementation(async () => {
+            inFlight++
+            maxInFlight = Math.max(maxInFlight, inFlight)
+            if (busyDuringRun.length === 0) {
+                busyDuringRun = [...store.stateOf('prod', pods).busyKeys]
+            }
+            await Promise.resolve()
+            inFlight--
+        })
+
+        const outcome = await store.bulkRemove(targets)
+
+        expect(outcome).toEqual({ succeeded: 7, failed: 0 })
+        expect(maxInFlight).toBeLessThanOrEqual(5)
+        expect(busyDuringRun).toEqual(['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6'])
+        expect(store.stateOf('prod', pods).busyKeys).toEqual([])
+        expect(errors).toEqual([])
+        expect(announced).toEqual([new BulkActionCompletedEvent('prod', 'delete', 'Pod', 'Pods', 7, 0)])
+    })
+
+    it('reports partial failures with both an error event and a bulk summary event', async () => {
+        const targets = [target('p0'), target('p1'), target('p2')]
+        fake.remove
+            .mockResolvedValueOnce(undefined)
+            .mockRejectedValueOnce(new ApiError('denied', 'Forbidden', 403))
+            .mockResolvedValueOnce(undefined)
+
+        const outcome = await store.bulkRemove(targets)
+
+        expect(outcome).toEqual({ succeeded: 2, failed: 1 })
+        expect(errors).toHaveLength(1)
+        expect(announced).toEqual([new BulkActionCompletedEvent('prod', 'delete', 'Pod', 'Pods', 2, 1)])
+        expect(store.stateOf('prod', pods).busyKeys).toEqual([])
+    })
+
+    it('emits no bulk completion event when every target fails', async () => {
+        fake.remove.mockRejectedValue(new ApiError('denied', 'Forbidden', 403))
+
+        const outcome = await store.bulkRemove([target('p0'), target('p1')])
+
+        expect(outcome).toEqual({ succeeded: 0, failed: 2 })
+        expect(errors).toHaveLength(1)
+        expect(announced).toEqual([])
+    })
+
+    it('restarts selected workloads and announces a single bulk event', async () => {
+        const deployments = KubeResourceRegistry.find('apps', 'deployments')!
+        const targets = [target('api', deployments), target('web', deployments)]
+
+        const outcome = await store.bulkRestart(targets)
+
+        expect(outcome).toEqual({ succeeded: 2, failed: 0 })
+        expect(fake.restart).toHaveBeenCalledTimes(2)
+        expect(announced).toEqual([new BulkActionCompletedEvent('prod', 'restart', 'Deployment', 'Deployments', 2, 0)])
+    })
+
+    it('returns zeroes immediately for an empty target list', async () => {
+        expect(await store.bulkRemove([])).toEqual({ succeeded: 0, failed: 0 })
+        expect(await store.bulkRestart([])).toEqual({ succeeded: 0, failed: 0 })
+        expect(announced).toEqual([])
+        expect(errors).toEqual([])
     })
 })

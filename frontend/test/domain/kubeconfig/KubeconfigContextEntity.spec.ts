@@ -28,13 +28,40 @@ describe('KubeconfigContextEntity', () => {
         const context = KubeconfigContextEntity.build({
             name: 'prod',
             cluster: { name: 'prod', server: 'https://prod:6443' },
-            user: { name: 'prod-admin', usesExec: true },
+            user: {
+                name: 'prod-admin',
+                usesExec: true,
+                execConfig: {
+                    apiVersion: 'client.authentication.k8s.io/v1',
+                    command: 'aws',
+                    args: [],
+                    env: [],
+                    installHint: '',
+                    interactiveMode: 'IfAvailable',
+                    provideClusterInfo: false,
+                },
+            },
         })
 
         expect(context.cluster).toBeInstanceOf(KubeconfigClusterEntity)
         expect(context.user).toBeInstanceOf(KubeconfigUserEntity)
-        expect(context.isSupported).toBe(false)
-        expect(context.unsupportedReason).not.toBe('')
+        expect(context.isSupported).toBe(true)
+        expect(context.unsupportedReason).toBe('')
+    })
+
+    it('propagates unsupported reasons from its user entry', () => {
+        const legacy = KubeconfigContextEntity.build({
+            name: 'legacy',
+            cluster: { name: 'legacy', server: 'https://legacy:6443' },
+            user: {
+                name: 'legacy-user',
+                usesAuthProvider: true,
+                authProvider: { name: 'gcp', config: {} },
+            },
+        })
+
+        expect(legacy.isSupported).toBe(false)
+        expect(legacy.unsupportedReason).toContain('gcp')
     })
 
     it('falls back to the default namespace when the context names none', () => {

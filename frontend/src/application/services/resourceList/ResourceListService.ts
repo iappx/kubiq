@@ -7,6 +7,7 @@ import { ResourceDeletePolicy } from '@/application/services/resourceList/consta
 import { ResourceListLimits } from '@/application/services/resourceList/constants/ResourceListLimits'
 import type { TResourceListRequest } from '@/application/services/resourceList/types/TResourceListRequest'
 import type { TResourceListResult } from '@/application/services/resourceList/types/TResourceListResult'
+import type { TResourceScopeCursor } from '@/application/services/resourceList/types/TResourceScopeCursor'
 import type { TResourceScopeWatchRequest } from '@/application/services/resourceList/types/TResourceScopeWatchRequest'
 import type { KubeResourceKind } from '@/domain/models/kube'
 import { KubeApiParams } from '@/infrastructure/entityRepo/kube/KubeApiParams'
@@ -25,14 +26,60 @@ export class ResourceListService {
     public async list(request: TResourceListRequest): Promise<TResourceListResult> {
         const scopes = ResourceListService.scopes(request)
         const pages = await Promise.all(scopes.map(namespace => this.page(request, namespace)))
+        const cursors = pages.map((page, index) => ResourceListService.cursorOf(scopes[index], page))
 
         return {
             items: pages.flatMap(page => page.items),
             total: ResourceListService.sumTotals(pages),
-            cursors: pages.map((page, index) => ({
-                namespace: scopes[index],
-                resourceVersion: page.cursor?.start ?? '',
-            })),
+            cursors,
+            hasMore: cursors.some(cursor => !!cursor.continueToken),
+        }
+    }
+
+    public async listMore(
+        request: TResourceListRequest,
+        cursors: readonly TResourceScopeCursor[],
+    ): Promise<TResourceListResult> {
+        const active = cursors.filter(cursor => !!cursor.continueToken)
+        if (active.length === 0) {
+            return {
+                items: [],
+                total: undefined,
+                cursors: cursors.map(cursor => ({
+                    namespace: cursor.namespace,
+                    resourceVersion: cursor.resourceVersion,
+                })),
+                hasMore: false,
+            }
+        }
+
+        const continueTokens: Record<string, string> = {}
+        active.forEach((cursor) => {
+            continueTokens[cursor.namespace] = cursor.continueToken!
+        })
+
+        const nextRequest: TResourceListRequest = { ...request, continueTokens }
+        const pages = await Promise.all(active.map(cursor => this.page(nextRequest, cursor.namespace)))
+        const fetched = new Map<string, TPage<RepoEntityBase>>()
+        active.forEach((cursor, index) => fetched.set(cursor.namespace, pages[index]))
+
+        const nextCursors = cursors.map((cursor) => {
+            const page = fetched.get(cursor.namespace)
+            if (!page) {
+                return {
+                    namespace: cursor.namespace,
+                    resourceVersion: cursor.resourceVersion,
+                }
+            }
+
+            return ResourceListService.cursorOf(cursor.namespace, page, cursor.resourceVersion)
+        })
+
+        return {
+            items: pages.flatMap(page => page.items),
+            total: ResourceListService.sumTotals(pages),
+            cursors: nextCursors,
+            hasMore: nextCursors.some(cursor => !!cursor.continueToken),
         }
     }
 
@@ -82,7 +129,13 @@ export class ResourceListService {
 
     private page(request: TResourceListRequest, namespace: string): Promise<TPage<RepoEntityBase>> {
         let query = this.query(request.clusterId, request.kind, namespace)
-            .take(request.limit ?? ResourceListLimits.pageSize)
+
+        const token = request.continueTokens?.[namespace]
+        if (token) {
+            query = query.after(token)
+        }
+
+        query = query.take(request.limit ?? ResourceListLimits.pageSize)
 
         if (request.labelSelector) {
             query = query.rawFilter({ [KubeApiParams.labelSelector]: request.labelSelector })
@@ -96,6 +149,21 @@ export class ResourceListService {
 
     private query(clusterId: string, kind: KubeResourceKind, namespace: string): RestEntityQuery<RepoEntityBase> {
         return KubeEntitySets.queryFor(this.connectionService.context(clusterId), kind, namespace)
+    }
+
+    private static cursorOf(
+        namespace: string,
+        page: TPage<RepoEntityBase>,
+        preservedVersion?: string,
+    ): TResourceScopeCursor {
+        const resourceVersion = preservedVersion !== undefined && preservedVersion !== ''
+            ? preservedVersion
+            : (page.cursor?.start ?? '')
+        const continueToken = page.cursor?.hasNext && page.cursor.end ? page.cursor.end : undefined
+
+        return continueToken
+            ? { namespace, resourceVersion, continueToken }
+            : { namespace, resourceVersion }
     }
 
     // A total is only honest when every scope reported one: a missing

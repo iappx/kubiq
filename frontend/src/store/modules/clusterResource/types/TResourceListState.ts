@@ -11,6 +11,8 @@ export type TResourceListState = {
     forbidden: boolean
     busyKeys: string[]
     cursors: TResourceScopeCursor[]
+    hasMore: boolean
+    loadingMore: boolean
     watching: boolean
     // 0 means the watch is live, not that it dropped at the epoch.
     staleSince: number

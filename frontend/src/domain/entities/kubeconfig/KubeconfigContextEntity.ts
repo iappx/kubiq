@@ -1,5 +1,4 @@
 import { RepoEntityBase, RepoEntityField } from '@iappx/entity-repo'
-import { KubeconfigAuthTypeCatalog } from '@/domain/entities/kubeconfig/KubeconfigAuthTypeCatalog'
 import { KubeconfigClusterEntity } from '@/domain/entities/kubeconfig/KubeconfigClusterEntity'
 import { KubeconfigUserEntity } from '@/domain/entities/kubeconfig/KubeconfigUserEntity'
 import type { TKubeconfigAuthType } from '@/domain/entities/kubeconfig/types/TKubeconfigAuthType'
@@ -41,10 +40,10 @@ export class KubeconfigContextEntity extends RepoEntityBase<KubeconfigContextEnt
     }
 
     get isSupported(): boolean {
-        return KubeconfigAuthTypeCatalog.isSupported(this.authType)
+        return this.user ? this.user.isSupported : true
     }
 
     get unsupportedReason(): string {
-        return KubeconfigAuthTypeCatalog.reason(this.authType)
+        return this.user?.unsupportedReason ?? ''
     }
 }

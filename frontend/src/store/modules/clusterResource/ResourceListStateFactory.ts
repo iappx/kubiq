@@ -12,6 +12,8 @@ export class ResourceListStateFactory {
             forbidden: false,
             busyKeys: [],
             cursors: [],
+            hasMore: false,
+            loadingMore: false,
             watching: false,
             staleSince: 0,
             flashKeys: [],

@@ -4,4 +4,7 @@ export { KubeconfigContextEntity } from '@/domain/entities/kubeconfig/Kubeconfig
 export { KubeconfigFileEntity } from '@/domain/entities/kubeconfig/KubeconfigFileEntity'
 export { KubeconfigUserEntity } from '@/domain/entities/kubeconfig/KubeconfigUserEntity'
 export type { TConnectionSpec } from '@/domain/entities/kubeconfig/types/TConnectionSpec'
+export type { TKubeconfigAuthProvider } from '@/domain/entities/kubeconfig/types/TKubeconfigAuthProvider'
 export type { TKubeconfigAuthType } from '@/domain/entities/kubeconfig/types/TKubeconfigAuthType'
+export type { TKubeconfigExecConfig } from '@/domain/entities/kubeconfig/types/TKubeconfigExecConfig'
+export type { TKubeconfigExecEnvVar } from '@/domain/entities/kubeconfig/types/TKubeconfigExecEnvVar'
