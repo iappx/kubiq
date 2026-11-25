@@ -32,7 +32,13 @@
 
     <template v-else>
       <div v-show="tab === tabs.overviewKey" class="min-h-0 flex-1 overflow-y-auto">
-        <resource-overview-tab :state="state" :target="target" @open="$emit('open', $event)" />
+        <resource-overview-tab
+            :can-filter-labels="true"
+            :state="state"
+            :target="target"
+            @filter-label="$emit('filter-label', $event)"
+            @open="$emit('open', $event)"
+        />
       </div>
 
       <div v-show="tab === tabs.detailsKey" class="min-h-0 flex-1 overflow-y-auto">
@@ -48,7 +54,13 @@
       </div>
 
       <div v-show="tab === tabs.metadataKey" class="min-h-0 flex-1 overflow-y-auto">
-        <resource-metadata-tab :object="state.object" />
+        <resource-metadata-tab
+            :can-filter-labels="true"
+            :object="state.object"
+            :target="target"
+            @filter-label="$emit('filter-label', $event)"
+            @open="$emit('open', $event)"
+        />
       </div>
 
       <div v-if="eventsOpened" v-show="tab === tabs.eventsKey" class="min-h-0 flex-1 overflow-y-auto">
@@ -98,7 +110,7 @@ import type { TResourceObjectState } from '@/store/modules/resourceObject/types/
     UiErrorState,
     UiSkeletons,
   },
-  emits: ['open', 'cancel-edit'],
+  emits: ['open', 'cancel-edit', 'filter-label'],
 })
 export default class ResourceDetailBody extends VueBase {
   @Prop({ required: true })

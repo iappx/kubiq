@@ -35,7 +35,13 @@
     </template>
 
     <template v-if="hasDataMap">
-      <resource-metadata-tab :object="state.object" />
+      <resource-metadata-tab
+          :can-filter-labels="canFilterLabels"
+          :object="state.object"
+          :target="target"
+          @filter-label="$emit('filter-label', $event)"
+          @open="$emit('open', $event)"
+      />
 
       <resource-data-section :state="state" :target="target" />
     </template>
@@ -81,7 +87,7 @@ import type { TResourceObjectState } from '@/store/modules/resourceObject/types/
     ResourceSection,
     ResourceTaintList,
   },
-  emits: ['open'],
+  emits: ['open', 'filter-label'],
 })
 export default class ResourceOverviewTab extends VueBase {
   @Prop({ required: true })
@@ -89,6 +95,9 @@ export default class ResourceOverviewTab extends VueBase {
 
   @Prop({ required: true })
   public readonly target: TResourceObjectRef
+
+  @Prop({ required: false, default: false })
+  public readonly canFilterLabels?: boolean
 
   public get hasMetrics(): boolean {
     return DetailTabs.hasMetrics(this.target.kind)

@@ -5,7 +5,7 @@
           :columns="columns"
           :count="rows.length"
           :density="uiStore.density"
-          :filter="filterText"
+          :filter="activeFilter"
           :filter-placeholder="filterPlaceholder"
           :hidden-keys="hiddenKeys"
           :sorted="!!sort"
@@ -16,7 +16,18 @@
           @update:hidden-keys="setHiddenKeys($event)"
       >
         <template #status>
-          <span v-if="labelSelector" class="pill pill-active">{{ labelSelector }}</span>
+          <span v-if="labelSelector" class="pill pill-active h-7 gap-1 py-0 pl-2.5 pr-0">
+            <span :title="labelSelector" class="max-w-56 truncate font-mono">{{ labelSelector }}</span>
+            <button
+                :aria-label="`Remove label filter ${labelSelector}`"
+                class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-r-md text-primary hover:bg-primary/15"
+                title="Remove label filter"
+                type="button"
+                @click="clearFilter"
+            >
+              <x :size="12" aria-hidden="true" />
+            </button>
+          </span>
 
           <ui-live-indicator
               :since="state.staleSince"
@@ -135,7 +146,7 @@
                 v-if="isFiltered"
                 :icon="searchIcon"
                 :on-action="clearFilter"
-                :title="`No ${title} match \`${filterText}\``"
+                :title="`No ${title} match \`${activeFilter}\``"
                 action-label="Clear filter"
                 description="The filter matches a name; a query shaped like app=api is sent to the cluster as a label selector."
             />
@@ -190,6 +201,7 @@
           :tab="detailTab"
           :target="detailTarget"
           @cancel-edit="cancelYamlEdit"
+          @filter-label="setFilter($event)"
           @open="openRelated"
       />
     </resource-detail-panel>
@@ -213,7 +225,7 @@
 <script lang="ts">
 import { Component, VueBase, Watch } from '@iappx/vue-facing-di'
 import { inject } from 'tsyringe'
-import { CirclePlus, FilePlus2, Inbox, RefreshCw, Search } from '@lucide/vue'
+import { CirclePlus, FilePlus2, Inbox, RefreshCw, Search, X } from '@lucide/vue'
 import type { Component as VueComponent } from 'vue'
 import type { RouteLocationNormalized } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -287,6 +299,7 @@ import { ResourceYamlEditStore } from '@/store/modules/resourceYamlEdit/Resource
     UiLiveIndicator,
     UiSkeletons,
     UiTableToolbar,
+    X,
   },
 })
 export default class ResourcePage extends VueBase {
@@ -552,8 +565,12 @@ export default class ResourcePage extends VueBase {
     return `Filter ${this.title.toLowerCase()} by name or label`
   }
 
+  public get activeFilter(): string {
+    return this.filterText || this.labelSelector
+  }
+
   public get isFiltered(): boolean {
-    return this.filterText !== '' && this.allRows.length > 0
+    return (this.filterText !== '' && this.allRows.length > 0) || this.labelSelector !== ''
   }
 
   public get showSkeleton(): boolean {
