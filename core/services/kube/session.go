@@ -64,6 +64,10 @@ func (s *Session) close() {
 	s.Client.CloseIdleConnections()
 }
 
+func (s *Session) resetIdle() {
+	s.Client.CloseIdleConnections()
+}
+
 func newSession(spec ConnectionSpec) (*Session, error) {
 	baseURL, err := parseServer(spec.Server)
 	if err != nil {

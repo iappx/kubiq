@@ -38,6 +38,13 @@
           @update:kubectl-path="settingsStore.setKubectlPath($event)"
       />
 
+      <settings-terminal-section
+          :terminal-font-family="settingsStore.settings.terminalFontFamily"
+          :terminal-shell="settingsStore.settings.terminalShell"
+          @update:terminal-font-family="settingsStore.setTerminalFontFamily($event)"
+          @update:terminal-shell="settingsStore.setTerminalShell($event)"
+      />
+
       <settings-node-shell-section
           :node-shell-image="settingsStore.settings.nodeShellImage"
           @update:node-shell-image="settingsStore.setNodeShellImage($event)"
@@ -100,6 +107,7 @@ import SettingsKubeconfigSection from '@/components/settings/SettingsKubeconfigS
 import SettingsNodeShellSection from '@/components/settings/SettingsNodeShellSection.vue'
 import SettingsPrometheusSection from '@/components/settings/SettingsPrometheusSection.vue'
 import SettingsStorageSection from '@/components/settings/SettingsStorageSection.vue'
+import SettingsTerminalSection from '@/components/settings/SettingsTerminalSection.vue'
 import SettingsToolsSection from '@/components/settings/SettingsToolsSection.vue'
 import SettingsUpdatesSection from '@/components/settings/SettingsUpdatesSection.vue'
 import UiErrorState from '@/components/common/feedback/UiErrorState.vue'
@@ -122,6 +130,7 @@ import { UpdateStore } from '@/store/modules/update/UpdateStore'
     SettingsNodeShellSection,
     SettingsPrometheusSection,
     SettingsStorageSection,
+    SettingsTerminalSection,
     SettingsToolsSection,
     SettingsUpdatesSection,
     UiErrorState,

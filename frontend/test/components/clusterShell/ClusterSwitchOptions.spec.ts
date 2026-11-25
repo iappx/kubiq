@@ -107,4 +107,33 @@ describe('ClusterSwitchOptions.build', () => {
         expect(items.map(item => item.key)).toEqual(['cluster:catalog', ClusterSwitchOptions.catalogKey])
         expect(ClusterSwitchOptions.clusterIdOf(ClusterSwitchOptions.catalogKey)).toBe('')
     })
+
+    it('labels connected and disconnected groups when both are present', () => {
+        const items = ClusterSwitchOptions.build([
+            row('prod', 'connected'),
+            row('staging', 'connected'),
+            row('lab', 'available'),
+            row('old', 'unsupported'),
+        ])
+
+        expect(items.map(item => item.groupLabel)).toEqual([
+            'Connected',
+            undefined,
+            'Disconnected',
+            undefined,
+            undefined,
+        ])
+    })
+
+    it('labels only Connected when every cluster is connected', () => {
+        const items = ClusterSwitchOptions.build([row('prod', 'connected'), row('staging', 'connected')])
+
+        expect(items.map(item => item.groupLabel)).toEqual(['Connected', undefined, undefined])
+    })
+
+    it('labels only Disconnected when no cluster is connected', () => {
+        const items = ClusterSwitchOptions.build([row('lab', 'available'), row('old', 'unsupported')])
+
+        expect(items.map(item => item.groupLabel)).toEqual(['Disconnected', undefined, undefined])
+    })
 })

@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const connect = vi.fn()
 const disconnect = vi.fn()
 const sessions = vi.fn()
+const resetIdle = vi.fn()
 
 vi.mock('../../../bindings/iappx_k8s_admin/core/services/kube', () => ({
     ConnectionService: {
         Connect: (...args: unknown[]) => connect(...args),
         Disconnect: (...args: unknown[]) => disconnect(...args),
         Sessions: () => sessions(),
+        ResetIdle: () => resetIdle(),
     },
 }))
 
@@ -50,6 +52,7 @@ describe('KubeSessionAdapter', () => {
         connect.mockReset()
         disconnect.mockReset()
         sessions.mockReset()
+        resetIdle.mockReset()
     })
 
     it('hands the specification to the Go side and returns the session id', async () => {
@@ -129,10 +132,28 @@ describe('KubeSessionAdapter', () => {
         ])
     })
 
+    it('resets idle connections through the Go side', async () => {
+        resetIdle.mockResolvedValue({ success: true })
+
+        await adapter.resetIdle()
+
+        expect(resetIdle).toHaveBeenCalledTimes(1)
+    })
+
+    it('raises an ApiError when resetting idle connections fails', async () => {
+        resetIdle.mockResolvedValue({ success: false, error: 'reset failed' })
+
+        const error = await failure(() => adapter.resetIdle())
+
+        expect(error.details).toContain('reset failed')
+    })
+
     it('degrades quietly without the Wails runtime for everything but connecting', async () => {
         await expect(withoutRuntime.sessions()).resolves.toEqual([])
         await expect(withoutRuntime.disconnect('session-1')).resolves.toBeUndefined()
+        await expect(withoutRuntime.resetIdle()).resolves.toBeUndefined()
         expect(sessions).not.toHaveBeenCalled()
         expect(disconnect).not.toHaveBeenCalled()
+        expect(resetIdle).not.toHaveBeenCalled()
     })
 })

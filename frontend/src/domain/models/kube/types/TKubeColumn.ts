@@ -4,6 +4,7 @@ export type TKubeColumn = {
     title: string
     jsonPath?: string
     align?: 'left' | 'right'
+    format?: 'date'
     // Kubernetes printer-column priority: 0 is always shown, above 0 only in a wide table.
     priority?: number
 }

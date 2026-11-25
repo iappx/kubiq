@@ -59,6 +59,33 @@ describe('KubeCrdReader', () => {
         expect(KubeCrdReader.read(crd)[0].columns.map(p => p.key)).toEqual(['name', 'createdAt'])
     })
 
+    it('preserves date format and right alignment for date and numeric printer columns', () => {
+        const certificateColumns = KubeCrdReader.read(KubeDiscoveryFixtures.certificateCrd())[0].columns
+
+        expect(certificateColumns[5]).toEqual({
+            key: 'Age',
+            title: 'Age',
+            jsonPath: '.metadata.creationTimestamp',
+            priority: undefined,
+            format: 'date',
+            align: 'right',
+        })
+
+        const crd = KubeDiscoveryFixtures.plainCrd()
+        crd.spec!.versions![0].additionalPrinterColumns = [
+            { name: 'Replicas', type: 'integer', jsonPath: '.spec.replicas' },
+            { name: 'Weight', type: 'number', jsonPath: '.spec.weight' },
+            { name: 'Active', type: 'boolean', jsonPath: '.spec.active' },
+            { name: 'Updated', type: 'date', jsonPath: '.status.updatedAt' },
+        ]
+        const columns = KubeCrdReader.read(crd)[0].columns
+
+        expect(columns[1]).toEqual({ key: 'Replicas', title: 'Replicas', jsonPath: '.spec.replicas', priority: undefined, align: 'right' })
+        expect(columns[2]).toEqual({ key: 'Weight', title: 'Weight', jsonPath: '.spec.weight', priority: undefined, align: 'right' })
+        expect(columns[3]).toEqual({ key: 'Active', title: 'Active', jsonPath: '.spec.active', priority: undefined })
+        expect(columns[4]).toEqual({ key: 'Updated', title: 'Updated', jsonPath: '.status.updatedAt', priority: undefined, format: 'date', align: 'right' })
+    })
+
     it('returns nothing for a document that names no group, plural or kind', () => {
         expect(KubeCrdReader.read({})).toEqual([])
         expect(KubeCrdReader.read({ spec: { group: 'example.test' } })).toEqual([])

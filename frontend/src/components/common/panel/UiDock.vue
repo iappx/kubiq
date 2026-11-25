@@ -117,6 +117,9 @@ export default class UiDock extends VueBase {
     if (key !== this.active) {
       this.$emit('update:active', key)
     }
+    if (this.collapsed) {
+      this.$emit('update:collapsed', false)
+    }
   }
 }
 </script>

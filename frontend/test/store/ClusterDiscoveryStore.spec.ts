@@ -144,4 +144,29 @@ describe('ClusterDiscoveryStore', () => {
 
         expect(fake.listKinds).toHaveBeenCalledTimes(2)
     })
+
+    it('retries on loadOnce when a previous discovery returned no kinds', async () => {
+        fake.state.kinds.prod = []
+        await store.loadOnce('prod')
+        expect(store.kindsOf('prod')).toEqual([])
+
+        fake.state.kinds.prod = [pods]
+        await store.loadOnce('prod')
+
+        expect(fake.listKinds).toHaveBeenCalledTimes(2)
+        expect(store.kindsOf('prod')).toHaveLength(1)
+    })
+
+    it('retries on loadOnce when a previous discovery failed', async () => {
+        await store.loadOnce('prod')
+        fake.state.failFor.prod = new ApiError('timeout')
+        await store.reload('prod')
+        expect(store.failureOf('prod')).toBe('timeout')
+
+        fake.state.failFor = {}
+        await store.loadOnce('prod')
+
+        expect(fake.listKinds).toHaveBeenCalledTimes(3)
+        expect(store.failureOf('prod')).toBe('')
+    })
 })

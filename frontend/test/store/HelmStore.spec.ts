@@ -238,4 +238,29 @@ describe('HelmStore', () => {
         expect(store.releases).toEqual([])
         expect(store.namespaces).toEqual([])
     })
+
+    it('forces a fresh probe on enter when helm was previously unavailable', async () => {
+        fake.state.availability = { available: false, executable: 'helm', version: '', reason: 'timeout', detail: '' }
+        await store.enter('staging')
+        expect(store.isAvailable).toBe(false)
+
+        fake.availability.mockClear()
+        fake.state.availability = { available: true, executable: 'helm', version: 'v3.14.0', reason: '', detail: '' }
+        fake.state.releases = [release('web')]
+
+        await store.enter('staging')
+
+        expect(fake.availability).toHaveBeenCalledWith('staging', true)
+        expect(store.isAvailable).toBe(true)
+        expect(store.releases).toHaveLength(1)
+    })
+
+    it('reuses the cached probe on re-enter when helm is already available', async () => {
+        await store.enter('staging')
+        fake.availability.mockClear()
+
+        await store.enter('staging')
+
+        expect(fake.availability).toHaveBeenCalledWith('staging', false)
+    })
 })

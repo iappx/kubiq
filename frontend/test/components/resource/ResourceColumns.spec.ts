@@ -61,6 +61,21 @@ describe('ResourceColumns.map', () => {
         const columns: TKubeColumn[] = [{ key: 'Phase', title: 'Phase', jsonPath: '.status.phase' }]
 
         expect(ResourceColumns.map(columns)[0]).toMatchObject({ key: 'Phase', title: 'Phase', locked: false })
+        expect(ResourceColumns.map(columns)[0]).not.toHaveProperty('format')
+    })
+
+    it('carries a date column format and alignment through', () => {
+        const columns: TKubeColumn[] = [
+            { key: 'Age', title: 'Age', jsonPath: '.metadata.creationTimestamp', format: 'date', align: 'right' },
+        ]
+
+        expect(ResourceColumns.map(columns)[0]).toMatchObject({
+            key: 'Age',
+            title: 'Age',
+            format: 'date',
+            align: 'right',
+            locked: false,
+        })
     })
 
     it('maps every kind in the registry without losing a column', () => {
@@ -110,5 +125,32 @@ describe('ResourceColumns.defaultHidden', () => {
 
         expect(ResourceColumns.defaultHidden(mapped)).not.toContain(ResourceColumns.containersKey)
         expect(ResourceColumns.isLocked(ResourceColumns.containersKey)).toBe(false)
+    })
+})
+
+describe('ResourceColumns.dateKeys and ResourceColumns.dateValue', () => {
+    it('returns keys for date-formatted columns while excluding built-in slots', () => {
+        const columns = ResourceColumns.map([
+            { key: 'name', title: 'Name' },
+            { key: 'createdAt', title: 'Age', format: 'date' },
+            { key: 'state', title: 'Status', format: 'date' },
+            { key: 'Age', title: 'Age', jsonPath: '.metadata.creationTimestamp', format: 'date', align: 'right' },
+            { key: 'Renewed', title: 'Renewed', jsonPath: '.status.renewalTime', format: 'date', align: 'right' },
+            { key: 'Ready', title: 'Ready', jsonPath: '.status.conditions[?(@.type=="Ready")].status' },
+        ])
+
+        expect(ResourceColumns.dateKeys(columns)).toEqual(['Age', 'Renewed'])
+    })
+
+    it('passes valid date input types through and coerces unsupported values to null', () => {
+        const now = new Date('2026-07-26T07:20:11Z')
+
+        expect(ResourceColumns.dateValue('2026-07-26T07:20:11Z')).toBe('2026-07-26T07:20:11Z')
+        expect(ResourceColumns.dateValue(1785050411000)).toBe(1785050411000)
+        expect(ResourceColumns.dateValue(now)).toBe(now)
+        expect(ResourceColumns.dateValue(undefined)).toBeNull()
+        expect(ResourceColumns.dateValue(null)).toBeNull()
+        expect(ResourceColumns.dateValue(true)).toBeNull()
+        expect(ResourceColumns.dateValue({ iso: '2026-07-26T07:20:11Z' })).toBeNull()
     })
 })

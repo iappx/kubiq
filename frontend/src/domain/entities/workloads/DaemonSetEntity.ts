@@ -52,6 +52,17 @@ export class DaemonSetEntity extends RepoEntityBase<DaemonSetEntity> {
         return `${this.readyCount}/${this.desiredCount}`
     }
 
+    get isProgressing(): boolean {
+        const generation = this.metadata?.generation
+        const observed = this.status?.observedGeneration
+        if (generation !== undefined && observed !== undefined && observed < generation) {
+            return true
+        }
+        return this.desiredCount > 0
+            && this.status?.updatedNumberScheduled !== undefined
+            && this.status.updatedNumberScheduled < this.desiredCount
+    }
+
     get state(): TKubeObjectState {
         if (this.metadata?.isDeleting) {
             return 'pending'
@@ -62,10 +73,23 @@ export class DaemonSetEntity extends RepoEntityBase<DaemonSetEntity> {
         if (this.desiredCount === 0) {
             return 'ok'
         }
+        if (this.isProgressing) {
+            return 'pending'
+        }
         if (this.readyCount === 0) {
             return 'error'
         }
         return this.readyCount < this.desiredCount ? 'warning' : 'ok'
+    }
+
+    get stateLabel(): string {
+        if (this.metadata?.isDeleting) {
+            return 'Terminating'
+        }
+        if (this.state === 'pending' && this.isProgressing) {
+            return 'Progressing'
+        }
+        return KubeObjectStateCatalog.title(this.state)
     }
 
     get isProblematic(): boolean {

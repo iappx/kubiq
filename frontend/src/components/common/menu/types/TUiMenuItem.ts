@@ -9,4 +9,5 @@ export type TUiMenuItem = {
     hint?: string
     danger?: boolean
     separatorBefore?: boolean
+    groupLabel?: string
 }

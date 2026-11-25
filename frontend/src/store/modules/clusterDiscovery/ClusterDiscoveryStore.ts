@@ -42,7 +42,11 @@ export class ClusterDiscoveryStore extends StoreBase<ClusterDiscoveryStore> {
     }
 
     public loadOnce(clusterId: string): Promise<void> {
-        if (!clusterId || this.isLoading(clusterId) || this.isDiscovered(clusterId)) {
+        if (
+            !clusterId
+            || this.isLoading(clusterId)
+            || (this.kindsOf(clusterId).length > 0 && this.failureOf(clusterId) === '')
+        ) {
             return Promise.resolve()
         }
 

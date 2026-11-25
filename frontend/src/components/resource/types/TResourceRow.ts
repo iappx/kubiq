@@ -7,5 +7,6 @@ export type TResourceRow = {
     createdAt: string
     tone: TUiTone
     statusTitle: string
+    hasState?: boolean
     [column: string]: unknown
 }

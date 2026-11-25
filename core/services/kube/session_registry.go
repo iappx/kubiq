@@ -63,6 +63,19 @@ func (r *SessionRegistry) List() []*Session {
 	return sessions
 }
 
+func (r *SessionRegistry) ResetIdle() {
+	r.mutex.RLock()
+	sessions := make([]*Session, 0, len(r.sessions))
+	for _, session := range r.sessions {
+		sessions = append(sessions, session)
+	}
+	r.mutex.RUnlock()
+
+	for _, session := range sessions {
+		session.resetIdle()
+	}
+}
+
 func (r *SessionRegistry) Close() {
 	r.mutex.Lock()
 	sessions := make([]*Session, 0, len(r.sessions))

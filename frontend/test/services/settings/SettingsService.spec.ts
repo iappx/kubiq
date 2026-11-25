@@ -59,6 +59,8 @@ describe('SettingsService', () => {
                 kubectlPath: 'C:/tools/kubectl.exe',
                 helmPath: 'C:/tools/helm.exe',
                 nodeShellImage: 'registry.internal/shell:1',
+                terminalShell: '/opt/homebrew/bin/zsh',
+                terminalFontFamily: 'JetBrainsMono Nerd Font',
                 checkForUpdates: false,
                 skippedVersion: '0.2.0',
             })
@@ -68,6 +70,8 @@ describe('SettingsService', () => {
             expect(stored.kubectlPath).toBe('C:/tools/kubectl.exe')
             expect(stored.helmPath).toBe('C:/tools/helm.exe')
             expect(stored.nodeShellImage).toBe('registry.internal/shell:1')
+            expect(stored.terminalShell).toBe('/opt/homebrew/bin/zsh')
+            expect(stored.terminalFontFamily).toBe('JetBrainsMono Nerd Font')
             expect(stored.checkForUpdates).toBe(false)
             expect(stored.skippedVersion).toBe('0.2.0')
         })
@@ -105,6 +109,20 @@ describe('SettingsService', () => {
             await service.save({ ...AppSettings.defaults(), nodeShellImage: 'registry.internal/shell:2' })
 
             await expect(service.nodeShellImage()).resolves.toBe('registry.internal/shell:2')
+        })
+
+        it('reports terminal shell and font family once stored', async () => {
+            await expect(service.terminalShell()).resolves.toBe('')
+            await expect(service.terminalFontFamily()).resolves.toBe('')
+
+            await service.save({
+                ...AppSettings.defaults(),
+                terminalShell: 'pwsh.exe',
+                terminalFontFamily: 'FiraCode Nerd Font',
+            })
+
+            await expect(service.terminalShell()).resolves.toBe('pwsh.exe')
+            await expect(service.terminalFontFamily()).resolves.toBe('FiraCode Nerd Font')
         })
 
     })

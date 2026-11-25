@@ -63,6 +63,7 @@ import { Component, Prop, Watch } from '@iappx/vue-facing-di'
 import { motion } from 'motion-v'
 import { X } from '@lucide/vue'
 import { ModalShellBase } from '@/components/base/modals/ModalShellBase'
+import type { TModalLayer } from '@/components/base/modals/types/TModalLayer'
 import UiResizeHandle from '@/components/common/panel/UiResizeHandle.vue'
 import { UiMotion } from '@/constants/UiMotion'
 
@@ -113,6 +114,10 @@ export default class UiSidePanel extends ModalShellBase {
   @Watch('open')
   openChanged(open: boolean): void {
     void this.handleOpenChange(open)
+  }
+
+  protected escapeLayer(): TModalLayer {
+    return 'panel'
   }
 
   protected isOpen(): boolean {

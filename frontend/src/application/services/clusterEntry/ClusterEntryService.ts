@@ -1,10 +1,12 @@
 import { container, singleton } from 'tsyringe'
+import { ClusterConnectionService } from '@/application/services/cluster/ClusterConnectionService'
 import { ClusterEntryPhase } from '@/application/services/clusterEntry/models/ClusterEntryPhase'
 import type { TClusterEntryPhase } from '@/application/services/clusterEntry/types/TClusterEntryPhase'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
+import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 
 @singleton()
@@ -100,7 +102,8 @@ export class ClusterEntryService {
         await connections.loadNamespaces()
         await connections.loadScope(clusterId)
 
-        if (!connections.isConnected(clusterId)) {
+        const wasConnected = connections.isConnected(clusterId)
+        if (!wasConnected) {
             await this.connectOnce(clusterId, catalog.sources, true)
         }
         if (!connections.isConnected(clusterId)) {
@@ -110,12 +113,40 @@ export class ClusterEntryService {
         connections.activate(clusterId)
         container.resolve(AppUiStore).setLastClusterId(clusterId)
 
+        const discovery = container.resolve(ClusterDiscoveryStore)
+        const namespaces = container.resolve(ClusterNamespaceStore)
+        const needsRecovery = this.needsRecovery(wasConnected, clusterId, discovery)
+        if (needsRecovery) {
+            await container.resolve(ClusterConnectionService).resetIdle()
+        }
+
         await Promise.all([
-            container.resolve(ClusterDiscoveryStore).loadOnce(clusterId),
-            container.resolve(ClusterNamespaceStore).loadFor(clusterId),
+            needsRecovery ? discovery.reload(clusterId) : discovery.loadOnce(clusterId),
+            this.loadNamespaces(clusterId, namespaces, needsRecovery),
         ])
 
         return 'ready'
+    }
+
+    private needsRecovery(wasConnected: boolean, clusterId: string, discovery: ClusterDiscoveryStore): boolean {
+        if (!wasConnected) {
+            return false
+        }
+
+        const health = container.resolve(ClusterHealthStore).healthOf(clusterId)
+
+        return health === 'degraded' || health === 'unreachable' || discovery.failureOf(clusterId) !== ''
+    }
+
+    private loadNamespaces(clusterId: string, namespaces: ClusterNamespaceStore, needsRecovery: boolean): Promise<void> {
+        if (!(clusterId in namespaces.available)) {
+            return namespaces.loadFor(clusterId)
+        }
+        if (needsRecovery || namespaces.failureOf(clusterId) !== null || namespaces.availableOf(clusterId).length === 0) {
+            return namespaces.refresh(clusterId)
+        }
+
+        return Promise.resolve()
     }
 
     // The store drops a second connect while one is in flight, so a caller that must see the outcome joins the first.

@@ -4,6 +4,7 @@ const variables: Record<string, string> = {}
 const connect = vi.fn()
 const disconnect = vi.fn()
 const openSessions = vi.fn()
+const resetIdle = vi.fn()
 const send = vi.fn()
 
 vi.mock('../../../bindings/iappx_k8s_admin/core/services/env', () => ({
@@ -24,6 +25,7 @@ vi.mock('../../../bindings/iappx_k8s_admin/core/services/kube', () => ({
         Connect: (...args: unknown[]) => connect(...args),
         Disconnect: (...args: unknown[]) => disconnect(...args),
         Sessions: () => openSessions(),
+        ResetIdle: () => resetIdle(),
     },
     KubeService: {
         Send: (...args: unknown[]) => send(...args),
@@ -92,9 +94,11 @@ describe('ClusterConnectionService', () => {
         connect.mockReset()
         disconnect.mockReset()
         openSessions.mockReset()
+        resetIdle.mockReset()
         send.mockReset()
         disconnect.mockResolvedValue({ success: true })
         openSessions.mockResolvedValue({ success: true, sessions: [] })
+        resetIdle.mockResolvedValue({ success: true })
         send.mockResolvedValue({
             success: true,
             status: 200,
@@ -512,6 +516,45 @@ describe('ClusterConnectionService', () => {
 
         it('reports an open session list', async () => {
             await expect(service.sessions()).resolves.toEqual([])
+        })
+    })
+
+    describe('resetting idle connections and probing', () => {
+        it('drops idle connections through the session adapter and ignores failures', async () => {
+            await service.resetIdle()
+            expect(resetIdle).toHaveBeenCalledTimes(1)
+
+            resetIdle.mockRejectedValueOnce(new Error('runtime gone'))
+            await expect(service.resetIdle()).resolves.toBeUndefined()
+        })
+
+        it('returns false when probing a cluster that is not connected', async () => {
+            await expect(service.probe('ghost')).resolves.toBe(false)
+            expect(resetIdle).not.toHaveBeenCalled()
+        })
+
+        it('resets idle connections and checks /version when probing a connected cluster', async () => {
+            variables.KUBECONFIG = HOME_CONFIG
+            sessionsInOrder('session-1')
+            await service.connect('prod')
+            send.mockClear()
+
+            await expect(service.probe('prod')).resolves.toBe(true)
+
+            expect(resetIdle).toHaveBeenCalledTimes(1)
+            expect(send).toHaveBeenCalledTimes(1)
+            expect(send.mock.calls[0][0].path).toBe('/version')
+        })
+
+        it('returns false when the probed cluster does not answer /version', async () => {
+            variables.KUBECONFIG = HOME_CONFIG
+            sessionsInOrder('session-1')
+            await service.connect('prod')
+            send.mockRejectedValueOnce(new Error('dial tcp: i/o timeout'))
+
+            await expect(service.probe('prod')).resolves.toBe(false)
+
+            expect(resetIdle).toHaveBeenCalledTimes(1)
         })
     })
 })

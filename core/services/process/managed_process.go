@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,7 +15,11 @@ import (
 
 // ClosePseudoConsole drops whatever the output pipe still holds, so the reader
 // is given a moment to drain the tail before the console is torn down.
-const terminalDrainGrace = 50 * time.Millisecond
+const (
+	terminalDrainGrace = 50 * time.Millisecond
+	defaultTerm        = "xterm-256color"
+	defaultColorTerm   = "truecolor"
+)
 
 type managedProcess struct {
 	id        string
@@ -144,7 +149,7 @@ func (m *managedProcess) startInTerminal(spec StartSpec, dir string, env []strin
 
 	cmd := terminal.Command(spec.Command, spec.Args...)
 	cmd.Dir = dir
-	cmd.Env = env
+	cmd.Env = ensureTerminalEnvironment(env)
 	cmd.SysProcAttr = m.group.procAttr(true)
 
 	if err := cmd.Start(); err != nil {
@@ -239,4 +244,51 @@ func exitCode(state *os.ProcessState, err error) int {
 	}
 
 	return -1
+}
+
+func ensureTerminalEnvironment(env []string) []string {
+	termKey := environmentKey("TERM")
+	colorTermKey := environmentKey("COLORTERM")
+
+	hasTerm := false
+	hasColorTerm := false
+
+	for _, entry := range env {
+		name, value, found := strings.Cut(entry, "=")
+		if !found || value == "" {
+			continue
+		}
+
+		switch environmentKey(name) {
+		case termKey:
+			hasTerm = true
+		case colorTermKey:
+			hasColorTerm = true
+		}
+	}
+
+	if hasTerm && hasColorTerm {
+		return env
+	}
+
+	result := make([]string, 0, len(env)+2)
+	for _, entry := range env {
+		name, _, found := strings.Cut(entry, "=")
+		if found {
+			key := environmentKey(name)
+			if (!hasTerm && key == termKey) || (!hasColorTerm && key == colorTermKey) {
+				continue
+			}
+		}
+		result = append(result, entry)
+	}
+
+	if !hasTerm {
+		result = append(result, "TERM="+defaultTerm)
+	}
+	if !hasColorTerm {
+		result = append(result, "COLORTERM="+defaultColorTerm)
+	}
+
+	return result
 }

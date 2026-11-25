@@ -37,6 +37,10 @@
       <ui-age :value="row.createdAt" />
     </template>
 
+    <template v-for="key in dateColumnKeys" :key="key" #[`cell-${key}`]="{ value }">
+      <ui-age :value="dateValue(value)" />
+    </template>
+
     <template #empty>
       <slot name="empty" />
     </template>
@@ -105,6 +109,10 @@ export default class ResourceTable extends VueBase {
     return ResourceColumns.nameKey
   }
 
+  public get dateColumnKeys(): string[] {
+    return ResourceColumns.dateKeys(this.columns)
+  }
+
   public get toneOf(): (row: TResourceRow) => TUiTone {
     return row => row.tone
   }
@@ -112,6 +120,10 @@ export default class ResourceTable extends VueBase {
   // Names repeat across namespaces, so without the prefix two row checkboxes read identically.
   public get labelOf(): (row: TResourceRow) => string {
     return row => (row.namespace ? `${row.namespace}/${row.name}` : row.name)
+  }
+
+  public dateValue(value: unknown): string | number | Date | null {
+    return ResourceColumns.dateValue(value)
   }
 }
 </script>

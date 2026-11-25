@@ -47,12 +47,25 @@ export class KubeCrdReader {
         if (declared.length === 0) {
             return KubeColumns.baseWithAge(namespaced)
         }
-        const mapped = declared.map(column => ({
+        const mapped = declared.map(column => KubeCrdReader.toColumn(column))
+        return [...KubeColumns.base(namespaced), ...mapped]
+    }
+
+    private static toColumn(column: TCrdPrinterColumnDocument): TKubeColumn {
+        const mapped: TKubeColumn = {
             key: column.name as string,
             title: column.name as string,
             jsonPath: column.jsonPath,
             priority: column.priority,
-        }))
-        return [...KubeColumns.base(namespaced), ...mapped]
+        }
+
+        if (column.type === 'date') {
+            mapped.format = 'date'
+            mapped.align = 'right'
+        } else if (column.type === 'integer' || column.type === 'number') {
+            mapped.align = 'right'
+        }
+
+        return mapped
     }
 }

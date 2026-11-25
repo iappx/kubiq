@@ -82,6 +82,14 @@ export class AppSettingsStore extends StoreBase<AppSettingsStore> {
         return this.write({ ...this.settings, nodeShellImage: image })
     }
 
+    public setTerminalShell(shell: string): Promise<void> {
+        return this.write({ ...this.settings, terminalShell: shell })
+    }
+
+    public setTerminalFontFamily(fontFamily: string): Promise<void> {
+        return this.write({ ...this.settings, terminalFontFamily: fontFamily })
+    }
+
     public setCheckForUpdates(enabled: boolean): Promise<void> {
         return this.write({ ...this.settings, checkForUpdates: enabled })
     }

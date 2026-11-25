@@ -17,6 +17,7 @@ import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { TerminalTheme } from '@/components/terminal/TerminalTheme'
 import { TerminalBytes } from '@/domain/models/terminal'
+import { AppSettingsStore } from '@/store/modules/settings/AppSettingsStore'
 import { AppThemeStore } from '@/store/modules/appTheme/AppThemeStore'
 import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { TerminalStore } from '@/store/modules/terminal/TerminalStore'
@@ -48,12 +49,14 @@ export default class TerminalView extends VueBase {
       @inject(TerminalStore) private readonly terminalStore: TerminalStore,
       @inject(AppThemeStore) private readonly themeStore: AppThemeStore,
       @inject(AppUiStore) private readonly uiStore: AppUiStore,
+      @inject(AppSettingsStore) private readonly settingsStore: AppSettingsStore,
   ) {
     super()
   }
 
   mounted(): void {
     this.build()
+    void this.settingsStore.loadOnce()
   }
 
   beforeUnmount(): void {
@@ -78,6 +81,14 @@ export default class TerminalView extends VueBase {
   densityChanged(): void {
     if (this.terminal) {
       this.terminal.options.fontSize = this.fontSize
+      this.resize()
+    }
+  }
+
+  @Watch('settingsStore.settings.terminalFontFamily')
+  fontFamilyChanged(): void {
+    if (this.terminal) {
+      this.terminal.options.fontFamily = this.fontFamily
       this.resize()
     }
   }
@@ -112,6 +123,10 @@ export default class TerminalView extends VueBase {
     return this.terminal?.getSelection() ?? ''
   }
 
+  private get fontFamily(): string {
+    return TerminalTheme.fontFamily(document.documentElement, this.settingsStore.settings.terminalFontFamily)
+  }
+
   private get fontSize(): number {
     return this.uiStore.density === 'comfortable'
       ? TerminalView.comfortableFontSize
@@ -128,7 +143,7 @@ export default class TerminalView extends VueBase {
       allowProposedApi: true,
       convertEol: false,
       cursorBlink: true,
-      fontFamily: TerminalTheme.fontFamily(document.documentElement),
+      fontFamily: this.fontFamily,
       fontSize: this.fontSize,
       scrollback: 5000,
       theme: TerminalTheme.build(document.documentElement),

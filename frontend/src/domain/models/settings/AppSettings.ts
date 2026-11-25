@@ -8,6 +8,8 @@ export class AppSettings {
             kubectlPath: '',
             helmPath: '',
             nodeShellImage: '',
+            terminalShell: '',
+            terminalFontFamily: '',
             checkForUpdates: true,
             skippedVersion: '',
         }
@@ -20,6 +22,8 @@ export class AppSettings {
             kubectlPath: AppSettings.text(source.kubectlPath),
             helmPath: AppSettings.text(source.helmPath),
             nodeShellImage: AppSettings.text(source.nodeShellImage),
+            terminalShell: AppSettings.text(source.terminalShell),
+            terminalFontFamily: AppSettings.text(source.terminalFontFamily),
             checkForUpdates: typeof source.checkForUpdates === 'boolean' ? source.checkForUpdates : true,
             skippedVersion: AppSettings.text(source.skippedVersion),
         }

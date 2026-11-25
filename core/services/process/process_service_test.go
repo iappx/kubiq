@@ -386,6 +386,75 @@ func TestMergeEnvironment(t *testing.T) {
 	}
 }
 
+func TestEnsureTerminalEnvironment(t *testing.T) {
+	defaults := ensureTerminalEnvironment([]string{"PATH=/usr/bin", "MALFORMED"})
+	assertEnvironment(t, defaults, "PATH", "/usr/bin")
+	assertEnvironment(t, defaults, "TERM", defaultTerm)
+	assertEnvironment(t, defaults, "COLORTERM", defaultColorTerm)
+	if !contains(defaults, "MALFORMED") {
+		t.Fatalf("terminal environment lost malformed entry: %v", defaults)
+	}
+
+	replacesEmpty := ensureTerminalEnvironment([]string{"TERM=", "COLORTERM=", "HOME=/tmp"})
+	assertEnvironment(t, replacesEmpty, "TERM", defaultTerm)
+	assertEnvironment(t, replacesEmpty, "COLORTERM", defaultColorTerm)
+	if contains(replacesEmpty, "TERM=") || contains(replacesEmpty, "COLORTERM=") {
+		t.Fatalf("terminal environment kept empty defaults: %v", replacesEmpty)
+	}
+
+	preserved := ensureTerminalEnvironment([]string{"TERM=screen-256color", "COLORTERM=24bit"})
+	assertEnvironment(t, preserved, "TERM", "screen-256color")
+	assertEnvironment(t, preserved, "COLORTERM", "24bit")
+	if len(preserved) != 2 {
+		t.Fatalf("explicit terminal environment grew unexpectedly: %v", preserved)
+	}
+
+	if environmentCaseInsensitive {
+		mixedCase := ensureTerminalEnvironment([]string{"term=vt100"})
+		assertEnvironment(t, mixedCase, "term", "vt100")
+		assertEnvironment(t, mixedCase, "COLORTERM", defaultColorTerm)
+		if contains(mixedCase, "TERM="+defaultTerm) {
+			t.Fatalf("case-insensitive lookup clobbered lowercase term: %v", mixedCase)
+		}
+	}
+}
+
+func TestPtyAppliesDefaultTerminalEnvironment(t *testing.T) {
+	service, sink := newRecordedService()
+	defer service.CloseAll()
+
+	defaultSpec := childSpec("terminal-env")
+	defaultSpec.Pty = true
+	defaultSpec.Cols = 80
+	defaultSpec.Rows = 24
+	defaultSpec.Env["TERM"] = ""
+	defaultSpec.Env["COLORTERM"] = ""
+
+	id := start(t, service, defaultSpec)
+	sink.awaitExit(t, id)
+
+	output, _ := sink.stream(t, EventStdout, id)
+	expected := "TERM=" + defaultTerm + "|COLORTERM=" + defaultColorTerm
+	if !strings.Contains(output, expected) {
+		t.Fatalf("pty default env output = %q, want %q", output, expected)
+	}
+
+	overrideSpec := childSpec("terminal-env")
+	overrideSpec.Pty = true
+	overrideSpec.Cols = 80
+	overrideSpec.Rows = 24
+	overrideSpec.Env["TERM"] = "vt100"
+	overrideSpec.Env["COLORTERM"] = "24bit"
+
+	overrideId := start(t, service, overrideSpec)
+	sink.awaitExit(t, overrideId)
+
+	overrideOutput, _ := sink.stream(t, EventStdout, overrideId)
+	if !strings.Contains(overrideOutput, "TERM=vt100|COLORTERM=24bit") {
+		t.Fatalf("pty override env output = %q, want TERM=vt100|COLORTERM=24bit", overrideOutput)
+	}
+}
+
 func TestLaunchRunsTheFileDetachedWithItsArgumentsAndDirectory(t *testing.T) {
 	service := NewProcessService()
 	defer service.CloseAll()

@@ -19,6 +19,14 @@ export class LocalShellService {
 
     public static readonly pathVariable: string = 'PATH'
 
+    public static readonly termVariable: string = 'TERM'
+
+    public static readonly colorTermVariable: string = 'COLORTERM'
+
+    public static readonly defaultTerm: string = 'xterm-256color'
+
+    public static readonly defaultColorTerm: string = 'truecolor'
+
     constructor(
         @inject(SettingsService) private readonly settingsService: SettingsService,
         @inject(ExecutableService) private readonly executableService: ExecutableService,
@@ -33,17 +41,38 @@ export class LocalShellService {
         const settings = await this.settingsService.read()
         const kubectl = await this.executableService.locate(TerminalTools.kubectl, settings.kubectlPath)
         const isWindows = await this.executableService.isWindows()
+        const command = await this.shellCommand(isWindows, settings.terminalShell)
 
         return {
-            command: LocalShellCommand.commandFor(isWindows, await this.environment.get(LocalShellService.shellVariable)),
-            args: LocalShellCommand.argsFor(isWindows),
+            command,
+            args: LocalShellCommand.argsFor(command),
             env: await this.environmentFor(clusterId, namespace, kubectl.source === 'settings' ? kubectl.path : ''),
             kubectl,
         }
     }
 
+    private async shellCommand(isWindows: boolean, configuredShell: string): Promise<string> {
+        const configured = configuredShell.trim()
+        if (configured !== '') {
+            return await this.environment.expand(configured) || configured
+        }
+
+        if (isWindows) {
+            const pwsh = await this.executableService.locate(LocalShellCommand.windowsPowerShellCore, '')
+
+            return LocalShellCommand.commandFor(true, '', '', pwsh.path)
+        }
+
+        const preferred = await this.environment.get(LocalShellService.shellVariable)
+
+        return LocalShellCommand.commandFor(false, preferred)
+    }
+
     private async environmentFor(clusterId: string, namespace: string, kubectlPath: string): Promise<Record<string, string>> {
-        const env: Record<string, string> = {}
+        const env: Record<string, string> = {
+            [LocalShellService.termVariable]: LocalShellService.defaultTerm,
+            [LocalShellService.colorTermVariable]: LocalShellService.defaultColorTerm,
+        }
 
         const kubeconfig = await this.kubeconfig(clusterId, namespace)
         if (kubeconfig !== '') {

@@ -129,6 +129,8 @@ import { HelmInstallValidator } from '@/application/validators/HelmInstallValida
 import { HelmUpgradeValidator } from '@/application/validators/HelmUpgradeValidator'
 import type { THelmInstallDraft } from '@/domain/entities/helm/types/THelmInstallDraft'
 import type { THelmUpgradeDraft } from '@/domain/entities/helm/types/THelmUpgradeDraft'
+import { AppConnectivityEvent } from '@/domain/events/app/AppConnectivityEvent'
+import { AppResumedEvent } from '@/domain/events/app/AppResumedEvent'
 import { HelmReleaseInstalledEvent } from '@/domain/events/helm/HelmReleaseInstalledEvent'
 import { HelmReleaseRolledBackEvent } from '@/domain/events/helm/HelmReleaseRolledBackEvent'
 import { HelmReleaseUninstalledEvent } from '@/domain/events/helm/HelmReleaseUninstalledEvent'
@@ -199,6 +201,10 @@ export default class ClusterHelmPage extends VueBase {
   private onReleaseChanged!: (event: { namespace: string, releaseName: string }) => void
 
   private onRepositoriesChanged!: () => void
+
+  private onResumed!: () => void
+
+  private onConnectivity!: (event: AppConnectivityEvent) => void
 
   private queryState!: RouteQueryState
 
@@ -278,12 +284,20 @@ export default class ClusterHelmPage extends VueBase {
       namespace: event.namespace,
     })
     this.onRepositoriesChanged = () => void this.repositoryStore.load()
+    this.onResumed = () => void this.enter()
+    this.onConnectivity = (event: AppConnectivityEvent) => {
+      if (event.online) {
+        void this.enter()
+      }
+    }
 
     this.eventBus.registerHandler(HelmReleaseInstalledEvent, this.onReleaseChanged)
     this.eventBus.registerHandler(HelmReleaseUpgradedEvent, this.onReleaseChanged)
     this.eventBus.registerHandler(HelmReleaseUninstalledEvent, this.onReleaseChanged)
     this.eventBus.registerHandler(HelmReleaseRolledBackEvent, this.onReleaseChanged)
     this.eventBus.registerHandler(HelmRepositoriesChangedEvent, this.onRepositoriesChanged)
+    this.eventBus.registerHandler(AppResumedEvent, this.onResumed)
+    this.eventBus.registerHandler(AppConnectivityEvent, this.onConnectivity)
 
     this.queryState = new RouteQueryState(this.$router, [{
       key: ClusterRoutes.tabKey,
@@ -305,6 +319,8 @@ export default class ClusterHelmPage extends VueBase {
     this.eventBus.unregisterHandler(HelmReleaseUninstalledEvent, this.onReleaseChanged)
     this.eventBus.unregisterHandler(HelmReleaseRolledBackEvent, this.onReleaseChanged)
     this.eventBus.unregisterHandler(HelmRepositoriesChangedEvent, this.onRepositoriesChanged)
+    this.eventBus.unregisterHandler(AppResumedEvent, this.onResumed)
+    this.eventBus.unregisterHandler(AppConnectivityEvent, this.onConnectivity)
   }
 
   @Watch('clusterId')

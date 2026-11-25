@@ -28,6 +28,8 @@ describe('AppSettingsAdapter', () => {
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: '',
             nodeShellImage: '',
+            terminalShell: 'pwsh.exe',
+            terminalFontFamily: 'JetBrainsMono Nerd Font',
             checkForUpdates: false,
             skippedVersion: '0.2.0',
         }))
@@ -36,6 +38,8 @@ describe('AppSettingsAdapter', () => {
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: '',
             nodeShellImage: '',
+            terminalShell: 'pwsh.exe',
+            terminalFontFamily: 'JetBrainsMono Nerd Font',
             checkForUpdates: false,
             skippedVersion: '0.2.0',
         })

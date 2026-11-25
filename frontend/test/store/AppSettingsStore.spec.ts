@@ -199,6 +199,14 @@ describe('AppSettingsStore', () => {
             expect(store.settings.nodeShellImage).toBe('registry.internal/shell:1')
         })
 
+        it('stores the terminal shell and font family', async () => {
+            await store.setTerminalShell('pwsh.exe')
+            await store.setTerminalFontFamily('JetBrainsMono Nerd Font')
+
+            expect(store.settings.terminalShell).toBe('pwsh.exe')
+            expect(store.settings.terminalFontFamily).toBe('JetBrainsMono Nerd Font')
+        })
+
         it('raises a failed write and leaves the flag down', async () => {
             fake.state.saveFails = new ApiError('Could not save the changes')
 

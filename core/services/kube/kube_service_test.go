@@ -313,3 +313,39 @@ func TestDisconnectCancelsInFlightRequests(t *testing.T) {
 		t.Fatalf("expected the request to be cancelled, got %+v", response)
 	}
 }
+
+func TestResetIdleClosesIdleConnections(t *testing.T) {
+	empty := NewConnectionService(NewSessionRegistry()).ResetIdle()
+	if !empty.Success {
+		t.Fatalf("expected success with no sessions, got %+v", empty)
+	}
+
+	server := newTlsServer(t, func(writer http.ResponseWriter, request *http.Request) {
+		_, _ = writer.Write([]byte(request.RemoteAddr))
+	})
+
+	service, registry, _ := newTestService(t)
+	sessionId := connectToServer(t, registry, server)
+
+	first := service.Send(Request{SessionId: sessionId, Path: "/version"})
+	second := service.Send(Request{SessionId: sessionId, Path: "/version"})
+	if !first.Success || !second.Success {
+		t.Fatalf("expected both requests to succeed, got %+v and %+v", first, second)
+	}
+	if first.Body != second.Body {
+		t.Fatalf("expected keep-alive reuse before reset, got %q then %q", first.Body, second.Body)
+	}
+
+	reset := NewConnectionService(registry).ResetIdle()
+	if !reset.Success {
+		t.Fatalf("expected reset idle to succeed, got %+v", reset)
+	}
+
+	third := service.Send(Request{SessionId: sessionId, Path: "/version"})
+	if !third.Success {
+		t.Fatalf("expected request after reset to succeed, got %+v", third)
+	}
+	if third.Body == first.Body {
+		t.Fatalf("expected a new connection after ResetIdle, still reused %q", third.Body)
+	}
+}

@@ -8,6 +8,12 @@
       <dropdown-menu-content :align="align" :side-offset="4" class="ui-menu">
         <template v-for="item in items" :key="item.key">
           <dropdown-menu-separator v-if="item.separatorBefore" class="ui-menu-separator" />
+          <dropdown-menu-label
+              v-if="item.groupLabel"
+              class="px-2 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground select-none"
+          >
+            {{ item.groupLabel }}
+          </dropdown-menu-label>
           <dropdown-menu-item
               :class="['ui-menu-item', item.danger ? 'ui-menu-item-danger' : '']"
               :title="item.hint"
@@ -30,6 +36,7 @@ import { Component, Prop, VueBase } from '@iappx/vue-facing-di'
 import {
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuPortal,
   DropdownMenuRoot,
   DropdownMenuSeparator,
@@ -42,6 +49,7 @@ import type { TUiMenuItem } from '@/components/common/menu/types/TUiMenuItem'
   components: {
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuLabel,
     DropdownMenuPortal,
     DropdownMenuRoot,
     DropdownMenuSeparator,

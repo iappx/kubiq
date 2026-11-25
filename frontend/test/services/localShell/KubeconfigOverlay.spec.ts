@@ -69,14 +69,35 @@ describe('KubeconfigOverlay', () => {
 })
 
 describe('LocalShellCommand', () => {
-    it('opens PowerShell on Windows whatever SHELL says', () => {
+    it('opens PowerShell on Windows whatever SHELL says, preferring detected pwsh', () => {
         expect(LocalShellCommand.commandFor(true, '/bin/zsh')).toBe('powershell.exe')
-        expect(LocalShellCommand.argsFor(true)).toEqual(['-NoLogo'])
+        expect(LocalShellCommand.commandFor(true, '/bin/zsh', '', 'C:\\Program Files\\PowerShell\\7\\pwsh.exe'))
+            .toBe('C:\\Program Files\\PowerShell\\7\\pwsh.exe')
     })
 
-    it('honours SHELL elsewhere', () => {
+    it('honours SHELL elsewhere and falls back to bash', () => {
         expect(LocalShellCommand.commandFor(false, '/bin/zsh')).toBe('/bin/zsh')
         expect(LocalShellCommand.commandFor(false, '  ')).toBe('/bin/bash')
-        expect(LocalShellCommand.argsFor(false)).toEqual(['-l'])
+    })
+
+    it('lets an explicit setting override platform detection', () => {
+        expect(LocalShellCommand.commandFor(true, '', '  C:\\Program Files\\Git\\bin\\bash.exe  ', 'pwsh.exe'))
+            .toBe('C:\\Program Files\\Git\\bin\\bash.exe')
+        expect(LocalShellCommand.commandFor(false, '/bin/zsh', ' /opt/homebrew/bin/fish '))
+            .toBe('/opt/homebrew/bin/fish')
+    })
+
+    it('infers interactive arguments from the shell executable name', () => {
+        expect(LocalShellCommand.argsFor('powershell.exe')).toEqual(['-NoLogo'])
+        expect(LocalShellCommand.argsFor('C:\\Program Files\\PowerShell\\7\\pwsh.EXE')).toEqual(['-NoLogo'])
+        expect(LocalShellCommand.argsFor('pwsh')).toEqual(['-NoLogo'])
+        expect(LocalShellCommand.argsFor('/bin/zsh')).toEqual(['-l'])
+        expect(LocalShellCommand.argsFor('/bin/bash')).toEqual(['-l'])
+        expect(LocalShellCommand.argsFor('/opt/homebrew/bin/fish')).toEqual(['-l'])
+        expect(LocalShellCommand.argsFor('C:\\Program Files\\Git\\bin\\bash.exe')).toEqual(['-l'])
+        expect(LocalShellCommand.argsFor('/bin/sh')).toEqual(['-l'])
+        expect(LocalShellCommand.argsFor('cmd.exe')).toEqual([])
+        expect(LocalShellCommand.argsFor('/usr/local/bin/nu')).toEqual([])
+        expect(LocalShellCommand.argsFor('  ')).toEqual([])
     })
 })

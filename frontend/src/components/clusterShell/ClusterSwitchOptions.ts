@@ -18,6 +18,7 @@ export class ClusterSwitchOptions {
             tone: ClusterToneMap.of(row.status),
             hint: ClusterChoices.hintOf(row),
             separatorBefore: index > 0 && ordered[index - 1].isConnected && !row.isConnected,
+            groupLabel: ClusterSwitchOptions.groupLabelOf(ordered, index),
         }))
 
         return [
@@ -38,5 +39,17 @@ export class ClusterSwitchOptions {
 
     private static keyOf(clusterId: string): string {
         return `${ClusterSwitchOptions.clusterPrefix}${clusterId}`
+    }
+
+    private static groupLabelOf(ordered: readonly TClusterRow[], index: number): string | undefined {
+        const row = ordered[index]
+        if (index === 0) {
+            return row.isConnected ? 'Connected' : 'Disconnected'
+        }
+        if (ordered[index - 1].isConnected && !row.isConnected) {
+            return 'Disconnected'
+        }
+
+        return undefined
     }
 }

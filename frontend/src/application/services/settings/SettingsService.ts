@@ -46,6 +46,14 @@ export class SettingsService {
         return AppSettings.nodeShellImageOf(await this.read())
     }
 
+    public async terminalShell(): Promise<string> {
+        return (await this.read()).terminalShell
+    }
+
+    public async terminalFontFamily(): Promise<string> {
+        return (await this.read()).terminalFontFamily
+    }
+
     public async listClusters(): Promise<TClusterSettingsDraft[]> {
         const stored = await this.repoProvider.settings.clusters.getAll()
 

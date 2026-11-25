@@ -1,40 +1,65 @@
 import { VueBase } from '@iappx/vue-facing-di'
 import { nextTick } from 'vue'
+import { ModalEscapeStack } from '@/components/base/modals/ModalEscapeStack'
+import type { TModalLayer } from '@/components/base/modals/types/TModalLayer'
 
 export abstract class ModalShellBase extends VueBase {
     private restoreFocusTo: HTMLElement | null = null
 
-    private escapeHandler!: (event: KeyboardEvent) => void
+    private escapeToken: symbol | null = null
 
     protected abstract isOpen(): boolean
 
     protected abstract onEscape(): void
 
-    mounted(): void {
-        // Not a field initialiser: that runs on the raw class instance, so the listener would capture a stale `this`.
-        this.escapeHandler = event => {
-            if (event.key === 'Escape' && this.isOpen()) {
-                this.onEscape()
-            }
-        }
+    protected escapeLayer(): TModalLayer {
+        return 'modal'
+    }
 
-        document.addEventListener('keydown', this.escapeHandler)
+    mounted(): void {
+        if (this.isOpen()) {
+            this.registerEscape()
+        }
     }
 
     beforeUnmount(): void {
-        document.removeEventListener('keydown', this.escapeHandler)
+        this.unregisterEscape()
         this.releaseFocus()
     }
 
     protected async handleOpenChange(open: boolean): Promise<void> {
         if (!open) {
+            this.unregisterEscape()
             this.releaseFocus()
             return
         }
 
+        this.registerEscape()
         this.restoreFocusTo = document.activeElement as HTMLElement | null
         await nextTick()
-        this.focusPanel()
+        if (this.isOpen()) {
+            this.focusPanel()
+        }
+    }
+
+    private registerEscape(): void {
+        if (!this.escapeToken) {
+            this.escapeToken = Symbol('modal-shell')
+        }
+
+        ModalEscapeStack.push(this.escapeToken, this.escapeLayer(), () => {
+            if (this.isOpen()) {
+                this.onEscape()
+            }
+        })
+    }
+
+    private unregisterEscape(): void {
+        if (!this.escapeToken) {
+            return
+        }
+
+        ModalEscapeStack.remove(this.escapeToken)
     }
 
     private focusPanel(): void {

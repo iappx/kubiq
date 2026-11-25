@@ -150,6 +150,26 @@ export class ClusterConnectionService {
         return this.sessionAdapter.sessions()
     }
 
+    public async resetIdle(): Promise<void> {
+        try {
+            await this.sessionAdapter.resetIdle()
+        } catch {
+            return
+        }
+    }
+
+    public async probe(clusterId: string): Promise<boolean> {
+        const connection = this.live.get(clusterId)
+        if (!connection) {
+            return false
+        }
+
+        await this.resetIdle()
+        const version = await this.versions.read(clusterId, connection.sessionId)
+
+        return version.isKnown
+    }
+
     private async reclaim(session: TKubeSession, contextNames: readonly string[]): Promise<TClusterConnection | null> {
         if (this.holds(session.id)) {
             return null

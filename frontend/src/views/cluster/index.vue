@@ -92,6 +92,7 @@ import { ClusterEntryService } from '@/application/services/clusterEntry/Cluster
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
 import { ClusterSectionBuilder } from '@/components/clusterShell/ClusterSectionBuilder'
 import { ShellKeymap } from '@/components/clusterShell/ShellKeymap'
+import { ModalEscapeStack } from '@/components/base/modals/ModalEscapeStack'
 import { UiKeyboard } from '@/components/common/UiKeyboard'
 import type { TClusterEntryPhase } from '@/application/services/clusterEntry/types/TClusterEntryPhase'
 import type { TClusterSection } from '@/components/clusterShell/types/TClusterSection'
@@ -197,6 +198,9 @@ export default class ClusterShellPage extends VueBase {
   created(): void {
     // Capture phase on purpose: Escape must reach the panel and the dock before UiDataTable claims it for the row cursor.
     this.onEscape = (event) => {
+      if (event.defaultPrevented || ModalEscapeStack.hasOpenModal()) {
+        return
+      }
       if (ShellKeymap.command(event, UiKeyboard.isTyping(event.target)) !== 'escape') {
         return
       }

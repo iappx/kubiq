@@ -52,6 +52,8 @@ func TestMain(m *testing.M) {
 		runHeartbeatChild()
 	case "environment":
 		runEnvironmentChild()
+	case "terminal-env":
+		runTerminalEnvironmentChild()
 	case "directory":
 		runDirectoryChild()
 	case "marker":
@@ -146,6 +148,11 @@ func runHeartbeatChild() {
 func runEnvironmentChild() {
 	fmt.Fprintf(os.Stdout, "present=%s|doomed=%s|fresh=%s",
 		os.Getenv(presentEnv), os.Getenv(doomedEnv), os.Getenv(freshEnv))
+}
+
+func runTerminalEnvironmentChild() {
+	fmt.Fprintf(os.Stdout, "TERM=%s|COLORTERM=%s\n",
+		os.Getenv("TERM"), os.Getenv("COLORTERM"))
 }
 
 func runDirectoryChild() {

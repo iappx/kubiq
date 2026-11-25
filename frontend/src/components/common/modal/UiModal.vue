@@ -103,7 +103,9 @@ export default class UiModal extends ModalShellBase {
   }
 
   protected onEscape(): void {
-    this.$emit('close')
+    if (!this.loading) {
+      this.$emit('close')
+    }
   }
 }
 </script>

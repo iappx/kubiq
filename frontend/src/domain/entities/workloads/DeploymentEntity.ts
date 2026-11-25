@@ -62,6 +62,33 @@ export class DeploymentEntity extends RepoEntityBase<DeploymentEntity> {
         return this.spec?.paused === true
     }
 
+    get isProgressing(): boolean {
+        if (this.isPaused) {
+            return false
+        }
+        const conditions = this.status?.conditions
+        if (KubeConditions.isFalse(conditions, 'Progressing')) {
+            return false
+        }
+        const generation = this.metadata?.generation
+        const observed = this.status?.observedGeneration
+        if (generation !== undefined && observed !== undefined && observed < generation) {
+            return true
+        }
+        if (!KubeConditions.isTrue(conditions, 'Progressing')) {
+            return false
+        }
+        const reason = KubeConditions.reason(conditions, 'Progressing')
+        if (reason === 'NewReplicaSetAvailable') {
+            return false
+        }
+        if (reason) {
+            return true
+        }
+        return this.updatedReplicas < this.desiredReplicas
+            || this.availableReplicas < this.desiredReplicas
+    }
+
     get state(): TKubeObjectState {
         if (this.metadata?.isDeleting) {
             return 'pending'
@@ -73,10 +100,23 @@ export class DeploymentEntity extends RepoEntityBase<DeploymentEntity> {
         if (this.desiredReplicas === 0) {
             return 'ok'
         }
+        if (this.isProgressing) {
+            return 'pending'
+        }
         if (this.readyReplicas === 0) {
             return 'error'
         }
         return this.readyReplicas < this.desiredReplicas ? 'warning' : 'ok'
+    }
+
+    get stateLabel(): string {
+        if (this.metadata?.isDeleting) {
+            return 'Terminating'
+        }
+        if (this.state === 'pending' && this.isProgressing) {
+            return 'Progressing'
+        }
+        return KubeObjectStateCatalog.title(this.state)
     }
 
     get isProblematic(): boolean {

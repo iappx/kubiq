@@ -96,9 +96,9 @@
 
     <!-- h-full, not auto: the YAML tab's editor measures the box it was mounted into. -->
     <div v-if="row" class="flex h-full min-h-0 flex-col gap-3">
-      <div class="shrink-0 space-y-2">
-        <div class="flex items-center gap-3">
-          <ui-status-badge :label="row.statusTitle" :tone="row.tone" />
+      <div v-if="showBadges || visibleTabs.length > 1" class="shrink-0 space-y-2">
+        <div v-if="showBadges" class="flex items-center gap-3">
+          <ui-status-badge v-if="showStatusBadge" :label="row.statusTitle" :tone="row.tone" />
           <ui-status-badge v-if="isDefaultClass" label="Default" tone="info" />
         </div>
 
@@ -162,6 +162,14 @@ export default class ResourceDetailPanel extends VueBase {
 
   public get visibleTabs(): TTab[] {
     return this.tabs ?? []
+  }
+
+  public get showStatusBadge(): boolean {
+    return this.row?.hasState !== false
+  }
+
+  public get showBadges(): boolean {
+    return this.showStatusBadge || this.isDefaultClass
   }
 
   public get panelLabel(): string {

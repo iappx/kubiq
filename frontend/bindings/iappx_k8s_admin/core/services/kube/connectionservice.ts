@@ -21,6 +21,12 @@ export function Disconnect(id: string): $CancellablePromise<$models.KubeResult> 
     });
 }
 
+export function ResetIdle(): $CancellablePromise<$models.KubeResult> {
+    return $Call.ByID(3032688073).then(($result: any) => {
+        return $$createType1($result);
+    });
+}
+
 export function Sessions(): $CancellablePromise<$models.SessionsResult> {
     return $Call.ByID(2828360089).then(($result: any) => {
         return $$createType2($result);

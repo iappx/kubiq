@@ -52,6 +52,22 @@ export class StatefulSetEntity extends RepoEntityBase<StatefulSetEntity> {
         return `${this.readyReplicas}/${this.desiredReplicas}`
     }
 
+    get isProgressing(): boolean {
+        const generation = this.metadata?.generation
+        const observed = this.status?.observedGeneration
+        if (generation !== undefined && observed !== undefined && observed < generation) {
+            return true
+        }
+        const currentRevision = this.status?.currentRevision
+        const updateRevision = this.status?.updateRevision
+        if (currentRevision && updateRevision && updateRevision !== currentRevision) {
+            return true
+        }
+        return this.desiredReplicas > 0
+            && this.status?.updatedReplicas !== undefined
+            && this.status.updatedReplicas < this.desiredReplicas
+    }
+
     get state(): TKubeObjectState {
         if (this.metadata?.isDeleting) {
             return 'pending'
@@ -59,10 +75,23 @@ export class StatefulSetEntity extends RepoEntityBase<StatefulSetEntity> {
         if (this.desiredReplicas === 0) {
             return 'ok'
         }
+        if (this.isProgressing) {
+            return 'pending'
+        }
         if (this.readyReplicas === 0) {
             return 'error'
         }
         return this.readyReplicas < this.desiredReplicas ? 'warning' : 'ok'
+    }
+
+    get stateLabel(): string {
+        if (this.metadata?.isDeleting) {
+            return 'Terminating'
+        }
+        if (this.state === 'pending' && this.isProgressing) {
+            return 'Progressing'
+        }
+        return KubeObjectStateCatalog.title(this.state)
     }
 
     get isProblematic(): boolean {

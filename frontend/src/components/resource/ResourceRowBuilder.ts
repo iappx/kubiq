@@ -2,7 +2,7 @@ import type { RepoEntityBase } from '@iappx/entity-repo'
 import { ResourceColumns } from '@/components/resource/ResourceColumns'
 import type { TResourceRow } from '@/components/resource/types/TResourceRow'
 import type { TUiTone } from '@/components/common/status/types/TUiTone'
-import { KubeObjectHealth, KubeObjectKey, KubeObjectStateCatalog } from '@/domain/entities/kube'
+import { KubeObjectHealth, KubeObjectKey } from '@/domain/entities/kube'
 import { KubeJsonPath } from '@/domain/models/kube'
 import type { TKubeColumn } from '@/domain/models/kube'
 
@@ -37,7 +37,8 @@ export class ResourceRowBuilder {
             namespace: ResourceRowBuilder.text(source.namespace),
             createdAt: ResourceRowBuilder.text(source.createdAt),
             tone,
-            statusTitle: KubeObjectStateCatalog.title(tone === 'info' ? 'unknown' : tone),
+            statusTitle: KubeObjectHealth.labelOf(entity),
+            hasState: KubeObjectHealth.hasState(entity),
         }
 
         columns.forEach((column) => {

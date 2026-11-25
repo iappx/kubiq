@@ -35,8 +35,11 @@ export class TerminalTheme {
         }
     }
 
-    public static fontFamily(root: HTMLElement): string {
-        return getComputedStyle(root).getPropertyValue('--font-mono').trim() || 'monospace'
+    public static fontFamily(root: HTMLElement, customFont: string = ''): string {
+        const fallback = getComputedStyle(root).getPropertyValue('--font-mono').trim() || 'monospace'
+        const custom = customFont.trim()
+
+        return custom === '' ? fallback : `${custom}, ${fallback}`
     }
 
     // The tokens hold bare HSL components for Tailwind to wrap; xterm needs them wrapped.

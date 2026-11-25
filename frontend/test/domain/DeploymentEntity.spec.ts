@@ -62,4 +62,108 @@ describe('DeploymentEntity', () => {
 
         expect(build(source).desiredReplicas).toBe(1)
     })
+
+    it('reports pending and Progressing during a 1-replica rollout with zero ready pods', () => {
+        const source = KubeObjectFixtures.deployment()
+        source.spec.replicas = 1
+        source.status = {
+            replicas: 1,
+            readyReplicas: 0,
+            availableReplicas: 0,
+            unavailableReplicas: 1,
+            updatedReplicas: 1,
+            observedGeneration: 4,
+            conditions: [
+                { type: 'Available', status: 'False', reason: 'MinimumReplicasUnavailable' },
+                { type: 'Progressing', status: 'True', reason: 'ReplicaSetUpdated' },
+            ],
+        }
+
+        const deployment = build(source)
+
+        expect(deployment.isProgressing).toBe(true)
+        expect(deployment.state).toBe('pending')
+        expect(deployment.stateLabel).toBe('Progressing')
+        expect(deployment.isProblematic).toBe(false)
+    })
+
+    it('reports Progressing while observedGeneration lags behind metadata.generation', () => {
+        const source = KubeObjectFixtures.deployment()
+        source.metadata.generation = 5
+        source.status.observedGeneration = 4
+        source.status.readyReplicas = 0
+
+        const deployment = build(source)
+
+        expect(deployment.isProgressing).toBe(true)
+        expect(deployment.state).toBe('pending')
+        expect(deployment.stateLabel).toBe('Progressing')
+    })
+
+    it('reports Progressing when Progressing condition has no reason and replicas are not yet updated or available', () => {
+        const source = KubeObjectFixtures.deployment()
+        source.spec.replicas = 2
+        source.status = {
+            replicas: 2,
+            readyReplicas: 1,
+            updatedReplicas: 1,
+            availableReplicas: 1,
+            observedGeneration: 4,
+            conditions: [{ type: 'Progressing', status: 'True' }],
+        }
+
+        const deployment = build(source)
+
+        expect(deployment.isProgressing).toBe(true)
+        expect(deployment.state).toBe('pending')
+        expect(deployment.stateLabel).toBe('Progressing')
+    })
+
+    it('does not treat a reasonless Progressing condition as progressing once replicas are updated and available', () => {
+        const source = KubeObjectFixtures.deployment()
+        source.status.conditions = [{ type: 'Progressing', status: 'True' }]
+
+        const deployment = build(source)
+
+        expect(deployment.isProgressing).toBe(false)
+        expect(deployment.state).toBe('ok')
+        expect(deployment.stateLabel).toBe('Healthy')
+    })
+
+    it('stays an error when Progressing is False even if observedGeneration lags', () => {
+        const source = KubeObjectFixtures.deployment()
+        source.metadata.generation = 5
+        source.status.observedGeneration = 4
+        source.status.readyReplicas = 0
+        source.status.conditions = [{ type: 'Progressing', status: 'False', reason: 'ProgressDeadlineExceeded' }]
+
+        const deployment = build(source)
+
+        expect(deployment.isProgressing).toBe(false)
+        expect(deployment.state).toBe('error')
+        expect(deployment.stateLabel).toBe('Error')
+    })
+
+    it('does not report Progressing when the deployment is paused', () => {
+        const source = KubeObjectFixtures.deployment()
+        source.spec.paused = true
+        source.status.readyReplicas = 1
+        source.status.conditions = [{ type: 'Progressing', status: 'True', reason: 'ReplicaSetUpdated' }]
+
+        const deployment = build(source)
+
+        expect(deployment.isProgressing).toBe(false)
+        expect(deployment.state).toBe('warning')
+        expect(deployment.stateLabel).toBe('Warning')
+    })
+
+    it('reports pending and Terminating while deleting', () => {
+        const source = KubeObjectFixtures.deployment()
+        source.metadata.deletionTimestamp = '2026-09-01T10:20:00Z'
+
+        const deployment = build(source)
+
+        expect(deployment.state).toBe('pending')
+        expect(deployment.stateLabel).toBe('Terminating')
+    })
 })

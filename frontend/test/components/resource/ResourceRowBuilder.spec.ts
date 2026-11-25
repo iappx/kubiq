@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { ResourceRowBuilder } from '@/components/resource/ResourceRowBuilder'
+import { SecretEntity } from '@/domain/entities/config'
 import { CustomResourceEntity } from '@/domain/entities/kube'
-import { PodEntity } from '@/domain/entities/workloads'
+import { DeploymentEntity, PodEntity } from '@/domain/entities/workloads'
 import { KubeResourceRegistry } from '@/domain/models/kube'
 import type { TKubeColumn } from '@/domain/models/kube'
 
@@ -108,6 +109,27 @@ describe('ResourceRowBuilder', () => {
         expect(ResourceRowBuilder.build([entity], columns)[0].Phase).toBe('Bound')
     })
 
+    it('reads a CRD printer column with a JSONPath filter expression', () => {
+        const entity = CustomResourceEntity.build({
+            metadata: { name: 'web-tls', creationTimestamp: '2026-07-26T07:20:11Z' },
+            status: {
+                conditions: [
+                    { type: 'Issuing', status: 'False' },
+                    { type: 'Ready', status: 'True' },
+                ],
+            },
+        })
+        const columns: TKubeColumn[] = [
+            { key: 'Ready', title: 'Ready', jsonPath: '.status.conditions[?(@.type=="Ready")].status' },
+            { key: 'Age', title: 'Age', jsonPath: '.metadata.creationTimestamp', format: 'date', align: 'right' },
+        ]
+
+        const [row] = ResourceRowBuilder.build([entity], columns)
+
+        expect(row.Ready).toBe('True')
+        expect(row.Age).toBe('2026-07-26T07:20:11Z')
+    })
+
     it('leaves a jsonPath that resolves to nothing undefined rather than guessing', () => {
         const entity = CustomResourceEntity.build({ metadata: { name: 'widget-a' }, status: {} })
         const columns: TKubeColumn[] = [{ key: 'Phase', title: 'Phase', jsonPath: '.status.phase' }]
@@ -123,5 +145,43 @@ describe('ResourceRowBuilder', () => {
 
     it('builds nothing from nothing', () => {
         expect(ResourceRowBuilder.build([], pods.columns)).toEqual([])
+    })
+
+    it('marks stateful entities with hasState true and stateless entities with hasState false', () => {
+        const [podRow] = ResourceRowBuilder.build([pod('api-0', 'uid-1')], pods.columns)
+        const secret = SecretEntity.build({
+            uid: 'sec-1',
+            metadata: { uid: 'sec-1', name: 'weknora-tls', namespace: 'default' },
+            type: 'kubernetes.io/tls',
+        })
+        const [secretRow] = ResourceRowBuilder.build([secret], [{ key: 'name', title: 'Name' }])
+
+        expect(podRow.hasState).toBe(true)
+        expect(secretRow.hasState).toBe(false)
+    })
+
+    it('propagates a custom stateLabel such as Progressing onto statusTitle', () => {
+        const deployments = KubeResourceRegistry.find('apps', 'deployments')!
+        const deployment = DeploymentEntity.build({
+            uid: 'dep-1',
+            metadata: { uid: 'dep-1', name: 'vaultls', namespace: 'default', generation: 2 },
+            spec: { replicas: 1 },
+            status: {
+                replicas: 1,
+                readyReplicas: 0,
+                availableReplicas: 0,
+                observedGeneration: 2,
+                conditions: [
+                    { type: 'Available', status: 'False' },
+                    { type: 'Progressing', status: 'True', reason: 'ReplicaSetUpdated' },
+                ],
+            },
+        })
+
+        const [row] = ResourceRowBuilder.build([deployment], deployments.columns)
+
+        expect(row.tone).toBe('pending')
+        expect(row.statusTitle).toBe('Progressing')
+        expect(row.hasState).toBe(true)
     })
 })

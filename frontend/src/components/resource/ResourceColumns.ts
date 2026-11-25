@@ -39,6 +39,22 @@ export class ResourceColumns {
         return UiTableColumns.defaultHidden(columns)
     }
 
+    public static dateKeys(columns: readonly TUiTableColumn[]): string[] {
+        return columns
+            .filter(column => column.format === 'date'
+                && column.key !== ResourceColumns.ageKey
+                && column.key !== ResourceColumns.containersKey
+                && column.key !== ResourceColumns.stateKey)
+            .map(column => column.key)
+    }
+
+    public static dateValue(value: unknown): string | number | Date | null {
+        if (typeof value === 'string' || typeof value === 'number' || value instanceof Date) {
+            return value
+        }
+        return null
+    }
+
     private static toUiColumn(column: TKubeColumn): TUiTableColumn {
         const mapped: TUiTableColumn = {
             key: column.key,
@@ -48,6 +64,9 @@ export class ResourceColumns {
 
         if (column.align) {
             mapped.align = column.align
+        }
+        if (column.format) {
+            mapped.format = column.format
         }
         if (column.priority !== undefined) {
             mapped.priority = column.priority

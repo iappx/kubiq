@@ -75,7 +75,10 @@ import UiProgressBar from '@/components/common/feedback/UiProgressBar.vue'
 import { ClusterRoutes } from '@/components/clusterShell/ClusterRoutes'
 import { ClusterOverviewService } from '@/application/services/clusterOverview/ClusterOverviewService'
 import type { TClusterOverview } from '@/application/services/clusterOverview/types/TClusterOverview'
+import { AppConnectivityEvent } from '@/domain/events/app/AppConnectivityEvent'
+import { AppResumedEvent } from '@/domain/events/app/AppResumedEvent'
 import type { KubeResourceKind } from '@/domain/models/kube'
+import { EventBus } from '@/infrastructure/eventBus/EventBus'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
 import { ClusterOverviewStore } from '@/store/modules/clusterOverview/ClusterOverviewStore'
@@ -94,10 +97,15 @@ import type { TClusterOverviewState } from '@/store/modules/clusterOverview/type
   },
 })
 export default class ClusterOverviewPage extends VueBase {
+  private onResumed!: () => void
+
+  private onConnectivity!: (event: AppConnectivityEvent) => void
+
   constructor(
       @inject(ClusterConnectionStore) public readonly connectionStore: ClusterConnectionStore,
       @inject(ClusterDiscoveryStore) public readonly discoveryStore: ClusterDiscoveryStore,
       @inject(ClusterOverviewStore) public readonly overviewStore: ClusterOverviewStore,
+      @inject(EventBus) private readonly eventBus: EventBus,
   ) {
     super()
   }
@@ -147,7 +155,21 @@ export default class ClusterOverviewPage extends VueBase {
   }
 
   async created(): Promise<void> {
+    this.onResumed = () => void this.reload()
+    this.onConnectivity = (event: AppConnectivityEvent) => {
+      if (event.online) {
+        void this.reload()
+      }
+    }
+    this.eventBus.registerHandler(AppResumedEvent, this.onResumed)
+    this.eventBus.registerHandler(AppConnectivityEvent, this.onConnectivity)
+
     await this.reload()
+  }
+
+  beforeUnmount(): void {
+    this.eventBus.unregisterHandler(AppResumedEvent, this.onResumed)
+    this.eventBus.unregisterHandler(AppConnectivityEvent, this.onConnectivity)
   }
 
   @Watch('kinds')

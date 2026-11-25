@@ -44,6 +44,7 @@ const fake = vi.hoisted(() => {
         disconnect: vi.fn(async () => null),
         disconnectAll: vi.fn(async () => undefined),
         openStreams: vi.fn(() => 0),
+        resetIdle: vi.fn(async () => undefined),
         listKinds: vi.fn(async () => state.kinds),
         list: vi.fn(async () => ({ names: state.available, resourceVersion: 'rv-1' })),
         watch: vi.fn(async () => undefined),
@@ -77,6 +78,8 @@ vi.mock('@/application/services/cluster/ClusterConnectionService', () => ({
         public disconnectAll = fake.disconnectAll
 
         public openStreams = fake.openStreams
+
+        public resetIdle = fake.resetIdle
     },
 }))
 
@@ -125,12 +128,14 @@ import { AppUiStore } from '@/store/modules/appUi/AppUiStore'
 import { ClusterCatalogStore } from '@/store/modules/clusterCatalog/ClusterCatalogStore'
 import { ClusterConnectionStore } from '@/store/modules/clusterConnection/ClusterConnectionStore'
 import { ClusterDiscoveryStore } from '@/store/modules/clusterDiscovery/ClusterDiscoveryStore'
+import { ClusterHealthStore } from '@/store/modules/clusterHealth/ClusterHealthStore'
 import { ClusterNamespaceStore } from '@/store/modules/clusterNamespace/ClusterNamespaceStore'
 
 const service = container.resolve(ClusterEntryService)
 const catalogStore = container.resolve(ClusterCatalogStore)
 const connectionStore = container.resolve(ClusterConnectionStore)
 const discoveryStore = container.resolve(ClusterDiscoveryStore)
+const healthStore = container.resolve(ClusterHealthStore)
 const namespaceStore = container.resolve(ClusterNamespaceStore)
 const uiStore = container.resolve(AppUiStore)
 
@@ -175,6 +180,10 @@ describe('ClusterEntryService', () => {
         discoveryStore.kinds = {}
         discoveryStore.failures = {}
         discoveryStore.loadingIds = []
+
+        healthStore.health = {}
+        healthStore.details = {}
+        healthStore.online = true
 
         namespaceStore.available = {}
         namespaceStore.failures = {}
@@ -428,6 +437,42 @@ describe('ClusterEntryService', () => {
             await service.enter('staging')
 
             expect(service.phaseOf('staging')).toBe('ready')
+        })
+    })
+
+    describe('recovering an open cluster on re-entry', () => {
+        it('resets idle connections and reloads discovery and namespaces when the cluster was unreachable', async () => {
+            await service.enter('staging')
+            vi.clearAllMocks()
+            healthStore.set('staging', 'unreachable', 'VPN dropped')
+
+            await expect(service.enter('staging')).resolves.toBe('ready')
+
+            expect(fake.resetIdle).toHaveBeenCalledTimes(1)
+            expect(fake.listKinds).toHaveBeenCalledWith('staging')
+            expect(fake.list).toHaveBeenCalledWith('staging')
+        })
+
+        it('resets idle connections and reloads discovery when discovery previously failed', async () => {
+            await service.enter('staging')
+            vi.clearAllMocks()
+            discoveryStore.failures = { staging: 'The cluster did not answer discovery' }
+
+            await expect(service.enter('staging')).resolves.toBe('ready')
+
+            expect(fake.resetIdle).toHaveBeenCalledTimes(1)
+            expect(fake.listKinds).toHaveBeenCalledWith('staging')
+        })
+
+        it('leaves healthy open clusters alone on re-entry', async () => {
+            await service.enter('staging')
+            vi.clearAllMocks()
+
+            await expect(service.enter('staging')).resolves.toBe('ready')
+
+            expect(fake.resetIdle).not.toHaveBeenCalled()
+            expect(fake.listKinds).not.toHaveBeenCalled()
+            expect(fake.list).not.toHaveBeenCalled()
         })
     })
 })

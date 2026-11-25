@@ -7,6 +7,8 @@ describe('AppSettings', () => {
             kubectlPath: '',
             helmPath: '',
             nodeShellImage: '',
+            terminalShell: '',
+            terminalFontFamily: '',
             checkForUpdates: true,
             skippedVersion: '',
         })
@@ -17,6 +19,8 @@ describe('AppSettings', () => {
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: 'C:/tools/helm.exe',
             nodeShellImage: 'registry.internal/shell:1',
+            terminalShell: '/bin/zsh',
+            terminalFontFamily: 'JetBrainsMono Nerd Font',
             checkForUpdates: false,
             skippedVersion: '0.3.0',
         })
@@ -25,6 +29,8 @@ describe('AppSettings', () => {
             kubectlPath: 'C:/tools/kubectl.exe',
             helmPath: 'C:/tools/helm.exe',
             nodeShellImage: 'registry.internal/shell:1',
+            terminalShell: '/bin/zsh',
+            terminalFontFamily: 'JetBrainsMono Nerd Font',
             checkForUpdates: false,
             skippedVersion: '0.3.0',
         })
@@ -36,8 +42,15 @@ describe('AppSettings', () => {
     })
 
     it('trims the paths it was handed', () => {
-        expect(AppSettings.parse({ kubectlPath: '  C:/tools/kubectl.exe  ' }).kubectlPath)
-            .toBe('C:/tools/kubectl.exe')
+        const parsed = AppSettings.parse({
+            kubectlPath: '  C:/tools/kubectl.exe  ',
+            terminalShell: '  pwsh.exe  ',
+            terminalFontFamily: '  JetBrainsMono Nerd Font  ',
+        })
+
+        expect(parsed.kubectlPath).toBe('C:/tools/kubectl.exe')
+        expect(parsed.terminalShell).toBe('pwsh.exe')
+        expect(parsed.terminalFontFamily).toBe('JetBrainsMono Nerd Font')
     })
 
     it.each([
@@ -50,11 +63,19 @@ describe('AppSettings', () => {
     })
 
     it('drops a field whose type is wrong instead of failing', () => {
-        const parsed = AppSettings.parse({ kubectlPath: 42, nodeShellImage: true, helmPath: null })
+        const parsed = AppSettings.parse({
+            kubectlPath: 42,
+            nodeShellImage: true,
+            helmPath: null,
+            terminalShell: 7,
+            terminalFontFamily: [],
+        })
 
         expect(parsed.kubectlPath).toBe('')
         expect(parsed.helmPath).toBe('')
         expect(parsed.nodeShellImage).toBe('')
+        expect(parsed.terminalShell).toBe('')
+        expect(parsed.terminalFontFamily).toBe('')
     })
 
     it('keeps nothing but the known keys when serialising', () => {
@@ -63,8 +84,15 @@ describe('AppSettings', () => {
             kubectlPath: 'kubectl',
         })
 
-        expect(Object.keys(document).sort())
-            .toEqual(['checkForUpdates', 'helmPath', 'kubectlPath', 'nodeShellImage', 'skippedVersion'])
+        expect(Object.keys(document).sort()).toEqual([
+            'checkForUpdates',
+            'helmPath',
+            'kubectlPath',
+            'nodeShellImage',
+            'skippedVersion',
+            'terminalFontFamily',
+            'terminalShell',
+        ])
     })
 
     it('leaves a setting it no longer knows behind when it reads and writes a document', () => {

@@ -77,6 +77,12 @@ func (s *ConnectionService) Sessions() SessionsResult {
 	return SessionsResult{Success: true, Sessions: infos}
 }
 
+func (s *ConnectionService) ResetIdle() KubeResult {
+	s.registry.ResetIdle()
+
+	return KubeResult{Success: true}
+}
+
 func (s *ConnectionService) ServiceShutdown() error {
 	s.registry.Close()
 	return nil

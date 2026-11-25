@@ -7,5 +7,7 @@ export type TStatefulSetStatus = {
     updatedReplicas?: number
     availableReplicas?: number
     observedGeneration?: number
+    currentRevision?: string
+    updateRevision?: string
     conditions?: TKubeCondition[]
 }

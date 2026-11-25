@@ -46,6 +46,19 @@ export class KubeSessionAdapter {
         }
     }
 
+    public async resetIdle(): Promise<void> {
+        if (!this.runtime.isAvailable()) {
+            return
+        }
+
+        const message = 'Could not reset idle cluster connections'
+        const result = await this.call(() => ConnectionService.ResetIdle(), message)
+
+        if (!result.success) {
+            throw new ApiError(message, result.error)
+        }
+    }
+
     public async sessions(): Promise<TKubeSession[]> {
         if (!this.runtime.isAvailable()) {
             return []

@@ -68,7 +68,7 @@ export class HelmStore extends StoreBase<HelmStore> {
         }
         this.namespaces = [...namespaces]
 
-        await this.check(false)
+        await this.check(!this.availability.available)
         if (this.availability.available) {
             await this.load()
         }
